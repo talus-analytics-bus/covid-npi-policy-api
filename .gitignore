@@ -1,3 +1,9 @@
+# Shell scripts
+bin/
+
+# Private config files
+config/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
