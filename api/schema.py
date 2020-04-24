@@ -16,8 +16,9 @@ def get_policy():
         print(d_dict)
         if 'auth_entity' in d_dict:
             auth_entity_instance = db.Auth_Entity[d_dict['auth_entity']]
+            desc = get_auth_entity_desc(auth_entity_instance)
             d_dict['auth_entity'] = \
-                Auth_Entity(**auth_entity_instance.to_dict())
+                Auth_Entity(**auth_entity_instance.to_dict(), desc=desc)
         instance_list.append(
             Policy(**d_dict)
         )
@@ -27,6 +28,14 @@ def get_policy():
         message=f'''{len(q)} policies found'''
     )
     return res
+
+
+def get_auth_entity_desc(i):
+    main_desc = f'''{i.area1}, {i.iso3}: {i.office}'''
+    if i.area2 != 'Unspecified':
+        return i.area2 + ', ' + main_desc
+    else:
+        return main_desc
 
 
 def ingest_covid_npi_policy():
