@@ -10,12 +10,18 @@ from typing import Set, List
 
 # local modules
 from . import schema
+from .models import PolicyList
 
 
 app = FastAPI()
 
 
-@app.get("/ingest")
+@app.get("/get_policy")
+async def get_policy():
+    return schema.get_policy()
+
+
+@app.get("/ingest", response_model=PolicyList)
 async def ingest(project_name: str = None):
     if project_name == 'covid-npi-policy':
         schema.ingest_covid_npi_policy()

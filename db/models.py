@@ -43,8 +43,11 @@ class Auth_Entity(db.Entity):
     policies = Set('Policy')
 
 
-db.generate_mapping(check_tables=False, create_tables=False)
-db.drop_all_tables(with_all_data=True)
-db.create_tables()
+if False:
+    db.generate_mapping(check_tables=False, create_tables=False)
+    db.drop_all_tables(with_all_data=True)
+    db.create_tables()
+else:
+    db.generate_mapping()
 
 # db.generate_mapping(create_tables=True)
