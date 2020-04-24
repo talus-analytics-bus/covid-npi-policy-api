@@ -42,6 +42,7 @@ uvicorn = "==0.11.3"
 uvloop = "==0.14.0"
 websockets = "==8.1"
 pyOpenSSL = "==19.1.0"
+psycopg2-binary = "==2.8.5"
 
 [requires]
 python_version = "3.7"

@@ -60,10 +60,10 @@ class GoogleSheetSource(DataSource):
             print(e)
             print('Failed to open worksheet with name ' + str(name))
 
-    def as_dataframe(self):
+    def as_dataframe(self, header_row: int = 0):
         try:
             data = self.ws.get_all_values()
-            headers = data.pop(0)
+            headers = data.pop(header_row)
             df = pd.DataFrame(data, columns=headers)
             return df
         except Exception as e:
