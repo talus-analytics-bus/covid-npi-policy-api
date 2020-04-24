@@ -13,6 +13,7 @@ def get_policy():
     instance_list = []
     for d in q:
         d_dict = d.to_dict()
+        print(d_dict)
         if 'auth_entity' in d_dict:
             auth_entity_instance = db.Auth_Entity[d_dict['auth_entity']]
             d_dict['auth_entity'] = \

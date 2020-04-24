@@ -16,6 +16,21 @@ from .models import PolicyList
 app = FastAPI()
 
 
+allow_origin_regex = \
+    "(http:\/\/localhost:.*|" + \
+    "https?:\/\/.*\.cloudfront\.net|" + \
+    "https?:\/\/.*\.talusanalytics.*)"
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=allow_origin_regex,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.get("/get_policy")
 async def get_policy():
     return schema.get_policy()

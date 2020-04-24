@@ -5,6 +5,14 @@ from datetime import date
 # 3rd party modules
 from pydantic import BaseModel
 from typing import List
+from enum import Enum
+
+
+# # Define enum type support
+# class State(Enum):
+#     mv = 'mv'
+#     jk = 'jk'
+#     ac = 'ac'
 
 
 class Response(BaseModel):
@@ -38,6 +46,7 @@ class Policy(BaseModel):
     date_start_effective: date = None
     date_end_anticipated: date = None
     date_end_actual: date = None
+    # enum_test: State = None
 
     # relationships
     auth_entity: Auth_Entity = None  # TODO as entity

@@ -9,6 +9,37 @@ from pony.orm import PrimaryKey, Optional, Optional, Set, StrArray
 from .config import db
 
 
+from enum import Enum
+
+# from pony.orm import Database, Required, db_session
+from pony.orm.dbapiprovider import StrConverter
+
+
+# # Define enum type support
+# class State(Enum):
+#     mv = 'mv'
+#     jk = 'jk'
+#     ac = 'ac'
+#
+#
+# # Adapted from:
+# # https://stackoverflow.com/questions/31395663/how-can-i-store-a-python-enum-using-pony-orm
+# class EnumConverter(StrConverter):
+#     def validate(self, val):
+#         if not isinstance(val, Enum):
+#             raise ValueError('Must be an Enum.  Got {}'.format(type(val)))
+#         return val
+#
+#     def py2sql(self, val):
+#         return val.name
+#
+#     def sql2py(self, value):
+#         return self.py_type[value].name
+
+
+# db.provider.converter_classes.append((Enum, EnumConverter))
+
+
 class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
     _table_ = "policy"
@@ -19,6 +50,7 @@ class Policy(db.Entity):
     primary_ph_measure = Optional(str)
     ph_measure_details = Optional(str)
     policy_type = Optional(str)
+    # enum_test = Optional(State, column='enum_test_str')
 
     # key dates
     date_issued = Optional(date)
