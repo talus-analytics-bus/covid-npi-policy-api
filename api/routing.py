@@ -21,7 +21,8 @@ async def ingest(project_name: str = None):
         schema.ingest_covid_npi_policy()
         return 'Ingest completed'
     else:
-        print('Error: Unknown `project_name`: ' + str(project_name))
+        raise NotImplementedError(
+            'Error: Unknown `project_name`: ' + str(project_name))
         return 'Ingest failed'
 
 
