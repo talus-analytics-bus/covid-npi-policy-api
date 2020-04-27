@@ -53,6 +53,10 @@ class Policy(BaseModel):
     auth_entity: Auth_Entity = None  # TODO as entity
 
 
+class PolicyFilters(BaseModel):
+    filters: Dict[str, List]
+
+
 class PolicyList(Response):
     data: List[Policy]
 

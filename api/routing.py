@@ -5,13 +5,18 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, OptionSetList
+from .models import PolicyList, PolicyFilters, OptionSetList
 from .app import app
 
 
-@app.get("/get_policy")
+@app.get("/get/policy")
 async def get_policy():
     return schema.get_policy()
+
+
+@app.get("/post/policy")
+async def get_policy(body: PolicyFilters):
+    return schema.get_policy(filters=body.filters)
 
 
 @app.get("/get/optionset", response_model=OptionSetList)

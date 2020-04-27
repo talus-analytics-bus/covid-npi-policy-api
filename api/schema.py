@@ -9,12 +9,27 @@ from db import db
 
 
 @db_session
-def get_policy():
+def get_policy(filters=None):
     q = select(i for i in db.Policy)
+    if filters is not None:
+        print('Filters:')
+        print(filters)
+        q = apply_filters(q, filters)
+    # else:
+    #     print('Applying DEBUG filters')
+    #     q = apply_filters(q,
+    #                       {
+    #                           'primary_ph_measure': [
+    #                               'Support for public health and clinical capacity'
+    #                           ],
+    #                           'ph_measure_details': [
+    #                               'Crisis standards of care'
+    #                           ]
+    #                       }
+    #                       )
     instance_list = []
     for d in q:
         d_dict = d.to_dict()
-        print(d_dict)
         if 'auth_entity' in d_dict:
             auth_entity_instance = db.Auth_Entity[d_dict['auth_entity']]
             desc = get_auth_entity_desc(auth_entity_instance)
@@ -98,4 +113,15 @@ def test():
     ingest_covid_npi_policy()
 
 
-# test()
+def apply_filters(q, filters):
+    for field, allowed_values in filters.items():
+        print('field')
+        print(field)
+        print('allowed_values')
+        print(allowed_values)
+        q = select(
+            i
+            for i in q
+            if getattr(i, field) in allowed_values
+        )
+    return q
