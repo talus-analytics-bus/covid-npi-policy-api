@@ -62,4 +62,4 @@ class PolicyList(Response):
 
 
 class OptionSetList(Response):
-    data: Dict[str, List]
+    data: Dict[str, List[dict]]

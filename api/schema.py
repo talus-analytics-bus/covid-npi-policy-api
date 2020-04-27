@@ -55,7 +55,7 @@ def get_auth_entity_desc(i):
 
 
 @db_session
-def get_optionset(fields=list(), entity_name=None):
+def get_optionset(fields=list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -75,30 +75,43 @@ def get_optionset(fields=list(), entity_name=None):
         List of possible optionset values for each field.
 
     """
-    if entity_name is None:
-        return {
-            'success': False,
-            'message': 'Must provide value for parameter `entity_name`',
-            'data': {}
-        }
-    try:
-        entity_class = getattr(db, entity_name)
-    except AttributeError as e:
-        return {
-            'success': False,
-            'message':
-                f'''Database entity with `entity_name` {entity_name} not found''',
-            'data': {}
-        }
+    # if entity_name is None:
+    #     return {
+    #         'success': False,
+    #         'message': 'Must provide value for parameter `entity_name`',
+    #         'data': {}
+    #     }
+    # try:
+    #     entity_class = getattr(db, entity_name)
+    # except AttributeError as e:
+    #     return {
+    #         'success': False,
+    #         'message':
+    #             f'''Database entity with `entity_name` {entity_name} not found''',
+    #         'data': {}
+    #     }
     data = dict()
-    for d in fields:
-        options = select(getattr(i, d)
+    for d_str in fields:
+        d_arr = d_str.split('.')
+        entity_class = getattr(db, d_arr[0])
+        field = d_arr[1]
+        options = select(getattr(i, field)
                          for i in entity_class)[:][:]
         options.sort()
-        data[d] = options
+        id = 0
+        data[field] = []
+        for dd in options:
+            data[field].append(
+                {
+                    'id': id,
+                    'value': dd,
+                    'label': dd
+                }
+            )
+            id = id + 1
     return {
         'success': True,
-        'message': f'''Optionset values retrieved for entity `{entity_name}`''',
+        'message': f'''Optionset values retrieved''',
         'data': data
     }
 
@@ -115,7 +128,6 @@ def test():
 
 def apply_filters(q, filters):
     """Given the PonyORM query and filters, applies filters with AND logic.
-
 
     TODO ensure this works for arbitrary large numbers of filtered fields.
 
@@ -134,9 +146,17 @@ def apply_filters(q, filters):
 
     """
     for field, allowed_values in filters.items():
-        q = select(
-            i
-            for i in q
-            if getattr(i, field) in allowed_values
-        )
+        join = field in ('level')
+        if not join:
+            q = select(
+                i
+                for i in q
+                if getattr(i, field) in allowed_values
+            )
+        else:
+            q = select(
+                i
+                for i in q
+                if getattr(i.auth_entity, field) in allowed_values
+            )
     return q

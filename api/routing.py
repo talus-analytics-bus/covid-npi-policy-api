@@ -14,7 +14,7 @@ async def get_policy():
     return schema.get_policy()
 
 
-@app.get("/post/policy")
+@app.post("/post/policy")
 async def get_policy(body: PolicyFilters):
     return schema.get_policy(filters=body.filters)
 
@@ -40,7 +40,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
         List of possible optionset values for each field.
 
     """
-    return schema.get_optionset(fields, entity_name)
+    return schema.get_optionset(fields)
 
 
 @app.get("/ingest")
