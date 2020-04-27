@@ -1,3 +1,4 @@
+"""Define API data processing methods"""
 # 3rd party modules
 from pony.orm import db_session, select
 

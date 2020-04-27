@@ -1,9 +1,4 @@
-# standard packages
-# from datetime import datetime
-
-# 3rd party modules
-from pony.orm import db_session
-
+"""Define API endpoints"""
 # local modules
 from . import schema
 from .models import PolicyList

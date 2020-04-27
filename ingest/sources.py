@@ -1,3 +1,4 @@
+"""Define data sources for ingesting data into databases"""
 # standard packages
 import os
 

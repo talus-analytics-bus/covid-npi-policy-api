@@ -1,3 +1,4 @@
+"""Define project-specific methods for data ingestion."""
 # standard modules
 from os import sys
 from datetime import date
