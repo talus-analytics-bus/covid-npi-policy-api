@@ -39,6 +39,55 @@ def get_auth_entity_desc(i):
         return main_desc
 
 
+@db_session
+def get_optionset(fields=list(), entity_name=None):
+    """Given a list of data fields and an entity name, returns the possible
+    values for those fields based on what data are currently in the database.
+
+    TODO add support for getting possible fields even if they haven't been
+    used yet in the data
+
+    Parameters
+    ----------
+    fields : list
+        List of strings of data fields names.
+    entity_name : str
+        The name of the entity for which to check possible values.
+
+    Returns
+    -------
+    api.models.OptionSetList
+        List of possible optionset values for each field.
+
+    """
+    if entity_name is None:
+        return {
+            'success': False,
+            'message': 'Must provide value for parameter `entity_name`',
+            'data': {}
+        }
+    try:
+        entity_class = getattr(db, entity_name)
+    except AttributeError as e:
+        return {
+            'success': False,
+            'message':
+                f'''Database entity with `entity_name` {entity_name} not found''',
+            'data': {}
+        }
+    data = dict()
+    for d in fields:
+        options = select(getattr(i, d)
+                         for i in entity_class)[:][:]
+        options.sort()
+        data[d] = options
+    return {
+        'success': True,
+        'message': f'''Optionset values retrieved for entity `{entity_name}`''',
+        'data': data
+    }
+
+
 def ingest_covid_npi_policy():
     plugin = CovidPolicyPlugin()
     plugin.load_client().load_data().process_data(db)

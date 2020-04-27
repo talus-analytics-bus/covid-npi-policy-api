@@ -4,7 +4,7 @@ from datetime import date
 
 # 3rd party modules
 from pydantic import BaseModel
-from typing import List
+from typing import Dict, List, Set
 from enum import Enum
 
 
@@ -55,3 +55,7 @@ class Policy(BaseModel):
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class OptionSetList(Response):
+    data: Dict[str, List]

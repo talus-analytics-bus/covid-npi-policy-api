@@ -1,7 +1,11 @@
 """Define API endpoints"""
+# 3rd party modules
+from fastapi import Query
+from typing import List
+
 # local modules
 from . import schema
-from .models import PolicyList
+from .models import PolicyList, OptionSetList
 from .app import app
 
 
@@ -10,7 +14,31 @@ async def get_policy():
     return schema.get_policy()
 
 
-@app.get("/ingest", response_model=PolicyList)
+@app.get("/get/optionset", response_model=OptionSetList)
+async def get_optionset(fields: List[str] = Query(None), entity_name: str = None):
+    """Given a list of data fields and an entity name, returns the possible
+    values for those fields based on what data are currently in the database.
+
+    TODO add support for getting possible fields even if they haven't been
+    used yet in the data
+
+    Parameters
+    ----------
+    fields : list
+        List of strings of data fields names.
+    entity_name : str
+        The name of the entity for which to check possible values.
+
+    Returns
+    -------
+    api.models.OptionSetList
+        List of possible optionset values for each field.
+
+    """
+    return schema.get_optionset(fields, entity_name)
+
+
+@app.get("/ingest")
 async def ingest(project_name: str = None):
     if project_name == 'covid-npi-policy':
         schema.ingest_covid_npi_policy()
