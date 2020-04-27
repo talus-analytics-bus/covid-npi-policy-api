@@ -114,11 +114,26 @@ def test():
 
 
 def apply_filters(q, filters):
+    """Given the PonyORM query and filters, applies filters with AND logic.
+
+
+    TODO ensure this works for arbitrary large numbers of filtered fields.
+
+    Parameters
+    ----------
+    q : pony.orm.Query
+        A Query instance, e.g., created by a call to `select`.
+    filters : dict[str, list]
+        Dictionary with keys of field names and values of lists of
+        allowed values (AND logic).
+
+    Returns
+    -------
+    pony.orm.Query
+        The query with filters applied.
+
+    """
     for field, allowed_values in filters.items():
-        print('field')
-        print(field)
-        print('allowed_values')
-        print(allowed_values)
         q = select(
             i
             for i in q
