@@ -73,6 +73,7 @@ class Auth_Entity(db.Entity):
     name = Optional(str)
     office = Optional(str)
     policies = Set('Policy')
+    loc = Optional(str)
 
 
 if False:

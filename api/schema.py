@@ -33,8 +33,11 @@ def get_policy(filters=None):
         if 'auth_entity' in d_dict:
             auth_entity_instance = db.Auth_Entity[d_dict['auth_entity']]
             desc = get_auth_entity_desc(auth_entity_instance)
+            # loc = get_auth_entity_loc(auth_entity_instance)
+            # auth_entity_instance.loc = loc
             d_dict['auth_entity'] = \
-                Auth_Entity(**auth_entity_instance.to_dict(), desc=desc)
+                Auth_Entity(
+                    **auth_entity_instance.to_dict(), desc=desc)
         instance_list.append(
             Policy(**d_dict)
         )
@@ -52,6 +55,15 @@ def get_auth_entity_desc(i):
         return i.area2 + ', ' + main_desc
     else:
         return main_desc
+
+
+def get_auth_entity_loc(i):
+    if i.area2.lower() not in ('unspecified', 'n/a'):
+        return f'''{i.area2}, {i.area1}, {i.iso3}'''
+    elif i.area1.lower() not in ('unspecified', 'n/a'):
+        return f'''{i.area1}, {i.iso3}'''
+    else:
+        return i.iso3
 
 
 @db_session
@@ -146,7 +158,7 @@ def apply_filters(q, filters):
 
     """
     for field, allowed_values in filters.items():
-        join = field in ('level')
+        join = field in ('level', 'loc')
         if not join:
             q = select(
                 i

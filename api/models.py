@@ -31,6 +31,7 @@ class Auth_Entity(BaseModel):
     name: str
     office: str
     desc: str = None
+    loc: str = None
 
 
 class Policy(BaseModel):
