@@ -55,6 +55,8 @@ def get_optionset(fields=list()):
     TODO add support for getting possible fields even if they haven't been
     used yet in the data
 
+    TODO list unspecified last
+
     Parameters
     ----------
     fields : list
@@ -125,7 +127,7 @@ def apply_filters(q, filters):
 
     """
     for field, allowed_values in filters.items():
-        join = field in ('level', 'loc')
+        join = field in ('level', 'loc', 'area1')
         if not join:
             q = select(
                 i
