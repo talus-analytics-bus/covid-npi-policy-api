@@ -24,13 +24,18 @@ class Auth_Entity(BaseModel):
     id: int
 
     # descriptive information
+    name: str
+    office: str
+
+
+class Place(BaseModel):
+    id: int
+
+    # descriptive information
     level: str
     iso3: str
     area1: str
     area2: str
-    name: str
-    office: str
-    desc: str = None
     loc: str = None
 
 
@@ -51,7 +56,8 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
-    auth_entity: Auth_Entity = None  # TODO as entity
+    auth_entity: Auth_Entity = None
+    place: Place = None
 
 
 class PolicyFilters(BaseModel):

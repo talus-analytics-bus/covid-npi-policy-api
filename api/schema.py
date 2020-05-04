@@ -4,7 +4,7 @@ from pony.orm import db_session, select
 
 # local modules
 from ingest import CovidPolicyPlugin
-from .models import Policy, PolicyList, Auth_Entity
+from .models import Policy, PolicyList, Auth_Entity, Place
 from db import db
 
 
@@ -12,32 +12,21 @@ from db import db
 def get_policy(filters=None):
     q = select(i for i in db.Policy)
     if filters is not None:
-        print('Filters:')
-        print(filters)
         q = apply_filters(q, filters)
-    # else:
-    #     print('Applying DEBUG filters')
-    #     q = apply_filters(q,
-    #                       {
-    #                           'primary_ph_measure': [
-    #                               'Support for public health and clinical capacity'
-    #                           ],
-    #                           'ph_measure_details': [
-    #                               'Crisis standards of care'
-    #                           ]
-    #                       }
-    #                       )
+
     instance_list = []
     for d in q:
         d_dict = d.to_dict()
         if 'auth_entity' in d_dict:
-            auth_entity_instance = db.Auth_Entity[d_dict['auth_entity']]
-            desc = get_auth_entity_desc(auth_entity_instance)
-            # loc = get_auth_entity_loc(auth_entity_instance)
-            # auth_entity_instance.loc = loc
+            instance = db.Auth_Entity[d_dict['auth_entity']]
             d_dict['auth_entity'] = \
                 Auth_Entity(
-                    **auth_entity_instance.to_dict(), desc=desc)
+                    **instance.to_dict())
+        if 'place' in d_dict:
+            instance = db.Place[d_dict['place']]
+            d_dict['place'] = \
+                Place(
+                    **instance.to_dict())
         instance_list.append(
             Policy(**d_dict)
         )
@@ -47,14 +36,6 @@ def get_policy(filters=None):
         message=f'''{len(q)} policies found'''
     )
     return res
-
-
-def get_auth_entity_desc(i):
-    main_desc = f'''{i.area1}, {i.iso3}: {i.office}'''
-    if i.area2 != 'Unspecified':
-        return i.area2 + ', ' + main_desc
-    else:
-        return main_desc
 
 
 def get_auth_entity_loc(i):
@@ -87,21 +68,6 @@ def get_optionset(fields=list()):
         List of possible optionset values for each field.
 
     """
-    # if entity_name is None:
-    #     return {
-    #         'success': False,
-    #         'message': 'Must provide value for parameter `entity_name`',
-    #         'data': {}
-    #     }
-    # try:
-    #     entity_class = getattr(db, entity_name)
-    # except AttributeError as e:
-    #     return {
-    #         'success': False,
-    #         'message':
-    #             f'''Database entity with `entity_name` {entity_name} not found''',
-    #         'data': {}
-    #     }
     data = dict()
     for d_str in fields:
         d_arr = d_str.split('.')
@@ -169,6 +135,6 @@ def apply_filters(q, filters):
             q = select(
                 i
                 for i in q
-                if getattr(i.auth_entity, field) in allowed_values
+                if getattr(i.place, field) in allowed_values
             )
     return q
