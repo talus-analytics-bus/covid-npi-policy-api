@@ -52,6 +52,7 @@ class Policy(db.Entity):
     date_end_actual = Optional(date)
 
     # relationships
+    doc = Set('Doc')
     auth_entity = Set('Auth_Entity')
     place = Optional('Place')
 
@@ -80,3 +81,16 @@ class Auth_Entity(db.Entity):
     # relationships
     policies = Set('Policy')
     place = Optional('Place')
+
+
+class Doc(db.Entity):
+    """Supporting documentation."""
+    _table_ = "doc"
+    id = PrimaryKey(int, auto=True)
+    name = Optional(str)
+    type = Required(str)
+    url = Optional(str)
+    pdf = Optional(str)
+
+    # relationships
+    policies = Set('Policy')
