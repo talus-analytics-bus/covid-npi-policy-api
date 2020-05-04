@@ -1,11 +1,19 @@
 """Define API data processing methods"""
 # 3rd party modules
-from pony.orm import db_session, select
+from pony.orm import db_session, select, get
+from fastapi.responses import FileResponse
 
 # local modules
 from ingest import CovidPolicyPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place
+from .models import Policy, PolicyList, Auth_Entity, Place, PDF
 from db import db
+
+
+@db_session
+def get_doc(id: int):
+    doc = get(i for i in db.Doc if i.id == id)
+    fn = f'''api/pdf/{doc.pdf}.pdf'''
+    return FileResponse(fn)
 
 
 @db_session

@@ -110,6 +110,7 @@ class CovidPolicyPlugin(IngestPlugin):
         #     print('QA/QC found no issues. Continuing.')
 
         self.create_policies(db)
+        self.create_docs(db)
         self.create_auth_entities_and_places(db)
         return self
 
@@ -433,6 +434,59 @@ class CovidPolicyPlugin(IngestPlugin):
                 print(instance_data)
                 print(e)
                 sys.exit(0)
+
+    @db_session
+    def create_docs(self, db):
+        """Create docs instances based on policies.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        policy_doc_keys = [
+            'policy_name',
+            'policy_pdf',
+            'policy_url',
+        ]
+
+        docs_by_id = dict()
+
+        for i, d in self.data.iterrows():
+            instance_data = {key.split('_')[1]: d[key]
+                             for key in policy_doc_keys}
+            instance_data['type'] = 'policy'
+            id = " - ".join(instance_data.values())
+
+            doc = None
+            if id in docs_by_id:
+                doc = docs_by_id[id]
+            else:
+                try:
+                    doc = db.Doc(**instance_data)
+                    docs_by_id[id] = doc
+                    commit()
+                except CacheIndexError as e:
+                    print('e')
+                    print(e)
+                    # print('\nError: Duplicate doc unique ID: ' +
+                    #       str(instance_data['id']))
+                    # sys.exit(0)
+                except ValueError as e:
+                    print('\nError: Unexpected value in this data:')
+                    print(instance_data)
+                    print(e)
+                    sys.exit(0)
+
+            # link doc to policy
+            db.Policy[d['id']].doc.add(doc)
+            commit()
 
     def check(self, data):
         """Perform QA/QC on the data and return a report.

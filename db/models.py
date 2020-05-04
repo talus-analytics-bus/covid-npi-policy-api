@@ -3,7 +3,7 @@
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Optional, Optional, Set, StrArray
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray
 # from enum import Enum
 # from pony.orm.dbapiprovider import StrConverter
 

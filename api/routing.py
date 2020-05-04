@@ -5,8 +5,13 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList
+from .models import PolicyList, PolicyFilters, OptionSetList, PDF
 from .app import app
+
+
+@app.get("/get/doc")
+async def get_doc(id: int):
+    return schema.get_doc(id)
 
 
 @app.get("/get/policy")

@@ -64,6 +64,10 @@ class PolicyFilters(BaseModel):
     filters: Dict[str, List]
 
 
+class PDF(BaseModel):
+    pdf: bytes
+
+
 class PolicyList(Response):
     data: List[Policy]
 
