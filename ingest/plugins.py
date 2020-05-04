@@ -409,7 +409,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         def formatter(key, d):
             if key.startswith('date_'):
-                if d[key] == '' or d[key] is None:
+                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
                     return None
                 elif len(d[key].split('/')) == 2:
                     print(f'''Unexpected format for `{key}`: {d[key]}\n''')
@@ -432,7 +432,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 print('\nError: Unexpected value in this data:')
                 print(instance_data)
                 print(e)
-                # sys.exit(0)
+                sys.exit(0)
 
     def check(self, data):
         """Perform QA/QC on the data and return a report.
