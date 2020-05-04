@@ -6,12 +6,14 @@ from datetime import date
 # 3rd party modules
 from pony.orm import db_session, commit, get
 from pony.orm.core import CacheIndexError, ObjectNotFound
+import pprint
 
 # local modules
 from .sources import GoogleSheetSource
 import pandas as pd
 
-
+# constants
+pp = pprint.PrettyPrinter(indent=4)
 __all__ = ['CovidPolicyPlugin']
 
 
@@ -108,12 +110,12 @@ class CovidPolicyPlugin(IngestPlugin):
         #     print('QA/QC found no issues. Continuing.')
 
         self.create_policies(db)
-        self.create_auth_entities(db)
+        self.create_auth_entities_and_places(db)
         return self
 
     @db_session
-    def create_auth_entities(self, db):
-        """Create authorizing entity instances.
+    def create_auth_entities_and_places(self, db):
+        """Create authorizing entity instances and place instances.
 
         Parameters
         ----------
@@ -126,66 +128,257 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        keys = [
+        auth_entity_keys = [
+            'name',
+            'office'
+            # NOTE: `office` not included here, handled specially
+        ]
+
+        place_keys = [
             'level',
             'iso3',
             'area1',
             'area2',
-            'name',
         ]
 
+        def get_place_loc(i):
+            if i.area2.lower() not in ('unspecified', 'n/a'):
+                return f'''{i.area2}, {i.area1}, {i.iso3}'''
+            elif i.area1.lower() not in ('unspecified', 'n/a'):
+                return f'''{i.area1}, {i.iso3}'''
+            else:
+                return i.iso3
+
+        def get_auth_entities_from_raw_data(d):
+            """Given a datum `d` from raw data, create a list of authorizing
+            entities that are implied by the semicolon-delimited names and
+            offices on that datum.
+
+            Parameters
+            ----------
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
+            entity_names = d['name'].split('; ')
+            entity_offices = d['office'].split('; ')
+            num_entities = len(entity_names)
+            if num_entities == 1:
+                return [d]
+            else:
+                i = 0
+                entities = list()
+                for instance in entity_names:
+                    entities.append(
+                        {
+                            'id': d['id'],
+                            'name': entity_names[i],
+                            'office': entity_offices[i]
+                        }
+                    )
+                return entities
+
+        def get_policy_for_auth_entity_or_place(d):
+            """Given raw datum `d` returns the unique ID in the database for the
+            Policy instance that should be linked to the authorizing entity /
+            place implied by `d`.
+
+            Parameters
+            ----------
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
+            return d['id']
+
+        auth_entity_info = {
+            'keys': auth_entity_keys,
+            'check_multi': get_auth_entities_from_raw_data,
+            'link': [
+                {
+                    'entity_class_name': 'Policy',
+                    # defines func to get unique ID of instance to link on
+                    'on': get_policy_for_auth_entity_or_place,
+                },
+            ]
+        }
+
+        place_info = {
+            'keys': place_keys,
+            'link': [
+                {
+                    'entity_class_name': 'Policy',
+                    # defines func to get unique ID of instance to link on
+                    'on': get_policy_for_auth_entity_or_place,
+                }
+            ]
+        }
+
         def formatter(key, d):
+            """Return 'Unspecified' if a null value, otherwise return value.
+
+            Parameters
+            ----------
+            key : type
+                Description of parameter `key`.
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
             if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
                 return 'Unspecified'
             else:
                 return d[key]
 
+        # for each row of the data
         for i, d in self.data.iterrows():
-            instance_data_tmp = {key: formatter(key, d) for key in keys}
 
-            offices = d['offices'].split(';')
-            for dd in offices:
-                instance_data = instance_data_tmp.copy()
-                instance_data['office'] = dd.strip()
+            ## Add places ######################################################
+            # determine whether the specified instance has been defined yet, and
+            # if not, add it.
+            keys = place_keys
+            info = place_info
+            name = 'Place'
+            instance_data = {key: formatter(key, d) for key in keys}
+            entity_class = getattr(db, name)
+            place = get(
+                i for i in entity_class
+                if i.level == instance_data['level']
+                and i.iso3 == instance_data['iso3']
+                and i.area1 == instance_data['area1']
+                and i.area2 == instance_data['area2']
+            )
+            instance = place
+
+            # if entity already exists, use it
+            # otherwise, create it
+            if instance is None:
+                instance = entity_class(**instance_data)
+                instance.loc = get_place_loc(instance)
+                commit()
+
+            # link instance to required entities
+            for link in info['link']:
                 try:
-                    # check if auth entity with same attributes already
-                    # exists
-                    existing_auth_entity = get(
-                        i for i in db.Auth_Entity
-                        if i.level == instance_data['level']
-                        and i.iso3 == instance_data['iso3']
-                        and i.area1 == instance_data['area1']
-                        and i.area2 == instance_data['area2']
-                        and i.name == instance_data['name']
-                    )
+                    entity_class = getattr(db, link['entity_class_name'])
+                    setattr(entity_class[link['on'](d)],
+                            name.lower(), instance)
+                    commit()
+                except ObjectNotFound as e:
+                    print('Error: Instance not found for linkage. Skipping.')
+                    # # TODO dynamically
+                    # if len(instance.policies) == 0:
+                    #     print('Deleting orphaned instance.')
+                    #     instance.delete()
+                    #     commit()
+                except Error as e:
+                    print('Error:')
+                    print(e)
 
-                    # create auth entity if one was not found
-                    auth_entity = db.Auth_Entity(**instance_data) if \
-                        existing_auth_entity is None else existing_auth_entity
+            ## Add auth_entities ###############################################
+            keys = auth_entity_keys
+            info = auth_entity_info
+            name = 'Auth_Entity'
+            raw_data = d if 'check_multi' not in info \
+                else info['check_multi'](d)
+            for dd in raw_data:
+                instance_data = {key: formatter(key, dd) for key in keys}
+                entity_class = getattr(db, name)
+                auth_entity = get(
+                    i for i in entity_class
+                    if i.name == instance_data['name']
+                    and i.office == instance_data['office']
+                )
+                instance = auth_entity
+
+                # if entity already exists, use it
+                # otherwise, create it
+                if instance is None:
+                    instance = entity_class(**instance_data)
                     commit()
 
-                    # link to policy
+                # do facile entity links
+                instance.place = place
+
+                # link instance to required entities
+                for link in info['link']:
                     try:
-                        db.Policy[d['id']].auth_entity = auth_entity
+                        entity_class = getattr(db, link['entity_class_name'])
+                        setattr(entity_class[link['on'](d)],
+                                name.lower(), instance)
                         commit()
                     except ObjectNotFound as e:
-                        print('Error: Policy not found for linkage. Skipping.')
-                        if len(auth_entity.policies) == 0:
-                            print('Deleting orphaned auth_entity.')
-                            auth_entity.delete()
-                            commit()
-                except CacheIndexError as e:
-                    print('\nAuthorizing entity already exists, continuing')
-                    print(e)
+                        print('Error: Instance not found for linkage. Skipping.')
+                        # # TODO dynamically
+                        # if len(instance.policies) == 0:
+                        #     print('Deleting orphaned instance.')
+                        #     instance.delete()
+                        #     commit()
+                    except Error as e:
+                        print('Error:')
+                        print(e)
 
-                    # link to policy
-                    # TODO
-                    continue
-                except ValueError as e:
-                    print('\nError: Unexpected value in this data:')
-                    print(instance_data)
-                    print(e)
-                    # sys.exit(0)
+            #####
+
+            # # handle special "split on" keys
+            # # offices = d['offices'].split(';')
+            # for dd in offices:
+            #     instance_data = instance_data_tmp.copy()
+            #     instance_data['office'] = dd.strip()
+            #     try:
+            #         # check if auth entity with same attributes already
+            #         # exists
+            #         existing_auth_entity = get(
+            #             i for i in db.Auth_Entity
+            #             if i.level == instance_data['level']
+            #             and i.iso3 == instance_data['iso3']
+            #             and i.area1 == instance_data['area1']
+            #             and i.area2 == instance_data['area2']
+            #             and i.name == instance_data['name']
+            #         )
+            #
+            #         # create auth entity if one was not found
+            #         auth_entity = db.Auth_Entity(**instance_data) if \
+            #             existing_auth_entity is None else existing_auth_entity
+            #         commit()
+            #
+            #         # link to policy
+            #         try:
+            #             db.Policy[d['id']].auth_entity = auth_entity
+            #             commit()
+            #         except ObjectNotFound as e:
+            #             print('Error: Policy not found for linkage. Skipping.')
+            #             if len(auth_entity.policies) == 0:
+            #                 print('Deleting orphaned auth_entity.')
+            #                 auth_entity.delete()
+            #                 commit()
+            #     except CacheIndexError as e:
+            #         print('\nAuthorizing entity already exists, continuing')
+            #         print(e)
+            #
+            #         # link to policy
+            #         # TODO
+            #         continue
+            #     except ValueError as e:
+            #         print('\nError: Unexpected value in this data:')
+            #         print(instance_data)
+            #         print(e)
+            #         # sys.exit(0)
 
     @db_session
     def create_policies(self, db):
