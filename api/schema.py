@@ -1,4 +1,7 @@
 """Define API data processing methods"""
+# standard modules
+from datetime import datetime, date
+
 # 3rd party modules
 from pony.orm import db_session, select, get
 from fastapi.responses import FileResponse
@@ -148,6 +151,14 @@ def apply_filters(q, filters):
 
     """
     for field, allowed_values in filters.items():
+        if len(allowed_values) == 0:
+            continue
+        if field.startswith('date'):
+            def str_to_date(s):
+                return datetime.strptime(s, '%Y-%m-%d').date()
+            allowed_values = list(
+                map(str_to_date, allowed_values)
+            )
         join = field in ('level', 'loc', 'area1')
         if not join:
             q = select(
