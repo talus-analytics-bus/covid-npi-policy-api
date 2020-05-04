@@ -21,10 +21,23 @@ class IngestPlugin():
 
 
 class CovidPolicyPlugin(IngestPlugin):
+    """Ingest COVID non-pharmaceutical interventions (NPI) policy data from a
+    Google Sheet.
+
+    """
+
     def __init__(self):
         return None
 
     def load_client(self):
+        """Load client to access Google Sheets.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         client = GoogleSheetSource(
             name='Google',
             config_json_relpath='config/googleKey.json'
@@ -33,6 +46,15 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     def load_data(self):
+        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
+        data, (2) data dictionary, and (3) glossary of terms.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         key = '135XlMpxubqpq6UFOOIMVrNqSU0tuA0ZZtaXFEIICZX4'
 
         self.client.connect() \
@@ -53,6 +75,20 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     def process_data(self, db):
+        """Perform data validation and create database entity instances
+        corresponding to the data records.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         self.data
 
         # drop extraneous rows
@@ -64,6 +100,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # analyze for QA/QC
         valid = self.check(self.data)
+
         # if not valid:
         #     print('Data are invalid. Please correct issues and try again.')
         #     sys.exit(0)
@@ -76,6 +113,19 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def create_auth_entities(self, db):
+        """Create authorizing entity instances.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         keys = [
             'level',
             'iso3',
@@ -139,6 +189,19 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def create_policies(self, db):
+        """Create policy instances.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         keys = [
             'id',
             'desc',
@@ -208,17 +271,3 @@ class CovidPolicyPlugin(IngestPlugin):
         # TODO
 
         return valid
-
-    # def connect_db(self):
-    #     # TODO
-    #     pass
-    #
-    #
-    # def create_table(self):
-    #     # TODO
-    #     pass
-    #
-    #
-    # def create_enums(self):
-    #     # TODO
-    #     pass
