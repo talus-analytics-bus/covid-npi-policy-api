@@ -76,6 +76,7 @@ def get_optionset(fields=list()):
         options = select(getattr(i, field)
                          for i in entity_class)[:][:]
         options.sort()
+        options.sort(key=lambda x: x == 'Unspecified')
         id = 0
         data[field] = []
         for dd in options:
