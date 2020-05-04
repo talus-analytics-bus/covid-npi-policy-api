@@ -39,6 +39,13 @@ class Place(BaseModel):
     loc: str = None
 
 
+class Doc(BaseModel):
+    id: int
+    type: str
+    pdf: str = None
+    url: str = None
+
+
 class Policy(BaseModel):
     id: int
 
@@ -58,14 +65,11 @@ class Policy(BaseModel):
     # relationships
     auth_entity: Auth_Entity = None
     place: Place = None
+    policy_docs: List[Doc] = None
 
 
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
-
-
-class PDF(BaseModel):
-    pdf: bytes
 
 
 class PolicyList(Response):

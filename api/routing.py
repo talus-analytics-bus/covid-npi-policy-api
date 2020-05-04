@@ -5,7 +5,7 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList, PDF
+from .models import PolicyList, PolicyFilters, OptionSetList
 from .app import app
 
 

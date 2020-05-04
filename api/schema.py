@@ -2,10 +2,11 @@
 # 3rd party modules
 from pony.orm import db_session, select, get
 from fastapi.responses import FileResponse
+import pprint
 
 # local modules
 from ingest import CovidPolicyPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place, PDF
+from .models import Policy, PolicyList, Auth_Entity, Place, Doc
 from db import db
 
 
@@ -18,6 +19,7 @@ def get_doc(id: int):
 
 @db_session
 def get_policy(filters=None):
+    pp = pprint.PrettyPrinter(indent=4)
     q = select(i for i in db.Policy)
     if filters is not None:
         q = apply_filters(q, filters)
@@ -35,6 +37,17 @@ def get_policy(filters=None):
             d_dict['place'] = \
                 Place(
                     **instance.to_dict())
+        if d.doc is not None:
+            instances = d.doc
+            d_dict['policy_docs'] = list()
+            for instance in instances:
+                instance_dict = instance.to_dict()
+                instance_dict['pdf'] = None if instance_dict['pdf'] == '' \
+                    else f'''/get/doc?id={instance.id}'''
+                d_dict['policy_docs'].append(
+                    Doc(**instance_dict)
+                )
+        # pp.pprint(d_dict)
         instance_list.append(
             Policy(**d_dict)
         )
