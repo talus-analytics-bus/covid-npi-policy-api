@@ -1,8 +1,11 @@
 """Define API application"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
 
+app.mount("/pdf", StaticFiles(directory="api/pdf"), name="pdf")
 
 allow_origin_regex = \
     "(http:\/\/localhost:.*|" + \
