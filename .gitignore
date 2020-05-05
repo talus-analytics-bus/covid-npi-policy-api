@@ -3,6 +3,7 @@ bin/
 
 # Private config files
 config/
+db-config.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
