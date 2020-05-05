@@ -1,6 +1,9 @@
 # Shell scripts
 bin/
 
+# PDFs
+/api/pdf
+
 # Private config files
 config/
 db-config.ini
