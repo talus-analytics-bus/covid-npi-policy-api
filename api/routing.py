@@ -9,6 +9,19 @@ from .models import PolicyList, PolicyFilters, OptionSetList
 from .app import app
 
 
+@app.get("/export")
+async def export():
+    """Download XLSX of data.
+
+    Returns
+    -------
+    def
+        Description of returned object.
+
+    """
+    return schema.export()
+
+
 @app.get("/get/doc")
 async def get_doc(id: int):
     return schema.get_doc(id)

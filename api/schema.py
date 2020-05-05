@@ -1,16 +1,49 @@
 """Define API data processing methods"""
 # standard modules
+from io import BytesIO
 from datetime import datetime, date
 
 # 3rd party modules
 from pony.orm import db_session, select, get
-from fastapi.responses import FileResponse
-import pprint
+from openpyxl import load_workbook
+from openpyxl.worksheet.table import Table, TableStyleInfo
+import pandas as pd
+import pandas.io.formats.excel
+from fastapi.responses import FileResponse, Response
 
 # local modules
 from ingest import CovidPolicyPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, Doc
 from db import db
+
+
+# settings
+pandas.io.formats.excel.header_style = None
+
+
+@db_session
+def export():
+    # Create bytes output to return to client
+    io = BytesIO()
+    writer = pd.ExcelWriter('temp.xlsx', engine='xlsxwriter')
+    writer.book.filename = io
+
+    # add a worksheet
+    workbook = writer.book
+    worksheet = workbook.add_worksheet("Data")
+
+    # hide gridlines
+    worksheet.hide_gridlines(2)
+
+    # close writer
+    writer.close()
+
+    # return to start of IO stream
+    io.seek(0)
+
+    # return export file
+    path = io.read()
+    return Response(content=path, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 @db_session
