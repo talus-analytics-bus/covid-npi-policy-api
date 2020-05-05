@@ -22,7 +22,6 @@ def get_doc(id: int):
 
 @db_session
 def get_policy(filters=None):
-    pp = pprint.PrettyPrinter(indent=4)
     q = select(i for i in db.Policy)
     if filters is not None:
         q = apply_filters(q, filters)
@@ -50,7 +49,6 @@ def get_policy(filters=None):
                 d_dict['policy_docs'].append(
                     Doc(**instance_dict)
                 )
-        # pp.pprint(d_dict)
         instance_list.append(
             Policy(**d_dict)
         )
