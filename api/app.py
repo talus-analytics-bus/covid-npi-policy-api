@@ -5,7 +5,8 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
-app.mount("/pdf", StaticFiles(directory="api/pdf"), name="pdf")
+# TODO serve PDFs from S3 bucket and delete these lines
+# app.mount("/pdf", StaticFiles(directory="api/pdf"), name="pdf")
 
 allow_origin_regex = \
     "(http:\/\/localhost:.*|" + \
