@@ -88,6 +88,7 @@ class SheetSettings():
         self.intro_text = intro_text
         self.init_irow = init_irow
         self.data = data_getter()
+        self.num_cols = 0
 
     def get_init_icol(self):
         """Get initial column for data-writing based on what type of sheet
@@ -171,6 +172,7 @@ class SheetSettings():
                 )
                 worksheet.set_column(icol, icol, 50)
                 icol = icol + 1
+                self.num_cols = self.num_cols + 1
 
     def write_colgroups(self, worksheet, data):
         """Write the column groups as colorized, merged headers for the sheet.
@@ -460,6 +462,14 @@ class GenericExcelExport(ExcelExport):
 
             if settings.type == 'legend':
                 settings.write_legend_labels(worksheet)
+            elif settings.type == 'data':
+                worksheet.freeze_panes(settings.init_irow['colnames'], 0)
+                worksheet.autofilter(
+                    settings.init_irow['colnames'],
+                    0,
+                    settings.init_irow['colnames'],
+                    settings.num_cols - 1
+                )
 
         return self
 

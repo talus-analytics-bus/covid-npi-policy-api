@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, Response
 
 # local modules
 from ingest import CovidPolicyPlugin
-from .export import GenericExcelExport
+from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, Doc
 from db import db
 
@@ -17,7 +17,7 @@ from db import db
 @db_session
 def export():
     # Create Excel export file
-    genericExcelExport = GenericExcelExport(db)
+    genericExcelExport = CovidPolicyExportPlugin(db)
     content = genericExcelExport.build()
     return Response(content=content, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
