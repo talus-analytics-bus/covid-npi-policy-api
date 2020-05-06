@@ -16,7 +16,7 @@ from pony import orm
 def get_secret(
     secret_name="talus_dev_rds_secret",
     region_name="us-gov-west-1",
-    profile='default'
+    profile='gov'
 ):
     """Retrieve an AWS Secret value, given valid connection parameters and
     assuming the server has access to a valid configuration profile.
@@ -91,13 +91,15 @@ def get_secret(
 # check for config.ini and use that configuration for the PostgreSQL
 # database if it's there
 config = configparser.ConfigParser(allow_no_value=True)
-config.read('./db/config.ini')
+config.read('./db/config-local.ini')
 
 # collate parameters from INI file or from AWS Secrets Manager if that is
 # not provided
 conn_params = {'database': 'covid-npi-policy'}
 no_config = (len(config) == 1 and len(config['DEFAULT']) == 0)
-if not no_config:
+
+if os.environ.get('PROD') != 'true' and not no_config:
+    # if not no_config:
     for d in config['DEFAULT']:
         conn_params[d] = config['DEFAULT'].get(d)
 else:

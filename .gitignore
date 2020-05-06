@@ -6,6 +6,7 @@ bin/
 
 # Private config files
 config/
+db/config.ini
 db-config.ini
 
 # Byte-compiled / optimized / DLL files
