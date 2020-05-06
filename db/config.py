@@ -16,7 +16,7 @@ from pony import orm
 def get_secret(
     secret_name="talus_dev_rds_secret",
     region_name="us-gov-west-1",
-    profile='gov'
+    profile='default'
 ):
     """Retrieve an AWS Secret value, given valid connection parameters and
     assuming the server has access to a valid configuration profile.
