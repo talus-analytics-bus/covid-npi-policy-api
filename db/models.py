@@ -33,6 +33,18 @@ from .config import db
 # db.provider.converter_classes.append((Enum, EnumConverter))
 
 
+class Metadata(db.Entity):
+    """Display names, definitions, etc. for fields."""
+    _table_ = "metadata"
+    id = PrimaryKey(str, auto=False)
+    display_name = Optional(str)
+    colgroup = Optional(str)
+    definition = Optional(str)
+    possible_values = Optional(str)
+    notes = Optional(str)
+    entity = Required(str)
+
+
 class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
     _table_ = "policy"

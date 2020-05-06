@@ -2,6 +2,7 @@
 # standard modules
 from io import BytesIO
 from datetime import date
+from collections import defaultdict
 import types
 
 # 3rd party modules
@@ -12,6 +13,7 @@ import pandas as pd
 # local modules
 from .formats import WorkbookFormats
 from .export import ExcelExport, SheetSettings
+from api import schema
 
 
 class CovidPolicyExportPlugin(ExcelExport):
@@ -134,24 +136,32 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     def default_data_getter(self):
 
-        # get all policies
-        entity_class = self.db.Policy
-        instances = select(
-            i for i in entity_class
-        )[:][:]
+        # get all metadata
+        db = self.db
+        metadata = select(
+            i for i in db.Metadata
+        )
+
+        policies = schema.get_policy().data
 
         rows = list()
 
-        for d in instances:
-            rows.append(
-                {
-                    'Policy impacts': {
-                        'Primary public health measure': d.primary_ph_measure,
-                        'Public health measure details': d.ph_measure_details,
-                        'Policy description': d.desc
-                    }
-                }
-            )
+        for d in policies:
+            row = defaultdict(dict)
+            for dd in metadata:
+                if dd.entity == 'Policy':
+                    row[dd.colgroup][dd.display_name] = getattr(d, dd.id)
+                else:
+                    join = getattr(d, dd.entity.lower())
+                    if join is None:
+                        row[dd.colgroup][dd.display_name] = 'Unspecified'
+                    elif type(join) == list:
+                        values = "; ".join([getattr(v, dd.id) for v in join])
+                        row[dd.colgroup][dd.display_name] = values
+                    else:
+                        value = getattr(join, dd.id)
+                        row[dd.colgroup][dd.display_name] = value
+            rows.append(row)
         return rows
 
         # Test data

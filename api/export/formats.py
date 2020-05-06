@@ -161,5 +161,6 @@ class WorkbookFormats():
                 'valign': 'vcenter',
                 'border': 2,
                 'border_color': '#CCCDCB',
+                'text_wrap': True,
             }
         )

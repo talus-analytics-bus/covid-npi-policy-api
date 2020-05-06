@@ -70,6 +70,8 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='appendix: data dictionary') \
             .as_dataframe()
 
+        print(self.data_dictionary['Database field name'])
+
         self.glossary = self.client \
             .worksheet(name='appendix: glossary') \
             .as_dataframe()
@@ -109,6 +111,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # else:
         #     print('QA/QC found no issues. Continuing.')
 
+        self.create_metadata(db)
         self.create_policies(db)
         self.create_docs(db)
         self.create_auth_entities_and_places(db)
@@ -434,6 +437,39 @@ class CovidPolicyPlugin(IngestPlugin):
                 print(instance_data)
                 print(e)
                 sys.exit(0)
+
+    @db_session
+    def create_metadata(self, db):
+        """Create metadata instances.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+
+        colgroup = ''
+        for i, d in self.data_dictionary.iterrows():
+            if d['Category'] != '':
+                colgroup = d['Category']
+            if d['Database entity'] == '' or d['Database field name'] == '':
+                continue
+            db.Metadata(**{
+                'id': d['Database field name'],
+                'display_name': d['Field'],
+                'colgroup': colgroup,
+                'definition': d['Definition'],
+                'possible_values': d['Possible values'],
+                'notes': d['Notes'],
+                'entity': d['Database entity'],
+            })
+            commit()
 
     @db_session
     def create_docs(self, db):

@@ -38,11 +38,10 @@ def get_policy(filters=None):
     instance_list = []
     for d in q:
         d_dict = d.to_dict()
-        if 'auth_entity' in d_dict:
-            instance = db.Auth_Entity[d_dict['auth_entity']]
-            d_dict['auth_entity'] = \
-                Auth_Entity(
-                    **instance.to_dict())
+        auth_entity_list = [Auth_Entity(**dd.to_dict())
+                            for dd in d.auth_entity]
+        d_dict['auth_entity'] = \
+            auth_entity_list
         if 'place' in d_dict:
             instance = db.Place[d_dict['place']]
             d_dict['place'] = \
