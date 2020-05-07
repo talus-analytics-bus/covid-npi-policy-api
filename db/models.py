@@ -43,6 +43,7 @@ class Metadata(db.Entity):
     possible_values = Optional(str)
     notes = Optional(str)
     entity = Required(str)
+    export = Required(bool)
     PrimaryKey(entity, field)
 
 

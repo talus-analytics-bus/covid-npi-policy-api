@@ -24,6 +24,29 @@ def export(filters):
 
 
 @db_session
+def get_metadata(fields: list):
+    # for each field, parse its entity and get the metadata for it
+    data = dict()
+
+    for d in fields:
+        entity_name, field = d.split('.')
+        metadatum = get(
+            i for i in db.Metadata
+            if i.field == field
+            and i.entity.lower() == entity_name
+        )
+        if metadatum is not None:
+            data[d] = metadatum.to_dict()
+        else:
+            data[d] = dict()
+    return {
+        'success': True,
+        'message': f'''Metadata values retrieved''',
+        'data': data
+    }
+
+
+@db_session
 def get_doc(id: int):
     doc = get(i for i in db.Doc if i.id == id)
     fn = f'''api/pdf/{doc.pdf}.pdf'''

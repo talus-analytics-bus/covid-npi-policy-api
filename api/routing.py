@@ -5,7 +5,7 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList
+from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList
 from .app import app
 from db import db
 
@@ -22,6 +22,11 @@ async def export(body: PolicyFilters):
     """
     filters = body.filters if bool(body.filters) == True else None
     return schema.export(filters=filters)
+
+
+@app.get("/get/metadata", response_model=MetadataList)
+async def get_doc(fields: List[str] = Query(None)):
+    return schema.get_metadata(fields)
 
 
 @app.get("/get/doc")

@@ -176,6 +176,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         db = self.db
         metadata = select(
             i for i in db.Metadata
+            if i.export == true
         )
 
         # get all policies (one policy per row exported)
@@ -243,6 +244,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         db = self.db
         metadata = select(
             i for i in db.Metadata
+            if i.export == True
         )
 
         # init export data list

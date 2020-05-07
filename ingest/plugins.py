@@ -145,9 +145,9 @@ class CovidPolicyPlugin(IngestPlugin):
         ]
 
         place_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Place')
+            i.field for i in db.Metadata if i.entity == 'Place' and i.export == True)
         auth_entity_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Auth_Entity')
+            i.field for i in db.Metadata if i.entity == 'Auth_Entity' and i.export == True)
 
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
@@ -404,7 +404,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        keys = select(i.field for i in db.Metadata if i.entity == 'Policy')[:]
+        keys = select(i.field for i in db.Metadata if i.entity ==
+                      'Policy' and i.export == True)[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -483,7 +484,25 @@ class CovidPolicyPlugin(IngestPlugin):
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
                 'entity': d['Database entity'],
+                'export': True,
             })
+            commit()
+
+        # add extra metadata not in the data dictionary
+        other_metadata = [
+            {
+                'field': 'loc',
+                'display_name': 'Country / Specific location',
+                'colgroup': '',
+                'definition': 'The location affected by the policy',
+                'possible_values': 'Any text',
+                'notes': '',
+                'entity': 'Place',
+                'export': False,
+            }
+        ]
+        for d in other_metadata:
+            db.Metadata(**d)
             commit()
 
     @db_session

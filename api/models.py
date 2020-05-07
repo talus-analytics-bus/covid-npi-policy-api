@@ -79,3 +79,7 @@ class PolicyList(Response):
 
 class OptionSetList(Response):
     data: Dict[str, List[dict]]
+
+
+class MetadataList(Response):
+    data: Dict[str, dict]
