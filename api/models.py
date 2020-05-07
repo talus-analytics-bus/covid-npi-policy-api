@@ -63,7 +63,7 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
-    auth_entity: Auth_Entity = None
+    auth_entity: List[Auth_Entity] = None
     place: Place = None
     policy_docs: List[Doc] = None
 
