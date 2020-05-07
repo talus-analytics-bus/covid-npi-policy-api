@@ -61,7 +61,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             SheetSettings(
                 name='Exported data',
                 type='data',
-                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID Policy Tracker website.',
+                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID MAPS website.',
                 init_irow={
                     'logo': 0,
                     'title': 1,
@@ -117,7 +117,11 @@ class CovidPolicyExportPlugin(ExcelExport):
 
             settings.write_header(
                 worksheet,
-                logo_fn='./api/assets/images/logo-talus.png',
+                logo_fn='./api/assets/images/logo.png',
+                logo_offset={
+                    'x_offset': 5,
+                    'y_offset': 25,
+                },
                 title=settings.name,
                 intro_text=settings.intro_text)
 

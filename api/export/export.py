@@ -233,7 +233,7 @@ class SheetSettings():
         for irow, text, cell_format in rows:
             worksheet.write(irow, 0, text, cell_format)
 
-    def write_header(self, worksheet, logo_fn, title, intro_text):
+    def write_header(self, worksheet, logo_fn, logo_offset, title, intro_text):
         """Write the sheet header, including title, subtitle, logo, etc.
 
         Parameters
@@ -255,7 +255,8 @@ class SheetSettings():
         """
         self.write_logo(worksheet,
                         logo_fn,
-                        140)
+                        logo_offset,
+                        90)
         self.write_title(worksheet, title)
 
         today = date.today()
@@ -263,7 +264,7 @@ class SheetSettings():
         self.write_intro_text(
             worksheet, intro_text)
 
-    def write_logo(self, worksheet, logo_fn, row_height):
+    def write_logo(self, worksheet, logo_fn, logo_offset, row_height):
         """Add the logo at the specified filename path to the upper-left corner.
 
         Parameters
@@ -287,6 +288,8 @@ class SheetSettings():
             {
                 'object_position': 3,
                 'y_scale': 1.1,
+                'x_offset': logo_offset['x_offset'],
+                'y_offset': logo_offset['y_offset'],
             }
         )
 
