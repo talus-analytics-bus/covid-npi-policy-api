@@ -129,7 +129,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                 settings.write_legend_labels(worksheet)
                 worksheet.set_row(settings.init_irow['data'], 220)
             elif settings.type == 'data':
-                worksheet.freeze_panes(settings.init_irow['colnames'], 0)
+                worksheet.freeze_panes(settings.init_irow['data'], 0)
                 worksheet.autofilter(
                     settings.init_irow['colnames'],
                     0,
