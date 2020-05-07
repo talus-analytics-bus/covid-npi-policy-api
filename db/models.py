@@ -61,7 +61,7 @@ class Policy(db.Entity):
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
-    auth_entity_has_authority = Optional(bool)
+    auth_entity_has_authority = Optional(str)
     authority_name = Optional(str)
     auth_entity_authority_data_source = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
@@ -90,8 +90,8 @@ class Place(db.Entity):
     area1 = Optional(str)
     area2 = Optional(str)
     loc = Optional(str)
-    home_rule = Optional(bool)
-    dillons_rule = Optional(bool)
+    home_rule = Optional(str)
+    dillons_rule = Optional(str)
 
     # relationships
     policies = Set('Policy')

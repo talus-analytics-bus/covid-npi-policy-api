@@ -7,6 +7,7 @@ from typing import List
 from . import schema
 from .models import PolicyList, PolicyFilters, OptionSetList
 from .app import app
+from db import db
 
 
 @app.get("/export")
@@ -64,6 +65,10 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
 @app.get("/ingest")
 async def ingest(project_name: str = None):
     if project_name == 'covid-npi-policy':
+        print('Ingesting data...')
+        # db.generate_mapping(check_tables=False, create_tables=False)
+        db.drop_all_tables(with_all_data=True)
+        db.create_tables()
         schema.ingest_covid_npi_policy()
         return 'Ingest completed'
     else:

@@ -43,14 +43,12 @@ def get_policy(filters=None, return_db_instances=False):
         for d in q:
             d_dict = d.to_dict()
             auth_entity_list = []
+
             for dd in d.auth_entity:
                 dd_dict = dd.to_dict()
-                if dd.place is None:
-                    continue
-                else:
-                    place_dict = Place(**dd.place.to_dict())
-                    dd_dict['place'] = place_dict
-                    auth_entity_list.append(Auth_Entity(**dd_dict))
+                place_dict = Place(**dd.place.to_dict())
+                dd_dict['place'] = place_dict
+                auth_entity_list.append(Auth_Entity(**dd_dict))
 
             d_dict['auth_entity'] = auth_entity_list
             place_instance = Place(**d.place.to_dict())

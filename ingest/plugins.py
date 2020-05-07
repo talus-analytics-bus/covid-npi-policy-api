@@ -71,8 +71,6 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='appendix: data dictionary') \
             .as_dataframe()
 
-        print(self.data_dictionary['Database field name'])
-
         self.glossary = self.client \
             .worksheet(name='appendix: glossary') \
             .as_dataframe()
@@ -273,13 +271,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 and i.area1 == instance_data['area1']
                 and i.area2 == instance_data['area2']
             )
-            instance = place
 
             # if entity already exists, use it
             # otherwise, create it
-            if instance is None:
-                instance = entity_class(**instance_data)
-                instance.loc = get_place_loc(instance)
+            if place is None:
+                place = entity_class(**instance_data)
+                place.loc = get_place_loc(place)
                 commit()
 
             # link instance to required entities
@@ -287,7 +284,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 try:
                     entity_class = getattr(db, link['entity_class_name'])
                     setattr(entity_class[link['on'](d)],
-                            name.lower(), instance)
+                            name.lower(), place)
                     commit()
                 except ObjectNotFound as e:
                     print('Error: Instance not found for linkage. Skipping.')
@@ -324,6 +321,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
                 # do facile entity links
                 instance.place = place
+                commit()
 
                 # link instance to required entities
                 for link in info['link']:
