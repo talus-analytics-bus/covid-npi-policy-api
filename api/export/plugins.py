@@ -136,16 +136,47 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     def default_data_getter(self):
 
+        def get_joined_entity(main_entity, joined_entity_string):
+            """Given a main entity class and a string of joined entities like
+            'Entity2' or 'Entity2.Entity3', performs joins and returns the
+            final entity listed, if it is available.
+
+            Parameters
+            ----------
+            main_entity : type
+                Description of parameter `main_entity`.
+            joined_entity_string : type
+                Description of parameter `joined_entity_string`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
+            joined_entity_list = joined_entity_string.split('.')
+            joined_entity = main_entity
+            for entity_name in joined_entity_list:
+                joined_entity = getattr(joined_entity, entity_name.lower())
+                if joined_entity is None:
+                    return None
+                else:
+                    continue
+            return joined_entity
+
         # get all metadata
         db = self.db
         metadata = select(
             i for i in db.Metadata
         )
 
+        # get all policies (one policy per row exported)
         policies = schema.get_policy().data
 
+        # init export data list
         rows = list()
 
+        # for each policy
         for d in policies:
             row = defaultdict(dict)
             for dd in metadata:
@@ -158,7 +189,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     else:
                         row[dd.colgroup][dd.display_name] = value
                 else:
-                    join = getattr(d, dd.entity.lower())
+                    join = get_joined_entity(d, dd.entity)
                     if join is None:
                         row[dd.colgroup][dd.display_name] = ''
                     elif type(join) == list:
