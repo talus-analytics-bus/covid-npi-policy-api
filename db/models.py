@@ -51,10 +51,19 @@ class Policy(db.Entity):
     id = PrimaryKey(int, auto=False)
 
     # descriptive information
+    name = Optional(str)
     desc = Optional(str)
     primary_ph_measure = Optional(str)
     ph_measure_details = Optional(str)
     policy_type = Optional(str)
+    primary_impact = Optional(str)
+    intended_duration = Optional(str)
+    prior_policy = Optional('Policy')
+    announcement_data_source = Optional(str)
+    policy_data_source = Optional(str)
+    auth_entity_has_authority = Optional(bool)
+    authority_name = Optional(str)
+    auth_entity_authority_data_source = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
 
     # key dates
@@ -77,6 +86,8 @@ class Place(db.Entity):
     area1 = Optional(str)
     area2 = Optional(str)
     loc = Optional(str)
+    home_rule = Optional(bool)
+    dillons_rule = Optional(bool)
 
     # relationships
     policies = Set('Policy')
