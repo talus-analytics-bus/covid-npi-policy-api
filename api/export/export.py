@@ -21,7 +21,7 @@ class ExcelExport():
     def __init__(self):
         return None
 
-    def build(self):
+    def build(self, **kwargs):
         # Create bytes output to return to client
         io = BytesIO()
         writer = pd.ExcelWriter('temp.xlsx', engine='xlsxwriter')
@@ -31,7 +31,7 @@ class ExcelExport():
         workbook = writer.book
 
         # add content
-        self.add_content(workbook)
+        self.add_content(workbook, **kwargs)
 
         # close writer
         writer.close()

@@ -15,9 +15,9 @@ from db import db
 
 
 @db_session
-def export():
+def export(filters):
     # Create Excel export file
-    genericExcelExport = CovidPolicyExportPlugin(db)
+    genericExcelExport = CovidPolicyExportPlugin(db, filters)
     content = genericExcelExport.build()
 
     return Response(content=content, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

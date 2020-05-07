@@ -10,8 +10,8 @@ from .app import app
 from db import db
 
 
-@app.get("/export")
-async def export():
+@app.post("/post/export")
+async def export(body: PolicyFilters):
     """Download XLSX of data.
 
     Returns
@@ -20,7 +20,8 @@ async def export():
         Description of returned object.
 
     """
-    return schema.export()
+    filters = body.filters if bool(body.filters) == True else None
+    return schema.export(filters=filters)
 
 
 @app.get("/get/doc")

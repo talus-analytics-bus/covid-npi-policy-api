@@ -43,7 +43,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     """
 
-    def __init__(self, db):
+    def __init__(self, db, filters):
         self.db = db
         self.data = None
         self.init_irow = {
@@ -56,6 +56,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             'colnames': 6,
             'data': 7
         }
+        self.filters = filters
         self.sheet_settings = [
             SheetSettings(
                 name='Exported data',
@@ -174,7 +175,9 @@ class CovidPolicyExportPlugin(ExcelExport):
         )
 
         # get all policies (one policy per row exported)
-        policies = schema.get_policy(return_db_instances=True)
+        policies = schema.get_policy(
+            filters=self.filters, return_db_instances=True
+        )
 
         # init export data list
         rows = list()
