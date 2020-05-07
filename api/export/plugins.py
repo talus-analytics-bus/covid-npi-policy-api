@@ -150,11 +150,17 @@ class CovidPolicyExportPlugin(ExcelExport):
             row = defaultdict(dict)
             for dd in metadata:
                 if dd.entity == 'Policy':
-                    row[dd.colgroup][dd.display_name] = getattr(d, dd.id)
+                    value = getattr(d, dd.id)
+
+                    # format date values properly
+                    if type(value) == date:
+                        row[dd.colgroup][dd.display_name] = str(value)
+                    else:
+                        row[dd.colgroup][dd.display_name] = value
                 else:
                     join = getattr(d, dd.entity.lower())
                     if join is None:
-                        row[dd.colgroup][dd.display_name] = 'Unspecified'
+                        row[dd.colgroup][dd.display_name] = ''
                     elif type(join) == list:
                         values = "; ".join([getattr(v, dd.id) for v in join])
                         row[dd.colgroup][dd.display_name] = values
