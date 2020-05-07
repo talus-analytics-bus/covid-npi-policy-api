@@ -9,11 +9,15 @@ import types
 from pony.orm import db_session, select
 from openpyxl import load_workbook
 import pandas as pd
+import pprint
 
 # local modules
 from .formats import WorkbookFormats
 from .export import ExcelExport, SheetSettings
 from api import schema
+
+# constants
+pp = pprint.PrettyPrinter(indent=4)
 
 
 class CovidPolicyExportPlugin(ExcelExport):
@@ -131,6 +135,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     settings.init_irow['colnames'],
                     settings.num_cols - 1
                 )
+            worksheet.set_column(0, 0, 25)
 
         return self
 
@@ -156,12 +161,9 @@ class CovidPolicyExportPlugin(ExcelExport):
             """
             joined_entity_list = joined_entity_string.split('.')
             joined_entity = main_entity
-            for entity_name in joined_entity_list:
-                joined_entity = getattr(joined_entity, entity_name.lower())
-                if joined_entity is None:
-                    return None
-                else:
-                    continue
+
+            for d in joined_entity_list:
+                joined_entity = getattr(joined_entity, d.lower())
             return joined_entity
 
         # get all metadata
@@ -171,32 +173,53 @@ class CovidPolicyExportPlugin(ExcelExport):
         )
 
         # get all policies (one policy per row exported)
-        policies = schema.get_policy().data
+        policies = schema.get_policy(return_db_instances=True)
 
         # init export data list
         rows = list()
+
+        def iterable(obj):
+            try:
+                iter(obj)
+            except Exception:
+                return False
+            else:
+                return True
 
         # for each policy
         for d in policies:
             row = defaultdict(dict)
             for dd in metadata:
                 if dd.entity == 'Policy':
-                    value = getattr(d, dd.id)
+                    value = getattr(d, dd.field)
 
                     # format date values properly
                     if type(value) == date:
                         row[dd.colgroup][dd.display_name] = str(value)
+                    elif type(value) != str and iterable(value):
+                        row[dd.colgroup][dd.display_name] = \
+                            "; ".join([str(ddd) for ddd in value])
                     else:
                         row[dd.colgroup][dd.display_name] = value
                 else:
                     join = get_joined_entity(d, dd.entity)
                     if join is None:
                         row[dd.colgroup][dd.display_name] = ''
-                    elif type(join) == list:
-                        values = "; ".join([getattr(v, dd.id) for v in join])
+                        continue
+                    else:
+                        if iterable(join):
+                            values = "; ".join(
+                                [getattr(ddd, dd.field) for ddd in join]
+                            )
+                            row[dd.colgroup][dd.display_name] = values
+                            continue
+
+                    if type(join) == list:
+                        values = "; ".join([getattr(v, dd.field)
+                                            for v in join])
                         row[dd.colgroup][dd.display_name] = values
                     else:
-                        value = getattr(join, dd.id)
+                        value = getattr(join, dd.field)
                         row[dd.colgroup][dd.display_name] = value
             rows.append(row)
         return rows

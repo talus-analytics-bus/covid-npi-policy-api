@@ -20,14 +20,6 @@ class Response(BaseModel):
     message: str
 
 
-class Auth_Entity(BaseModel):
-    id: int
-
-    # descriptive information
-    name: str
-    office: str
-
-
 class Place(BaseModel):
     id: int
 
@@ -37,6 +29,15 @@ class Place(BaseModel):
     area1: str
     area2: str
     loc: str = None
+
+
+class Auth_Entity(BaseModel):
+    id: int
+
+    # descriptive information
+    name: str
+    office: str
+    place: Place = None
 
 
 class Doc(BaseModel):

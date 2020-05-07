@@ -3,7 +3,7 @@
 from api import app, schema
 from db import db
 
-DO_INGEST = False
+DO_INGEST = True
 if DO_INGEST:
     print('Ingesting data.')
     db.generate_mapping(check_tables=False, create_tables=False)

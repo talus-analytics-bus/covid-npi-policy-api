@@ -36,13 +36,14 @@ from .config import db
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
-    id = PrimaryKey(str, auto=False)
+    field = Required(str)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
     possible_values = Optional(str)
     notes = Optional(str)
     entity = Required(str)
+    PrimaryKey(entity, field)
 
 
 class Policy(db.Entity):
@@ -51,14 +52,13 @@ class Policy(db.Entity):
     id = PrimaryKey(int, auto=False)
 
     # descriptive information
-    name = Optional(str)
+    policy_name = Optional(str)
     desc = Optional(str)
     primary_ph_measure = Optional(str)
     ph_measure_details = Optional(str)
     policy_type = Optional(str)
     primary_impact = Optional(str)
     intended_duration = Optional(str)
-    prior_policy = Optional('Policy')
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
     auth_entity_has_authority = Optional(bool)
@@ -76,6 +76,10 @@ class Policy(db.Entity):
     doc = Set('Doc')
     auth_entity = Set('Auth_Entity')
     place = Optional('Place')
+    prior_policy = Set('Policy')
+
+    # reverse attributes
+    _prior_policy = Set('Policy')
 
 
 class Place(db.Entity):
@@ -112,7 +116,7 @@ class Doc(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
     type = Required(str)
-    url = Optional(str)
+    data_source = Optional(str)
     pdf = Optional(str)
 
     # relationships

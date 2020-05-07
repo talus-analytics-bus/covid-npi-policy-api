@@ -69,6 +69,7 @@ class WorkbookFormats():
                 'bg_color': '#ffffff',
                 'font_name': 'Calibri (Body)',
                 'valign': 'vcenter',
+                'align': 'left',
                 'border': 2,
                 'border_color': '#CCCDCB',
                 'text_wrap': True
@@ -128,7 +129,7 @@ class WorkbookFormats():
                 'font_size': 22,
                 'font_name': 'Calibri (Body)',
                 'valign': 'vcenter',
-                'align': 'center',
+                'align': 'left',
                 'border': 2,
                 'border_color': '#CCCDCB',
             }

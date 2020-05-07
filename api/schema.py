@@ -19,6 +19,7 @@ def export():
     # Create Excel export file
     genericExcelExport = CovidPolicyExportPlugin(db)
     content = genericExcelExport.build()
+
     return Response(content=content, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
@@ -30,42 +31,54 @@ def get_doc(id: int):
 
 
 @db_session
-def get_policy(filters=None):
+def get_policy(filters=None, return_db_instances=False):
     q = select(i for i in db.Policy)
     if filters is not None:
         q = apply_filters(q, filters)
 
-    instance_list = []
-    for d in q:
-        d_dict = d.to_dict()
-        auth_entity_list = [Auth_Entity(**dd.to_dict())
-                            for dd in d.auth_entity]
-        d_dict['auth_entity'] = \
-            auth_entity_list
-        if 'place' in d_dict:
-            instance = db.Place[d_dict['place']]
-            d_dict['place'] = \
-                Place(
-                    **instance.to_dict())
-        if d.doc is not None:
-            instances = d.doc
-            d_dict['policy_docs'] = list()
-            for instance in instances:
-                instance_dict = instance.to_dict()
-                instance_dict['pdf'] = None if instance_dict['pdf'] == '' \
-                    else f'''/get/doc?id={instance.id}'''
-                d_dict['policy_docs'].append(
-                    Doc(**instance_dict)
-                )
-        instance_list.append(
-            Policy(**d_dict)
+    if return_db_instances:
+        return q
+    else:
+        instance_list = []
+        for d in q:
+            d_dict = d.to_dict()
+            auth_entity_list = []
+            for dd in d.auth_entity:
+                dd_dict = dd.to_dict()
+                if dd.place is None:
+                    continue
+                else:
+                    place_dict = Place(**dd.place.to_dict())
+                    dd_dict['place'] = place_dict
+                    auth_entity_list.append(Auth_Entity(**dd_dict))
+
+            d_dict['auth_entity'] = auth_entity_list
+            place_instance = Place(**d.place.to_dict())
+            d_dict['place'] = place_instance
+            # if 'place' in d_dict:
+            #     instance = db.Place[d_dict['place']]
+            #     d_dict['place'] = \
+            #         Place(
+            #             **instance.to_dict())
+            if d.doc is not None:
+                instances = d.doc
+                d_dict['policy_docs'] = list()
+                for instance in instances:
+                    instance_dict = instance.to_dict()
+                    instance_dict['pdf'] = None if instance_dict['pdf'] == '' \
+                        else f'''/get/doc?id={instance.id}'''
+                    d_dict['policy_docs'].append(
+                        Doc(**instance_dict)
+                    )
+            instance_list.append(
+                Policy(**d_dict)
+            )
+        res = PolicyList(
+            data=instance_list,
+            success=True,
+            message=f'''{len(q)} policies found'''
         )
-    res = PolicyList(
-        data=instance_list,
-        success=True,
-        message=f'''{len(q)} policies found'''
-    )
-    return res
+        return res
 
 
 def get_auth_entity_loc(i):

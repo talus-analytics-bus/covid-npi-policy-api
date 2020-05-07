@@ -2,9 +2,10 @@
 # standard modules
 from os import sys
 from datetime import date
+from collections import defaultdict
 
 # 3rd party modules
-from pony.orm import db_session, commit, get
+from pony.orm import db_session, commit, get, select
 from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
 
@@ -144,6 +145,11 @@ class CovidPolicyPlugin(IngestPlugin):
             'area1',
             'area2',
         ]
+
+        place_keys = select(
+            i.field for i in db.Metadata if i.entity == 'Place')
+        auth_entity_keys = select(
+            i.field for i in db.Metadata if i.entity == 'Auth_Entity')
 
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
@@ -399,17 +405,11 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        keys = [
-            'id',
-            'desc',
-            'primary_ph_measure',
-            'ph_measure_details',
-            'policy_type',
-            'date_issued',
-            'date_start_effective',
-            'date_end_anticipated',
-            'date_end_actual',
-        ]
+
+        keys = select(i.field for i in db.Metadata if i.entity == 'Policy')[:]
+
+        # maintain dict of attributes to set post-creation
+        post_creation_attrs = defaultdict(dict)
 
         def formatter(key, d):
             if key.startswith('date_'):
@@ -421,22 +421,39 @@ class CovidPolicyPlugin(IngestPlugin):
                 else:
                     return d[key]
             elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
-                return 'Unspecified'
+                if key in ('prior_policy'):
+                    return set()
+                else:
+                    return 'Unspecified'
+            elif key == 'id':
+                return int(d[key])
+            elif key in ('prior_policy'):
+                post_creation_attrs[d['id']]['prior_policy'] = \
+                    set(int(dd) for dd in d[key].split('; '))
+                return set()
             return d[key]
 
         for i, d in self.data.iterrows():
             instance_data = {key: formatter(key, d) for key in keys}
             try:
                 db.Policy(**instance_data)
+                commit()
             except CacheIndexError as e:
                 print('\nError: Duplicate policy unique ID: ' +
                       str(instance_data['id']))
                 # sys.exit(0)
             except ValueError as e:
                 print('\nError: Unexpected value in this data:')
-                print(instance_data)
+                pp.pprint(instance_data)
                 print(e)
                 sys.exit(0)
+
+        # define post-creation attrs
+        # TODO more dynamically
+        for id in post_creation_attrs:
+            for field in post_creation_attrs[id]:
+                for d in post_creation_attrs[id][field]:
+                    getattr(db.Policy[int(id)], field).add(db.Policy[d])
 
     @db_session
     def create_metadata(self, db):
@@ -461,7 +478,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if d['Database entity'] == '' or d['Database field name'] == '':
                 continue
             db.Metadata(**{
-                'id': d['Database field name'],
+                'field': d['Database field name'],
                 'display_name': d['Field'],
                 'colgroup': colgroup,
                 'definition': d['Definition'],
@@ -489,13 +506,13 @@ class CovidPolicyPlugin(IngestPlugin):
         policy_doc_keys = [
             'policy_name',
             'policy_pdf',
-            'policy_url',
+            'policy_data_source',
         ]
 
         docs_by_id = dict()
 
         for i, d in self.data.iterrows():
-            instance_data = {key.split('_')[1]: d[key]
+            instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
             instance_data['type'] = 'policy'
             id = " - ".join(instance_data.values())
