@@ -15,7 +15,7 @@ from pony import orm
 
 def get_secret(
     secret_name="talus_dev_rds_secret",
-    region_name="us-gov-west-1",
+    region_name="us-west-1",
     profile='default'
 ):
     """Retrieve an AWS Secret value, given valid connection parameters and
@@ -42,6 +42,7 @@ def get_secret(
         session = boto3.session.Session()
     else:
         session = boto3.session.Session(profile_name=profile)
+
     client = session.client(
         service_name='secretsmanager',
         region_name=region_name
