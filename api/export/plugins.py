@@ -127,6 +127,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
             if settings.type == 'legend':
                 settings.write_legend_labels(worksheet)
+                worksheet.set_row(settings.init_irow['data'], 220)
             elif settings.type == 'data':
                 worksheet.freeze_panes(settings.init_irow['colnames'], 0)
                 worksheet.autofilter(
@@ -224,67 +225,20 @@ class CovidPolicyExportPlugin(ExcelExport):
             rows.append(row)
         return rows
 
-        # Test data
-        # Name, email
-        # Hobbies, Favorite color
-        # Dict of column groups, which are a list of columns, which are
-        # dictionaries with key = colname, value = data to show
-        return [
-            {
-                'Basic information':
-                {
-                    'Name': 'Mike',
-                    'E-mail': 'mvanmaele@talusanalytics.com',
-                },
-                'Additional details':
-                {
-                    'Hobbies': 'Opera; Triathlon; Yoga',
-                    'Favorite color': 'Blue',
-                }
-            },
-            {
-                'Basic information':
-                {
-                    'Name': 'Mike2',
-                    'E-mail': 'mvanmaele@talusanalytics.com2',
-                },
-                'Additional details':
-                {
-                    'Hobbies': 'Opera; Triathlon; Yoga2',
-                    'Favorite color': 'Blue2',
-                }
-            },
-        ]
-
     def default_data_getter_legend(self):
-        # Test data
-        # Name, email
-        # Hobbies, Favorite color
-        # Dict of column groups, which are a list of columns, which are
-        # dictionaries with key = colname, value = data to show
-        return [
-            {
-                'Basic information':
-                {
-                    'Name': 'The name',
-                    'E-mail': 'The e-mail',
-                },
-                'Additional details':
-                {
-                    'Hobbies': 'Any semicolon-delimited list of hobbies',
-                    'Favorite color': 'Any color',
-                }
-            },
-            {
-                'Basic information':
-                {
-                    'Name': 'Any text',
-                    'E-mail': 'Any email',
-                },
-                'Additional details':
-                {
-                    'Hobbies': 'Any semicolon-delimited list of text',
-                    'Favorite color': 'Any text',
-                }
-            },
-        ]
+        # get all metadata
+        db = self.db
+        metadata = select(
+            i for i in db.Metadata
+        )
+
+        # init export data list
+        rows = list()
+
+        # for each metadatum
+        for row_type in ('definition', 'possible_values'):
+            row = defaultdict(dict)
+            for d in metadata:
+                row[d.colgroup][d.display_name] = getattr(d, row_type)
+            rows.append(row)
+        return rows
