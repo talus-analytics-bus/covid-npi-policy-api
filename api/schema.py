@@ -53,11 +53,7 @@ def get_metadata(fields: list):
 
 @db_session
 def get_doc(id: int):
-    # new way
-    # TODO finish and document
-
     # define filename from db
-    # TODO dynamically
     doc = db.Doc[id]
     file_key = doc.pdf + '.pdf'
     s3_bucket = 'covid-npi-policy-storage'
