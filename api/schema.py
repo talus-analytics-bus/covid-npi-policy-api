@@ -88,7 +88,7 @@ def get_metadata(fields: list):
 
 
 @db_session
-def clean_docs(id: int):
+def clean_docs():
     # update database to remove docs with broken links
     docs = db.Doc.select()
     n = len(docs)
