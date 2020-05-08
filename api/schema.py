@@ -4,6 +4,7 @@ from io import BytesIO
 from datetime import datetime, date
 
 # 3rd party modules
+import boto3
 from pony.orm import db_session, select, get
 from fastapi.responses import FileResponse, Response
 
@@ -12,6 +13,10 @@ from ingest import CovidPolicyPlugin
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, Doc
 from db import db
+
+
+# constants
+s3 = boto3.client('s3')
 
 
 @db_session
@@ -48,9 +53,27 @@ def get_metadata(fields: list):
 
 @db_session
 def get_doc(id: int):
-    doc = get(i for i in db.Doc if i.id == id)
-    fn = f'''api/pdf/{doc.pdf}.pdf'''
-    return FileResponse(fn)
+    # new way
+    # TODO finish and document
+
+    # define filename from db
+    # TODO dynamically
+    doc = db.Doc[id]
+    file_key = doc.pdf + '.pdf'
+    s3_bucket = 'covid-npi-policy-storage'
+
+    # retrieve file and write it to IO file object
+    io = BytesIO()
+    s3.download_fileobj(s3_bucket, file_key, io)
+
+    # return to start of IO stream
+    io.seek(0)
+
+    # return export file
+    content = io.read()
+
+    # return file
+    return Response(content=content, media_type='application/pdf')
 
 
 @db_session
