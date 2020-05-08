@@ -59,14 +59,15 @@ def get_doc(id: int):
     s3_bucket = 'covid-npi-policy-storage'
 
     # retrieve file and write it to IO file object
-    io = BytesIO()
-    s3.download_fileobj(s3_bucket, file_key, io)
+    io_instance = BytesIO()
+    s3.download_fileobj(s3_bucket, file_key, io_instance)
 
     # return to start of IO stream
-    io.seek(0)
+    io_instance.seek(0)
+    io_instance.name = 'MVM test'
 
     # return export file
-    content = io.read()
+    content = io_instance.read()
 
     # return file
     return Response(content=content, media_type='application/pdf')
@@ -105,8 +106,10 @@ def get_policy(filters=None, return_db_instances=False):
                 d_dict['policy_docs'] = list()
                 for instance in instances:
                     instance_dict = instance.to_dict()
+                    title = instance.name if instance.name is not None and \
+                        instance.name != '' else instance.pdf
                     instance_dict['pdf'] = None if instance_dict['pdf'] == '' \
-                        else f'''/get/doc?id={instance.id}'''
+                        else f'''/get/doc/{title}?id={instance.id}'''
                     d_dict['policy_docs'].append(
                         Doc(**instance_dict)
                     )

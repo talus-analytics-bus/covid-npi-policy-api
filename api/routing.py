@@ -29,8 +29,8 @@ async def get_doc(fields: List[str] = Query(None)):
     return schema.get_metadata(fields)
 
 
-@app.get("/get/doc")
-async def get_doc(id: int):
+@app.get("/get/doc/{title}")
+async def get_doc(id: int, title: str):
     return schema.get_doc(id)
 
 
