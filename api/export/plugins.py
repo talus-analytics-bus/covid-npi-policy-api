@@ -195,7 +195,13 @@ class CovidPolicyExportPlugin(ExcelExport):
             else:
                 return True
 
+        formatters = {
+            'area1': lambda instance, value: value if instance.level != 'Country' else 'N/A',
+            'area2': lambda instance, value: value if instance.level == 'Local area' else 'N/A',
+        }
+
         # for each policy
+        # TODO clean up
         for d in policies:
             row = defaultdict(dict)
             for dd in metadata:
@@ -215,17 +221,31 @@ class CovidPolicyExportPlugin(ExcelExport):
                         row[dd.colgroup][dd.display_name] = \
                             "; ".join(value_list)
                     else:
-                        row[dd.colgroup][dd.display_name] = value
+                        if dd.field in formatters:
+                            row[dd.colgroup][dd.display_name] = formatters[dd.field](
+                                d, value)
+                        else:
+                            row[dd.colgroup][dd.display_name] = value
                 else:
                     join = get_joined_entity(d, dd.entity)
+
                     if join is None:
                         row[dd.colgroup][dd.display_name] = ''
                         continue
                     else:
                         if iterable(join):
-                            values = "; ".join(
-                                [getattr(ddd, dd.field) for ddd in join]
-                            )
+                            values = list()
+                            if dd.field not in formatters:
+                                values = "; ".join(
+                                    [getattr(ddd, dd.field) for ddd in join]
+                                )
+                            else:
+                                func = formatters[dd.field]
+                                values = "; ".join(
+                                    [func(ddd, getattr(ddd, dd.field))
+                                     for ddd in join]
+                                )
+
                             row[dd.colgroup][dd.display_name] = values
                             continue
 
@@ -235,7 +255,11 @@ class CovidPolicyExportPlugin(ExcelExport):
                         row[dd.colgroup][dd.display_name] = values
                     else:
                         value = getattr(join, dd.field)
-                        row[dd.colgroup][dd.display_name] = value
+                        if dd.field in formatters:
+                            row[dd.colgroup][dd.display_name] = formatters[dd.field](
+                                join, value)
+                        else:
+                            row[dd.colgroup][dd.display_name] = value
             rows.append(row)
         return rows
 
