@@ -44,7 +44,7 @@ class Doc(BaseModel):
     id: int
     type: str
     pdf: str = None
-    url: str = None
+    data_source: str = None
 
 
 class Policy(BaseModel):

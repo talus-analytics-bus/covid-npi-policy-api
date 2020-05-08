@@ -5,7 +5,7 @@ from datetime import datetime, date
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get
+from pony.orm import db_session, select, get, commit
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -52,7 +52,39 @@ def get_metadata(fields: list):
 
 
 @db_session
+def clean_docs(id: int):
+    # update database to remove docs with broken links
+    docs = db.Doc.select()
+    n = len(docs)
+    i = 0
+    for doc in docs:
+        i = i + 1
+        print(str(i) + ' of ' + str(n))
+        if doc.pdf is None:
+            print('No file, skipping')
+            continue
+        # define filename from db
+        file_key = doc.pdf + '.pdf'
+        s3_bucket = 'covid-npi-policy-storage'
+
+        # retrieve file and write it to IO file object
+        # io_instance = BytesIO()
+        try:
+            s3.head_object(Bucket=s3_bucket, Key=file_key)
+            print('File found')
+        except Exception as e:
+            print('e')
+            print(e)
+            doc.pdf = None
+            commit()
+            print('Document not found (404)')
+
+    return 'Done'
+
+
+@db_session
 def get_doc(id: int):
+
     # define filename from db
     doc = db.Doc[id]
     file_key = doc.pdf + '.pdf'
@@ -60,7 +92,12 @@ def get_doc(id: int):
 
     # retrieve file and write it to IO file object
     io_instance = BytesIO()
-    s3.download_fileobj(s3_bucket, file_key, io_instance)
+    try:
+        s3.download_fileobj(s3_bucket, file_key, io_instance)
+    except Exception as e:
+        print('e')
+        print(e)
+        return 'Document not found (404)'
 
     # return to start of IO stream
     io_instance.seek(0)
@@ -108,7 +145,7 @@ def get_policy(filters=None, return_db_instances=False):
                     instance_dict = instance.to_dict()
                     title = instance.name if instance.name is not None and \
                         instance.name != '' else instance.pdf
-                    instance_dict['pdf'] = None if instance_dict['pdf'] == '' \
+                    instance_dict['pdf'] = None if instance.pdf is None or instance_dict['pdf'] == '' \
                         else f'''/get/doc/{title}?id={instance.id}'''
                     d_dict['policy_docs'].append(
                         Doc(**instance_dict)

@@ -118,7 +118,7 @@ class Doc(db.Entity):
     name = Optional(str)
     type = Required(str)
     data_source = Optional(str)
-    pdf = Optional(str)
+    pdf = Optional(str, nullable=True)
 
     # relationships
     policies = Set('Policy')
