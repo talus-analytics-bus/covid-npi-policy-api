@@ -1,5 +1,6 @@
 """Define API data processing methods"""
 # standard modules
+import functools
 from io import BytesIO
 from datetime import datetime, date
 
@@ -19,7 +20,41 @@ from db import db
 s3 = boto3.client('s3')
 
 
+def cached(func):
+    """ Caching """
+    cache = {}
+
+    @functools.wraps(func)
+    def wrapper(*func_args, **kwargs):
+
+        key = str(kwargs)
+        if key in cache:
+            return cache[key]
+
+        results = func(*func_args, **kwargs)
+        cache[key] = results
+        return results
+
+        # # Code for JWT-friendly caching below.
+        # # get jwt
+        # jwt_client = func_args[1].context.args.get('jwt_client')
+        #
+        # # if not debug mode and JWT is missing, return nothing
+        # if not args.debug and jwt_client is None:
+        #     return []
+        #
+        # # form key using user type
+        # type = 'unspecified'
+        # if jwt_client is not None:
+        #     jwt_decoded_json = jwt.decode(jwt_client, args.jwt_secret_key)
+        #     type = jwt_decoded_json['type']
+        # key = str(kwargs) + ':' + type
+
+    return wrapper
+
+
 @db_session
+@cached
 def export(filters):
     # Create Excel export file
     genericExcelExport = CovidPolicyExportPlugin(db, filters)
@@ -29,6 +64,7 @@ def export(filters):
 
 
 @db_session
+@cached
 def get_metadata(fields: list):
     # for each field, parse its entity and get the metadata for it
     data = dict()
@@ -83,6 +119,7 @@ def clean_docs(id: int):
 
 
 @db_session
+@cached
 def get_doc(id: int):
 
     # define filename from db
@@ -111,6 +148,7 @@ def get_doc(id: int):
 
 
 @db_session
+@cached
 def get_policy(filters=None, return_db_instances=False):
     q = select(i for i in db.Policy)
     if filters is not None:
@@ -171,6 +209,7 @@ def get_auth_entity_loc(i):
 
 
 @db_session
+@cached
 def get_optionset(fields=list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
