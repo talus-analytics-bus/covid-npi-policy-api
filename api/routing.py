@@ -25,7 +25,7 @@ async def export(body: PolicyFilters):
 
 
 @app.get("/get/metadata", response_model=MetadataList)
-async def get_doc(fields: List[str] = Query(None)):
+async def get_metadata(fields: List[str] = Query(None)):
     return schema.get_metadata(fields)
 
 

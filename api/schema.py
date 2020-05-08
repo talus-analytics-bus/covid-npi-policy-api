@@ -119,7 +119,7 @@ def clean_docs():
 
 
 @db_session
-@cached
+# @cached
 def get_doc(id: int):
 
     # define filename from db
@@ -138,7 +138,6 @@ def get_doc(id: int):
 
     # return to start of IO stream
     io_instance.seek(0)
-    io_instance.name = 'MVM test'
 
     # return export file
     content = io_instance.read()
