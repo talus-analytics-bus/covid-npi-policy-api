@@ -262,6 +262,7 @@ def get_optionset(fields=list()):
 def ingest_covid_npi_policy():
     plugin = CovidPolicyPlugin()
     plugin.load_client().load_data().process_data(db)
+    # plugin.load_client().load_data().process_data(db)
     return []
 
 

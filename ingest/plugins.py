@@ -1,5 +1,6 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
+import os
 from os import sys
 from datetime import date
 from collections import defaultdict
@@ -10,7 +11,7 @@ from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
 
 # local modules
-from .sources import GoogleSheetSource
+from .sources import GoogleSheetSource, AirtableSource
 import pandas as pd
 
 # constants
@@ -41,14 +42,38 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        client = GoogleSheetSource(
-            name='Google',
-            config_json_relpath='config/googleKey.json'
+        client = AirtableSource(
+            name='Airtable',
+            base_key='appOtKBVJRyuH83wf',
+            api_key=os.environ.get('AIRTABLE_API_KEY')
         )
         self.client = client
         return self
 
     def load_data(self):
+        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
+        data, (2) data dictionary, and (3) glossary of terms.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+
+        self.client.connect()
+
+        self.data = self.client \
+            .worksheet(name='Policy Database') \
+            .as_dataframe()
+
+        self.data_dictionary = self.client \
+            .worksheet(name='Appendix: data dictionary') \
+            .as_dataframe()
+
+        return self
+
+    def load_data_google(self):
         """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
         data, (2) data dictionary, and (3) glossary of terms.
 
@@ -77,6 +102,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         return self
 
+    @db_session
     def process_data(self, db):
         """Perform data validation and create database entity instances
         corresponding to the data records.
@@ -92,17 +118,27 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        self.data
-
-        # drop extraneous rows
-        self.data = self.data.drop(0)
-        self.data = self.data.drop(1)
 
         # sort by policy ID
-        self.data.sort_values('id')
+        self.data.sort_values('Unique ID')
 
         # analyze for QA/QC
         valid = self.check(self.data)
+
+        self.create_metadata(db)
+
+        # set column names to database field names
+        all_keys = select((i.ingest_field, i.display_name)
+                          for i in db.Metadata)[:]
+
+        # use field names instead of column headers for data
+        columns = dict()
+        for field, display_name in all_keys:
+            columns[display_name] = field
+        self.data = self.data.rename(columns=columns)
+
+        print('self.data - new cols')
+        print(self.data)
 
         # if not valid:
         #     print('Data are invalid. Please correct issues and try again.')
@@ -110,10 +146,9 @@ class CovidPolicyPlugin(IngestPlugin):
         # else:
         #     print('QA/QC found no issues. Continuing.')
 
-        self.create_metadata(db)
         self.create_policies(db)
-        self.create_docs(db)
-        self.create_auth_entities_and_places(db)
+        # self.create_docs(db)
+        # self.create_auth_entities_and_places(db)
         return self
 
     @db_session
@@ -405,7 +440,7 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         keys = select(i.field for i in db.Metadata if i.entity ==
-                      'Policy' and i.export == True)[:]
+                      'Policy')[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -428,7 +463,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 return int(d[key])
             elif key in ('prior_policy'):
                 post_creation_attrs[d['id']]['prior_policy'] = \
-                    set(int(dd) for dd in d[key].split('; '))
+                    set(d[key])
                 return set()
             return d[key]
 
@@ -452,7 +487,11 @@ class CovidPolicyPlugin(IngestPlugin):
         for id in post_creation_attrs:
             for field in post_creation_attrs[id]:
                 for d in post_creation_attrs[id][field]:
-                    getattr(db.Policy[int(id)], field).add(db.Policy[d])
+                    original = get(
+                        i for i in db.Policy
+                        if i.source_id == d
+                    )
+                    getattr(db.Policy[int(id)], field).add(original)
 
     @db_session
     def create_metadata(self, db):
@@ -478,6 +517,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
             db.Metadata(**{
                 'field': d['Database field name'],
+                'ingest_field': d['Ingest field name'],
                 'display_name': d['Field'],
                 'colgroup': colgroup,
                 'definition': d['Definition'],
@@ -492,12 +532,23 @@ class CovidPolicyPlugin(IngestPlugin):
         other_metadata = [
             {
                 'field': 'loc',
+                'ingest_field': 'loc',
                 'display_name': 'Country / Specific location',
                 'colgroup': '',
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
                 'notes': '',
                 'entity': 'Place',
+                'export': False,
+            }, {
+                'field': 'source_id',
+                'ingest_field': 'source_id',
+                'display_name': 'Source ID',
+                'colgroup': '',
+                'definition': 'The unique ID of the record in the original dataset',
+                'possible_values': 'Any text',
+                'notes': '',
+                'entity': 'Policy',
                 'export': False,
             }
         ]
@@ -578,7 +629,7 @@ class CovidPolicyPlugin(IngestPlugin):
         valid = True
 
         # unique primary key `id`
-        dupes = data.duplicated(['id'])
+        dupes = data.duplicated(['Unique ID'])
         if dupes.any():
             print('\nDetected duplicate unique IDs:')
             print(data[dupes == True].loc[:, 'id'])

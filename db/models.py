@@ -37,6 +37,7 @@ class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
     field = Required(str)
+    ingest_field = Required(str)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
@@ -51,6 +52,7 @@ class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
     _table_ = "policy"
     id = PrimaryKey(int, auto=False)
+    source_id = Required(str, unique=True)
 
     # descriptive information
     policy_name = Optional(str)
