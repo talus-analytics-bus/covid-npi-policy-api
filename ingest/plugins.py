@@ -254,6 +254,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 return d[key]
 
         # for each row of the data
+        n = 0
         for i, d in self.data.iterrows():
 
             ## Add places ######################################################
@@ -262,9 +263,43 @@ class CovidPolicyPlugin(IngestPlugin):
             keys = place_keys
             info = place_info
             name = 'Place'
+
             instance_data = {key: formatter(key, d) for key in keys}
             entity_class = getattr(db, name)
-            place = get(
+
+            affected_diff_from_auth = d['affected.level'] != None and d['affected.level'] != ''
+            place_affected = None
+            if affected_diff_from_auth:
+                place_affected_instance_data = {
+                    key: formatter(key, d) for key in keys}
+                affected_fields = [
+                    'affected.level',
+                    'affected.area1',
+                    'affected.area2',
+                    'affected.iso3',
+                ]
+                updated_fields = {k.split('.')[1]: d[k]
+                                  for k in affected_fields}
+                place_affected_instance_data.update(updated_fields)
+
+                place_affected = get(
+                    i for i in entity_class
+                    if i.level == place_affected_instance_data['level']
+                    and i.iso3 == place_affected_instance_data['iso3']
+                    and i.area1 == place_affected_instance_data['area1']
+                    and i.area2 == place_affected_instance_data['area2']
+                )
+
+                # if entity already exists, use it
+                # otherwise, create it
+                if place_affected is None:
+                    place_affected = entity_class(
+                        **place_affected_instance_data)
+                    place_affected.loc = get_place_loc(place_affected)
+                    commit()
+                n = n + 1
+
+            place_auth = get(
                 i for i in entity_class
                 if i.level == instance_data['level']
                 and i.iso3 == instance_data['iso3']
@@ -274,28 +309,16 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # if entity already exists, use it
             # otherwise, create it
-            if place is None:
-                place = entity_class(**instance_data)
-                place.loc = get_place_loc(place)
+            if place_auth is None:
+                place_auth = entity_class(**instance_data)
+                place_auth.loc = get_place_loc(place_auth)
                 commit()
 
+            if place_affected is None:
+                place_affected = place_auth
+
             # link instance to required entities
-            for link in info['link']:
-                try:
-                    entity_class = getattr(db, link['entity_class_name'])
-                    setattr(entity_class[link['on'](d)],
-                            name.lower(), place)
-                    commit()
-                except ObjectNotFound as e:
-                    print('Error: Instance not found for linkage. Skipping.')
-                    # # TODO dynamically
-                    # if len(instance.policies) == 0:
-                    #     print('Deleting orphaned instance.')
-                    #     instance.delete()
-                    #     commit()
-                except Error as e:
-                    print('Error:')
-                    print(e)
+            db.Policy[d['id']].place = place_affected
 
             ## Add auth_entities ###############################################
             keys = auth_entity_keys
@@ -310,6 +333,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     i for i in entity_class
                     if i.name == instance_data['name']
                     and i.office == instance_data['office']
+                    and i.place == place_auth
                 )
                 instance = auth_entity
 
@@ -320,7 +344,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     commit()
 
                 # do facile entity links
-                instance.place = place
+                instance.place = place_auth
                 commit()
 
                 # link instance to required entities
@@ -332,61 +356,9 @@ class CovidPolicyPlugin(IngestPlugin):
                         commit()
                     except ObjectNotFound as e:
                         print('Error: Instance not found for linkage. Skipping.')
-                        # # TODO dynamically
-                        # if len(instance.policies) == 0:
-                        #     print('Deleting orphaned instance.')
-                        #     instance.delete()
-                        #     commit()
                     except Error as e:
                         print('Error:')
                         print(e)
-
-            #####
-
-            # # handle special "split on" keys
-            # # offices = d['offices'].split(';')
-            # for dd in offices:
-            #     instance_data = instance_data_tmp.copy()
-            #     instance_data['office'] = dd.strip()
-            #     try:
-            #         # check if auth entity with same attributes already
-            #         # exists
-            #         existing_auth_entity = get(
-            #             i for i in db.Auth_Entity
-            #             if i.level == instance_data['level']
-            #             and i.iso3 == instance_data['iso3']
-            #             and i.area1 == instance_data['area1']
-            #             and i.area2 == instance_data['area2']
-            #             and i.name == instance_data['name']
-            #         )
-            #
-            #         # create auth entity if one was not found
-            #         auth_entity = db.Auth_Entity(**instance_data) if \
-            #             existing_auth_entity is None else existing_auth_entity
-            #         commit()
-            #
-            #         # link to policy
-            #         try:
-            #             db.Policy[d['id']].auth_entity = auth_entity
-            #             commit()
-            #         except ObjectNotFound as e:
-            #             print('Error: Policy not found for linkage. Skipping.')
-            #             if len(auth_entity.policies) == 0:
-            #                 print('Deleting orphaned auth_entity.')
-            #                 auth_entity.delete()
-            #                 commit()
-            #     except CacheIndexError as e:
-            #         print('\nAuthorizing entity already exists, continuing')
-            #         print(e)
-            #
-            #         # link to policy
-            #         # TODO
-            #         continue
-            #     except ValueError as e:
-            #         print('\nError: Unexpected value in this data:')
-            #         print(instance_data)
-            #         print(e)
-            #         # sys.exit(0)
 
     @db_session
     def create_policies(self, db):
