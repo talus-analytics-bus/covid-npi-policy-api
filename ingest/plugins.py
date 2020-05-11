@@ -159,6 +159,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
         self.create_metadata(db)
 
+        return self  # DEBUG
+
         # set column names to database field names
         all_keys = select((i.ingest_field, i.display_name)
                           for i in db.Metadata)[:]
@@ -517,6 +519,7 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         colgroup = ''
+        upserted = set()
         for i, d in self.data_dictionary.iterrows():
             if d['Category'] != '':
                 colgroup = d['Category']
@@ -529,14 +532,15 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
+                'order': d['ID'],
                 'export': True,
             }
 
-            upsert(db.Metadata, {
+            instance = upsert(db.Metadata, {
                 'field': d['Database field name'],
                 'entity_name': d['Database entity'],
             }, metadatum_attributes)
-            commit()
+            upserted.add(instance)
 
         # add extra metadata not in the data dictionary
         other_metadata = [
@@ -550,6 +554,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
                 'notes': '',
+                'order': 0,
                 'export': False,
             }), ({
                 'field': 'source_id',
@@ -560,13 +565,24 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': '',
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
+                'order': 0,
                 'notes': '',
                 'export': False,
             })
         ]
         for get, d in other_metadata:
-            upsert(db.Metadata, get, d)
-            commit()
+            instance = upsert(db.Metadata, get, d)
+            upserted.add(instance)
+        print('upserted')
+        print(upserted)
+        to_delete = select(
+            i for i in db.Metadata
+            if i not in upserted
+        )
+        print('to_delete')
+        print(to_delete[:][:])
+        to_delete.delete()
+        commit()
 
     @db_session
     def create_docs(self, db):

@@ -38,6 +38,7 @@ class Metadata(db.Entity):
     _table_ = "metadata"
     field = Required(str)
     ingest_field = Required(str)
+    order = Required(int)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
