@@ -147,7 +147,7 @@ class CovidPolicyPlugin(IngestPlugin):
         #     print('QA/QC found no issues. Continuing.')
 
         self.create_policies(db)
-        # self.create_docs(db)
+        self.create_docs(db)
         # self.create_auth_entities_and_places(db)
         return self
 

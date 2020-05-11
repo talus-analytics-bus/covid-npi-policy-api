@@ -56,14 +56,11 @@ class AirtableSource(DataSource):
             for r_tmp in records_tmp:
                 r = r_tmp['fields']
                 r['source_id'] = r_tmp['id']
-                print(r_tmp['id'])
                 records.append(r)
 
             df = pd.DataFrame.from_records(records)
 
             print(f'''Found {len(df)} records in worksheet''')
-            # TODO use data field names as column names, or get them from
-            # metadata
 
             # remove NaN values
             df = df.replace(pd.np.nan, '', regex=True)
