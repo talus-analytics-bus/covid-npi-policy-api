@@ -573,15 +573,9 @@ class CovidPolicyPlugin(IngestPlugin):
         for get, d in other_metadata:
             instance = upsert(db.Metadata, get, d)
             upserted.add(instance)
-        print('upserted')
-        print(upserted)
-        to_delete = select(
-            i for i in db.Metadata
-            if i not in upserted
-        )
-        print('to_delete')
-        print(to_delete[:][:])
-        to_delete.delete()
+
+        # delete all records in table but not in ingest dataset
+        db.Metadata.delete_2(upserted)
         commit()
 
     @db_session

@@ -3,7 +3,7 @@
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select
 # from enum import Enum
 # from pony.orm.dbapiprovider import StrConverter
 
@@ -47,6 +47,27 @@ class Metadata(db.Entity):
     entity_name = Required(str)
     export = Required(bool)
     PrimaryKey(entity_name, field)
+
+    def delete_2(ingested_records):
+        """Delete any records in the db that are not in the defined list of
+        ingested records.
+
+        Parameters
+        ----------
+        ingested_records : type
+            Description of parameter `ingested_records`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        to_delete = select(
+            i for i in db.Metadata
+            if i not in ingested_records
+        )
+        to_delete.delete()
 
 
 class Policy(db.Entity):
