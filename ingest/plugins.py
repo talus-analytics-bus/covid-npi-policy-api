@@ -27,7 +27,6 @@ def get_s3_bucket_keys():
     keys = list()
     more_keys = True
     while more_keys:
-        print('More!')
         response = None
         if nextContinuationToken is not None:
             response = s3.list_objects_v2(
@@ -44,14 +43,10 @@ def get_s3_bucket_keys():
             nextContinuationToken = response['NextContinuationToken']
         else:
             nextContinuationToken = None
-        print('nextContinuationToken')
-        print(nextContinuationToken)
 
         for d in response['Contents']:
             keys.append(d['Key'])
         more_keys = nextContinuationToken is not None
-    pp.pprint(keys)
-    print(str(len(keys)) + ' keys')
     return keys
 
 
