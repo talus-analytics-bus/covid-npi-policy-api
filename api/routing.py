@@ -5,7 +5,7 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList
+from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, ListResponse
 from .app import app
 from db import db
 
@@ -34,12 +34,12 @@ async def get_doc(id: int, title: str):
     return schema.get_doc(id)
 
 
-@app.get("/get/policy")
+@app.get("/get/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def get_policy(fields: List[str] = Query(None)):
     return schema.get_policy(fields=fields)
 
 
-@app.post("/post/policy")
+@app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def get_policy(body: PolicyFilters):
     return schema.get_policy(filters=body.filters)
 

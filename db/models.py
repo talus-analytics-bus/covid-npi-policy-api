@@ -82,6 +82,31 @@ class Policy(db.Entity):
     # reverse attributes
     _prior_policy = Set('Policy')
 
+    def to_dict_2(self, **kwargs):
+        instance_dict = Policy.to_dict(self, **kwargs)
+        for k, v in instance_dict.items():
+            if k == 'place':
+                instance_dict[k] = Place[v].to_dict()
+            elif k == 'auth_entity':
+                instances = list()
+                for id in v:
+                    instances.append(Auth_Entity[id].to_dict())
+                instance_dict[k] = instances
+            elif k == 'doc':
+                instance_dict['doc'] = list()
+                for id in v:
+                    instance = Doc[id]
+                    doc_instance_dict = instance.to_dict()
+                    title = instance.name if instance.name is not None and \
+                        instance.name != '' else instance.pdf
+                    doc_instance_dict['pdf'] = None if instance.pdf is None or \
+                        doc_instance_dict['pdf'] == '' \
+                        else f'''/get/doc/{title}?id={instance.id}'''
+                    instance_dict['doc'].append(
+                        doc_instance_dict
+                    )
+        return instance_dict
+
 
 class Place(db.Entity):
     _table_ = "place"

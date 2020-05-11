@@ -163,41 +163,8 @@ def get_policy(
     else:
         instance_list = []
         for d in q:
-            d_dict = d.to_dict(only=fields)
-
-            # include Auth_Entity instances if flag is True
-            if all or 'auth_entity' in fields:
-                auth_entity_list = []
-                for dd in d.auth_entity:
-                    dd_dict = dd.to_dict()
-                    place_dict = Place(**dd.place.to_dict())
-                    dd_dict['place'] = place_dict
-                    auth_entity_list.append(Auth_Entity(**dd_dict))
-
-                d_dict['auth_entity'] = auth_entity_list
-
-            place_instance = Place(**d.place.to_dict())
-            d_dict['place'] = place_instance
-            # if 'place' in d_dict:
-            #     instance = db.Place[d_dict['place']]
-            #     d_dict['place'] = \
-            #         Place(
-            #             **instance.to_dict())
-            if d.doc is not None:
-                instances = d.doc
-                d_dict['policy_docs'] = list()
-                for instance in instances:
-                    instance_dict = instance.to_dict()
-                    title = instance.name if instance.name is not None and \
-                        instance.name != '' else instance.pdf
-                    instance_dict['pdf'] = None if instance.pdf is None or instance_dict['pdf'] == '' \
-                        else f'''/get/doc/{title}?id={instance.id}'''
-                    d_dict['policy_docs'].append(
-                        Doc(**instance_dict)
-                    )
-            instance_list.append(
-                Policy(**d_dict)
-            )
+            d_dict = d.to_dict_2(only=fields)
+            instance_list.append(d_dict)
         res = PolicyList(
             data=instance_list,
             success=True,

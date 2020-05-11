@@ -20,6 +20,10 @@ class Response(BaseModel):
     message: str
 
 
+class ListResponse(Response):
+    data: List[dict]
+
+
 class Place(BaseModel):
     id: int
 
@@ -66,7 +70,7 @@ class Policy(BaseModel):
     # relationships
     auth_entity: List[Auth_Entity] = None
     place: Place = None
-    policy_docs: List[Doc] = None
+    doc: List[Doc] = None
 
 
 class PolicyFilters(BaseModel):
