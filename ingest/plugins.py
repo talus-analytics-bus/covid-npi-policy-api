@@ -6,6 +6,7 @@ from datetime import date
 from collections import defaultdict
 
 # 3rd party modules
+import boto3
 from pony.orm import db_session, commit, get, select
 from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
@@ -15,8 +16,43 @@ from .sources import GoogleSheetSource, AirtableSource
 import pandas as pd
 
 # constants
+s3 = boto3.client('s3')
 pp = pprint.PrettyPrinter(indent=4)
 __all__ = ['CovidPolicyPlugin']
+S3_BUCKET_NAME = 'covid-npi-policy-storage'
+
+
+def get_s3_bucket_keys():
+    nextContinuationToken = None
+    keys = list()
+    more_keys = True
+    while more_keys:
+        print('More!')
+        response = None
+        if nextContinuationToken is not None:
+            response = s3.list_objects_v2(
+                Bucket=S3_BUCKET_NAME,
+                ContinuationToken=nextContinuationToken,
+            )
+        else:
+            response = s3.list_objects_v2(
+                Bucket=S3_BUCKET_NAME,
+                # ContinuationToken='string',
+            )
+
+        if 'NextContinuationToken' in response:
+            nextContinuationToken = response['NextContinuationToken']
+        else:
+            nextContinuationToken = None
+        print('nextContinuationToken')
+        print(nextContinuationToken)
+
+        for d in response['Contents']:
+            keys.append(d['Key'])
+        more_keys = nextContinuationToken is not None
+    pp.pprint(keys)
+    print(str(len(keys)) + ' keys')
+    return keys
 
 
 class IngestPlugin():
@@ -553,6 +589,9 @@ class CovidPolicyPlugin(IngestPlugin):
 
         docs_by_id = dict()
 
+        # track mising PDF filenames and source URLs
+        missing_pdfs = list()
+
         for i, d in self.data.iterrows():
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
@@ -582,6 +621,29 @@ class CovidPolicyPlugin(IngestPlugin):
             # link doc to policy
             db.Policy[d['id']].doc.add(doc)
             commit()
+
+        print('Validating PDFs...')
+        # confirm file exists in S3 bucket for doc, if not, either add it
+        # or remove the PDF text
+        # define filename from db
+        keys = get_s3_bucket_keys()
+        for doc in db.Doc.select():
+            if doc.pdf is not None:
+                file_key = doc.pdf + '.pdf'
+                if file_key in keys:
+                    print('File found')
+                else:
+                    print('Document not found (404)')
+                    doc.pdf = None
+                    commit()
+                    missing_pdfs.append(
+                        {
+                            'pdf': doc.pdf,
+                            'data_source': doc.data_source
+                        }
+                    )
+            else:
+                print("Skipping, no PDF associated")
 
     def check(self, data):
         """Perform QA/QC on the data and return a report.
