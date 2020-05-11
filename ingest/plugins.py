@@ -69,7 +69,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         self.data_dictionary = self.client \
             .worksheet(name='Appendix: data dictionary') \
-            .as_dataframe()
+            .as_dataframe(view='API ingest')
 
         return self
 
