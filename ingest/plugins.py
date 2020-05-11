@@ -148,7 +148,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         self.create_policies(db)
         self.create_docs(db)
-        # self.create_auth_entities_and_places(db)
+        self.create_auth_entities_and_places(db)
         return self
 
     @db_session
@@ -180,9 +180,11 @@ class CovidPolicyPlugin(IngestPlugin):
         ]
 
         place_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Place' and i.export == True)
+            i.ingest_field for i in db.Metadata if i.entity == 'Place' and i.export == True)[:][:]
         auth_entity_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Auth_Entity' and i.export == True)
+            i.ingest_field for i in db.Metadata if i.entity == 'Auth_Entity' and i.export == True)[:][:]
+        auth_entity_place_keys = select(
+            i.ingest_field for i in db.Metadata if i.entity == 'Auth_Entity.Place' and i.export == True)[:][:]
 
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
@@ -302,20 +304,11 @@ class CovidPolicyPlugin(IngestPlugin):
             instance_data = {key: formatter(key, d) for key in keys}
             entity_class = getattr(db, name)
 
-            affected_diff_from_auth = d['affected.level'] != None and d['affected.level'] != ''
+            affected_diff_from_auth = d['place.level'] != None and d['place.level'] != ''
             place_affected = None
             if affected_diff_from_auth:
                 place_affected_instance_data = {
-                    key: formatter(key, d) for key in keys}
-                affected_fields = [
-                    'affected.level',
-                    'affected.area1',
-                    'affected.area2',
-                    'affected.iso3',
-                ]
-                updated_fields = {k.split('.')[1]: d[k]
-                                  for k in affected_fields}
-                place_affected_instance_data.update(updated_fields)
+                    key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
                 place_affected = get(
                     i for i in entity_class
@@ -334,18 +327,22 @@ class CovidPolicyPlugin(IngestPlugin):
                     commit()
                 n = n + 1
 
+            # create Place instance for Auth_Entity based on Auth_Entity.Place
+            # data fields
+            instance_data_auth = {key.split('.')[-1]: formatter(
+                key, d) for key in auth_entity_place_keys + ['home_rule', 'dillons_rule']}
             place_auth = get(
                 i for i in entity_class
-                if i.level == instance_data['level']
-                and i.iso3 == instance_data['iso3']
-                and i.area1 == instance_data['area1']
-                and i.area2 == instance_data['area2']
+                if i.level == instance_data_auth['level']
+                and i.iso3 == instance_data_auth['iso3']
+                and i.area1 == instance_data_auth['area1']
+                and i.area2 == instance_data_auth['area2']
             )
 
             # if entity already exists, use it
             # otherwise, create it
             if place_auth is None:
-                place_auth = entity_class(**instance_data)
+                place_auth = entity_class(**instance_data_auth)
                 place_auth.loc = get_place_loc(place_auth)
                 commit()
 
@@ -362,7 +359,8 @@ class CovidPolicyPlugin(IngestPlugin):
             raw_data = d if 'check_multi' not in info \
                 else info['check_multi'](d)
             for dd in raw_data:
-                instance_data = {key: formatter(key, dd) for key in keys}
+                instance_data = {key: formatter(
+                    key, dd) for key in keys}
                 entity_class = getattr(db, name)
                 auth_entity = get(
                     i for i in entity_class
@@ -375,12 +373,16 @@ class CovidPolicyPlugin(IngestPlugin):
                 # if entity already exists, use it
                 # otherwise, create it
                 if instance is None:
-                    instance = entity_class(**instance_data)
+                    instance = entity_class(
+                        name=instance_data['name'],
+                        office=instance_data['office'],
+                        place=place_auth
+                    )
                     commit()
 
-                # do facile entity links
-                instance.place = place_auth
-                commit()
+                # # do facile entity links
+                # instance.place = place_auth
+                # commit()
 
                 # link instance to required entities
                 for link in info['link']:
