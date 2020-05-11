@@ -3,6 +3,7 @@
 import functools
 from io import BytesIO
 from datetime import datetime, date
+from collections import defaultdict
 
 # 3rd party modules
 import boto3
@@ -119,7 +120,7 @@ def clean_docs():
 
 
 @db_session
-@cached
+# @cached
 def get_doc(id: int):
 
     # define filename from db
@@ -138,7 +139,6 @@ def get_doc(id: int):
 
     # return to start of IO stream
     io_instance.seek(0)
-    io_instance.name = 'MVM test'
 
     # return export file
     content = io_instance.read()
@@ -149,7 +149,12 @@ def get_doc(id: int):
 
 @db_session
 @cached
-def get_policy(filters=None, return_db_instances=False):
+def get_policy(
+    filters=None,
+    fields=None,
+    return_db_instances=False
+):
+    all = fields is None
     q = select(i for i in db.Policy)
     if filters is not None:
         q = apply_filters(q, filters)
@@ -157,40 +162,17 @@ def get_policy(filters=None, return_db_instances=False):
     if return_db_instances:
         return q
     else:
+        only_by_entity = defaultdict(list)
+        if fields is not None:
+            only_by_entity['policy'] = fields
+        only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
+
         instance_list = []
         for d in q:
-            d_dict = d.to_dict()
-            auth_entity_list = []
 
-            for dd in d.auth_entity:
-                dd_dict = dd.to_dict()
-                place_dict = Place(**dd.place.to_dict())
-                dd_dict['place'] = place_dict
-                auth_entity_list.append(Auth_Entity(**dd_dict))
-
-            d_dict['auth_entity'] = auth_entity_list
-            place_instance = Place(**d.place.to_dict())
-            d_dict['place'] = place_instance
-            # if 'place' in d_dict:
-            #     instance = db.Place[d_dict['place']]
-            #     d_dict['place'] = \
-            #         Place(
-            #             **instance.to_dict())
-            if d.doc is not None:
-                instances = d.doc
-                d_dict['policy_docs'] = list()
-                for instance in instances:
-                    instance_dict = instance.to_dict()
-                    title = instance.name if instance.name is not None and \
-                        instance.name != '' else instance.pdf
-                    instance_dict['pdf'] = None if instance.pdf is None or instance_dict['pdf'] == '' \
-                        else f'''/get/doc/{title}?id={instance.id}'''
-                    d_dict['policy_docs'].append(
-                        Doc(**instance_dict)
-                    )
-            instance_list.append(
-                Policy(**d_dict)
-            )
+            d_dict = d.to_dict_2(
+                only_by_entity=only_by_entity)
+            instance_list.append(d_dict)
         res = PolicyList(
             data=instance_list,
             success=True,

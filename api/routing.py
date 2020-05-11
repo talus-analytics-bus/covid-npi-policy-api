@@ -5,7 +5,7 @@ from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList
+from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, ListResponse
 from .app import app
 from db import db
 
@@ -25,7 +25,7 @@ async def export(body: PolicyFilters):
 
 
 @app.get("/get/metadata", response_model=MetadataList)
-async def get_doc(fields: List[str] = Query(None)):
+async def get_metadata(fields: List[str] = Query(None)):
     return schema.get_metadata(fields)
 
 
@@ -34,14 +34,14 @@ async def get_doc(id: int, title: str):
     return schema.get_doc(id)
 
 
-@app.get("/get/policy")
-async def get_policy():
-    return schema.get_policy()
+@app.get("/get/policy", response_model=ListResponse, response_model_exclude_unset=True)
+async def get_policy(fields: List[str] = Query(None)):
+    return schema.get_policy(fields=fields)
 
 
-@app.post("/post/policy")
-async def get_policy(body: PolicyFilters):
-    return schema.get_policy(filters=body.filters)
+@app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
+async def post_policy(body: PolicyFilters, fields: List[str] = Query(None)):
+    return schema.get_policy(filters=body.filters, fields=fields)
 
 
 @app.get("/get/optionset", response_model=OptionSetList)
