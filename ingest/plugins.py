@@ -473,14 +473,18 @@ class CovidPolicyPlugin(IngestPlugin):
                 return set()
             return d[key]
 
+        # track upserted records
+        upserted = set()
+
         for i, d in self.data.iterrows():
             # upsert policies
-            upsert(
+            instance = upsert(
                 db.Policy,
                 {'id': d['id']},
                 {key: formatter(key, d) for key in keys},
                 skip=['prior_policy']
             )
+            upserted.add(instance)
 
         for i, d in self.data.iterrows():
             # upsert policies
@@ -491,16 +495,9 @@ class CovidPolicyPlugin(IngestPlugin):
                     source_id=source_id) for source_id in d['prior_policy']]},
             )
 
-        # # define post-creation attrs
-        # # TODO more dynamically
-        # for id in post_creation_attrs:
-        #     for field in post_creation_attrs[id]:
-        #         for d in post_creation_attrs[id][field]:
-        #             original = get(
-        #                 i for i in db.Policy
-        #                 if i.source_id == d
-        #             )
-        #             getattr(db.Policy[int(id)], field).add(original)
+        # delete all records in table but not in ingest dataset
+        db.Policy.delete_2(upserted)
+        commit()
 
     @db_session
     def create_metadata(self, db):

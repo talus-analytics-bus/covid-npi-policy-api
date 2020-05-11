@@ -3,7 +3,7 @@
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
 # from enum import Enum
 # from pony.orm.dbapiprovider import StrConverter
 
@@ -33,6 +33,15 @@ from .config import db
 # db.provider.converter_classes.append((Enum, EnumConverter))
 
 
+@db_session
+def custom_delete(entity_class, ingested_records):
+    to_delete = select(
+        i for i in entity_class
+        if i not in ingested_records
+    )
+    to_delete.delete()
+
+
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
@@ -49,25 +58,7 @@ class Metadata(db.Entity):
     PrimaryKey(entity_name, field)
 
     def delete_2(ingested_records):
-        """Delete any records in the db that are not in the defined list of
-        ingested records.
-
-        Parameters
-        ----------
-        ingested_records : type
-            Description of parameter `ingested_records`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        to_delete = select(
-            i for i in db.Metadata
-            if i not in ingested_records
-        )
-        to_delete.delete()
+        custom_delete(db.Metadata, ingested_records)
 
 
 class Policy(db.Entity):
@@ -105,6 +96,9 @@ class Policy(db.Entity):
 
     # reverse attributes
     _prior_policy = Set('Policy')
+
+    def delete_2(ingested_records):
+        custom_delete(db.Policy, ingested_records)
 
     def to_dict_2(self, **kwargs):
         only_by_entity = kwargs['only_by_entity'] if 'only_by_entity' \
