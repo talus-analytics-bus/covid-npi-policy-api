@@ -148,7 +148,12 @@ def get_doc(id: int):
 
 @db_session
 @cached
-def get_policy(filters=None, return_db_instances=False):
+def get_policy(
+    filters=None,
+    fields=None,
+    return_db_instances=False
+):
+    all = fields is None
     q = select(i for i in db.Policy)
     if filters is not None:
         q = apply_filters(q, filters)
@@ -158,16 +163,19 @@ def get_policy(filters=None, return_db_instances=False):
     else:
         instance_list = []
         for d in q:
-            d_dict = d.to_dict()
-            auth_entity_list = []
+            d_dict = d.to_dict(only=fields)
 
-            for dd in d.auth_entity:
-                dd_dict = dd.to_dict()
-                place_dict = Place(**dd.place.to_dict())
-                dd_dict['place'] = place_dict
-                auth_entity_list.append(Auth_Entity(**dd_dict))
+            # include Auth_Entity instances if flag is True
+            if all or 'auth_entity' in fields:
+                auth_entity_list = []
+                for dd in d.auth_entity:
+                    dd_dict = dd.to_dict()
+                    place_dict = Place(**dd.place.to_dict())
+                    dd_dict['place'] = place_dict
+                    auth_entity_list.append(Auth_Entity(**dd_dict))
 
-            d_dict['auth_entity'] = auth_entity_list
+                d_dict['auth_entity'] = auth_entity_list
+
             place_instance = Place(**d.place.to_dict())
             d_dict['place'] = place_instance
             # if 'place' in d_dict:

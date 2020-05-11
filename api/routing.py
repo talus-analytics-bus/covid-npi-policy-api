@@ -35,8 +35,8 @@ async def get_doc(id: int, title: str):
 
 
 @app.get("/get/policy")
-async def get_policy():
-    return schema.get_policy()
+async def get_policy(fields: List[str] = Query(None)):
+    return schema.get_policy(fields=fields)
 
 
 @app.post("/post/policy")
