@@ -237,7 +237,8 @@ class CovidPolicyExportPlugin(ExcelExport):
                             values = list()
                             if dd.field not in formatters:
                                 values = "; ".join(
-                                    [getattr(ddd, dd.field) for ddd in join]
+                                    [getattr(ddd, dd.field) for ddd in join
+                                        if getattr(ddd, dd.field) is not None]
                                 )
                             else:
                                 func = formatters[dd.field]
