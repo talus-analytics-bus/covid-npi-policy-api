@@ -43,9 +43,9 @@ class Metadata(db.Entity):
     definition = Optional(str)
     possible_values = Optional(str)
     notes = Optional(str)
-    entity = Required(str)
+    entity_name = Required(str)
     export = Required(bool)
-    PrimaryKey(entity, field)
+    PrimaryKey(entity_name, field)
 
 
 class Policy(db.Entity):

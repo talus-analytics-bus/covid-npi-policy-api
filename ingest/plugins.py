@@ -13,6 +13,7 @@ import pprint
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
+from .util import upsert
 import pandas as pd
 
 # constants
@@ -211,11 +212,11 @@ class CovidPolicyPlugin(IngestPlugin):
         ]
 
         place_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity == 'Place' and i.export == True)[:][:]
+            i.ingest_field for i in db.Metadata if i.entity_name == 'Place' and i.export == True)[:][:]
         auth_entity_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity == 'Auth_Entity' and i.export == True)[:][:]
+            i.ingest_field for i in db.Metadata if i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
         auth_entity_place_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity == 'Auth_Entity.Place' and i.export == True)[:][:]
+            i.ingest_field for i in db.Metadata if i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
 
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
@@ -444,7 +445,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        keys = select(i.field for i in db.Metadata if i.entity ==
+        keys = select(i.field for i in db.Metadata if i.entity_name ==
                       'Policy')[:]
 
         # maintain dict of attributes to set post-creation
@@ -500,7 +501,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def create_metadata(self, db):
-        """Create metadata instances.
+        """Create metadata instances if they do not exist. If they do exist,
+        update them.
 
         Parameters
         ----------
@@ -520,45 +522,50 @@ class CovidPolicyPlugin(IngestPlugin):
                 colgroup = d['Category']
             if d['Database entity'] == '' or d['Database field name'] == '':
                 continue
-            db.Metadata(**{
-                'field': d['Database field name'],
+            metadatum_attributes = {
                 'ingest_field': d['Ingest field name'],
                 'display_name': d['Field'],
                 'colgroup': colgroup,
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
-                'entity': d['Database entity'],
                 'export': True,
-            })
+            }
+
+            upsert(db.Metadata, {
+                'field': d['Database field name'],
+                'entity_name': d['Database entity'],
+            }, metadatum_attributes)
             commit()
 
         # add extra metadata not in the data dictionary
         other_metadata = [
-            {
+            ({
                 'field': 'loc',
+                'entity_name': 'Place',
+            }, {
                 'ingest_field': 'loc',
                 'display_name': 'Country / Specific location',
                 'colgroup': '',
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
                 'notes': '',
-                'entity': 'Place',
                 'export': False,
-            }, {
+            }), ({
                 'field': 'source_id',
+                'entity_name': 'Policy',
+            }, {
                 'ingest_field': 'source_id',
                 'display_name': 'Source ID',
                 'colgroup': '',
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'notes': '',
-                'entity': 'Policy',
                 'export': False,
-            }
+            })
         ]
-        for d in other_metadata:
-            db.Metadata(**d)
+        for get, d in other_metadata:
+            upsert(db.Metadata, get, d)
             commit()
 
     @db_session
