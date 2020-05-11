@@ -159,8 +159,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         self.create_metadata(db)
 
-        return self  # DEBUG
-
         # set column names to database field names
         all_keys = select((i.ingest_field, i.display_name)
                           for i in db.Metadata)[:]
@@ -448,7 +446,7 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         keys = select(i.field for i in db.Metadata if i.entity_name ==
-                      'Policy')[:]
+                      'Policy' and i.field != 'id')[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -476,30 +474,33 @@ class CovidPolicyPlugin(IngestPlugin):
             return d[key]
 
         for i, d in self.data.iterrows():
-            instance_data = {key: formatter(key, d) for key in keys}
-            try:
-                db.Policy(**instance_data)
-                commit()
-            except CacheIndexError as e:
-                print('\nError: Duplicate policy unique ID: ' +
-                      str(instance_data['id']))
-                # sys.exit(0)
-            except ValueError as e:
-                print('\nError: Unexpected value in this data:')
-                pp.pprint(instance_data)
-                print(e)
-                sys.exit(0)
+            # upsert policies
+            upsert(
+                db.Policy,
+                {'id': d['id']},
+                {key: formatter(key, d) for key in keys},
+                skip=['prior_policy']
+            )
 
-        # define post-creation attrs
-        # TODO more dynamically
-        for id in post_creation_attrs:
-            for field in post_creation_attrs[id]:
-                for d in post_creation_attrs[id][field]:
-                    original = get(
-                        i for i in db.Policy
-                        if i.source_id == d
-                    )
-                    getattr(db.Policy[int(id)], field).add(original)
+        for i, d in self.data.iterrows():
+            # upsert policies
+            upsert(
+                db.Policy,
+                {'id': d['id']},
+                {'prior_policy': [db.Policy.get(
+                    source_id=source_id) for source_id in d['prior_policy']]},
+            )
+
+        # # define post-creation attrs
+        # # TODO more dynamically
+        # for id in post_creation_attrs:
+        #     for field in post_creation_attrs[id]:
+        #         for d in post_creation_attrs[id][field]:
+        #             original = get(
+        #                 i for i in db.Policy
+        #                 if i.source_id == d
+        #             )
+        #             getattr(db.Policy[int(id)], field).add(original)
 
     @db_session
     def create_metadata(self, db):

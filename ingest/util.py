@@ -9,7 +9,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 @db_session
-def upsert(cls, get, set=None):
+def upsert(cls, get, set=None, skip=[]):
     """
     Interacting with Pony entities.
     https://github.com/ponyorm/pony/issues/131#issuecomment-343869846
@@ -29,15 +29,22 @@ def upsert(cls, get, set=None):
 
     if not cls.exists(**get):
         # make new object
-        print("Created")
+        print("\nCreated")
         return cls(**set, **get)
     else:
         # get the existing object
-        print('Existed')
         obj = cls.get(**get)
         for key, value in set.items():
-            if getattr(obj, key) != value:
-                print('Updated: ' + str(key) + ' = ' + str(value))
+            if key in skip:
+                continue
+            true_update = str(value).strip() != str(getattr(obj, key)).strip() \
+                and value != getattr(obj, key)
+            if true_update:
+                print('Updated: value was ' + str(key) +
+                      ' = ' + str(getattr(obj, key)))
+                print(len(getattr(obj, key)))
+                print('--changed to ' + str(key) + ' = ' + str(value))
+                print(len(value))
             obj.__setattr__(key, value)
         commit()
         return obj
