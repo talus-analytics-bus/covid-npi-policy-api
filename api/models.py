@@ -28,10 +28,10 @@ class Place(BaseModel):
     id: int
 
     # descriptive information
-    level: str
-    iso3: str
-    area1: str
-    area2: str
+    level: str = None
+    iso3: str = None
+    area1: str = None
+    area2: str = None
     loc: str = None
 
 

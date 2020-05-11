@@ -40,8 +40,8 @@ async def get_policy(fields: List[str] = Query(None)):
 
 
 @app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
-async def get_policy(body: PolicyFilters):
-    return schema.get_policy(filters=body.filters)
+async def post_policy(body: PolicyFilters, fields: List[str] = Query(None)):
+    return schema.get_policy(filters=body.filters, fields=fields)
 
 
 @app.get("/get/optionset", response_model=OptionSetList)

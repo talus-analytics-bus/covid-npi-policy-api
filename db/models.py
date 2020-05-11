@@ -83,10 +83,18 @@ class Policy(db.Entity):
     _prior_policy = Set('Policy')
 
     def to_dict_2(self, **kwargs):
-        instance_dict = Policy.to_dict(self, **kwargs)
+        only_by_entity = kwargs['only_by_entity'] if 'only_by_entity' \
+            in kwargs else dict()
+        if 'only' in kwargs:
+            only_by_entity['policy'] = kwargs['only']
+            del kwargs['only']
+        del kwargs['only_by_entity']
+        instance_dict = Policy.to_dict(
+            self, only=only_by_entity['policy'], **kwargs)
         for k, v in instance_dict.items():
             if k == 'place':
-                instance_dict[k] = Place[v].to_dict()
+                instance_dict[k] = Place[v].to_dict(
+                    only=only_by_entity['place'])
             elif k == 'auth_entity':
                 instances = list()
                 for id in v:

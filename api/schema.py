@@ -3,6 +3,7 @@
 import functools
 from io import BytesIO
 from datetime import datetime, date
+from collections import defaultdict
 
 # 3rd party modules
 import boto3
@@ -161,9 +162,16 @@ def get_policy(
     if return_db_instances:
         return q
     else:
+        only_by_entity = defaultdict(list)
+        if fields is not None:
+            only_by_entity['policy'] = fields
+        only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
+
         instance_list = []
         for d in q:
-            d_dict = d.to_dict_2(only=fields)
+
+            d_dict = d.to_dict_2(
+                only_by_entity=only_by_entity)
             instance_list.append(d_dict)
         res = PolicyList(
             data=instance_list,
