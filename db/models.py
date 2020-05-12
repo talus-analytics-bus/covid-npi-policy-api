@@ -89,10 +89,10 @@ class Policy(db.Entity):
     date_end_actual = Optional(date)
 
     # relationships
-    doc = Set('Doc')
-    auth_entity = Set('Auth_Entity')
+    file = Set('File', table="file_to_policy")
+    auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Optional('Place')
-    prior_policy = Set('Policy')
+    prior_policy = Set('Policy', table="policy_to_prior_policy")
 
     # reverse attributes
     _prior_policy = Set('Policy')
@@ -118,18 +118,18 @@ class Policy(db.Entity):
                 for id in v:
                     instances.append(Auth_Entity[id].to_dict())
                 instance_dict[k] = instances
-            elif k == 'doc':
-                instance_dict['doc'] = list()
+            elif k == 'file':
+                instance_dict['file'] = list()
                 for id in v:
-                    instance = Doc[id]
+                    instance = File[id]
                     doc_instance_dict = instance.to_dict()
                     title = instance.name if instance.name is not None and \
                         instance.name != '' else instance.pdf
 
                     doc_instance_dict['pdf'] = None if instance.pdf is None or \
                         doc_instance_dict['pdf'] == '' \
-                        else f'''/get/doc/{title}?id={instance.id}'''
-                    instance_dict['doc'].append(
+                        else f'''/get/file/{title}?id={instance.id}'''
+                    instance_dict['file'].append(
                         doc_instance_dict
                     )
         return instance_dict
@@ -163,9 +163,9 @@ class Auth_Entity(db.Entity):
     place = Optional('Place')
 
 
-class Doc(db.Entity):
+class File(db.Entity):
     """Supporting documentation."""
-    _table_ = "doc"
+    _table_ = "file"
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
     type = Required(str)

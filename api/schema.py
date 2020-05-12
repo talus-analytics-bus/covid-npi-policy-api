@@ -90,18 +90,18 @@ def get_metadata(fields: list):
 
 @db_session
 def clean_docs():
-    # update database to remove docs with broken links
-    docs = db.Doc.select()
-    n = len(docs)
+    # update database to remove files with broken links
+    files = db.File.select()
+    n = len(files)
     i = 0
-    for doc in docs:
+    for file in files:
         i = i + 1
         print(str(i) + ' of ' + str(n))
-        if doc.pdf is None:
+        if file.pdf is None:
             print('No file, skipping')
             continue
         # define filename from db
-        file_key = doc.pdf + '.pdf'
+        file_key = file.pdf + '.pdf'
         s3_bucket = 'covid-npi-policy-storage'
 
         # retrieve file and write it to IO file object
@@ -112,7 +112,7 @@ def clean_docs():
         except Exception as e:
             print('e')
             print(e)
-            doc.pdf = None
+            file.pdf = None
             commit()
             print('Document not found (404)')
 
@@ -124,8 +124,8 @@ def clean_docs():
 def get_doc(id: int):
 
     # define filename from db
-    doc = db.Doc[id]
-    file_key = doc.pdf
+    file = db.File[id]
+    file_key = file.pdf
     s3_bucket = 'covid-npi-policy-storage'
 
     # retrieve file and write it to IO file object

@@ -155,35 +155,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         return self
 
-    def load_data_google(self):
-        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
-        data, (2) data dictionary, and (3) glossary of terms.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        key = '135XlMpxubqpq6UFOOIMVrNqSU0tuA0ZZtaXFEIICZX4'
-
-        self.client.connect() \
-            .workbook(key=key)
-
-        self.data = self.client \
-            .worksheet(name='data') \
-            .as_dataframe(header_row=1)
-
-        self.data_dictionary = self.client \
-            .worksheet(name='appendix: data dictionary') \
-            .as_dataframe()
-
-        self.glossary = self.client \
-            .worksheet(name='appendix: glossary') \
-            .as_dataframe()
-
-        return self
-
     @db_session
     def process_data(self, db):
         """Perform data validation and create database entity instances
@@ -229,8 +200,8 @@ class CovidPolicyPlugin(IngestPlugin):
         self.create_policies(db)
 
         # create and validate File instances (syncs the file objects to S3)
-        self.create_docs_2(db)
-        self.create_docs(db)
+        self.create_files_from_attachments(db)
+        self.create_files_from_urls(db)
         self.validate_docs(db)
 
         # create Auth_Entity and Place instances
@@ -360,7 +331,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 d['place.level'] != ''
 
             # get or create the place affected
-            # TODO using upsert in case data fields change
             place_affected = None
             if affected_diff_from_auth:
                 place_affected_instance_data = {
@@ -377,25 +347,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         for k in place_affected_set_keys},
                 )
 
-                # place_affected = get(
-                #     i for i in db.Place
-                #     if i.level == place_affected_instance_data['level']
-                #     and i.iso3 == place_affected_instance_data['iso3']
-                #     and i.area1 == place_affected_instance_data['area1']
-                #     and i.area2 == place_affected_instance_data['area2']
-                # )
-
-                # # if entity already exists, use it
-                # # otherwise, create it
-                # if place_affected is None:
-                #     place_affected = db.Place(
-                #         **place_affected_instance_data)
-                #     place_affected.loc = get_place_loc(place_affected)
-                #     n = n + 1
-                #     commit()
-
             # get or create the place of the auth entity
-            # TODO using upsert in case data fields change
             auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
                 key, d) for key in auth_entity_place_keys +
                 ['home_rule', 'dillons_rule']}
@@ -410,21 +362,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 {k: auth_entity_place_instance_data[k]
                     for k in set_keys},
             )
-
-            # place_auth = get(
-            #     i for i in db.Place
-            #     if i.level == auth_entity_place_instance_data['level']
-            #     and i.iso3 == auth_entity_place_instance_data['iso3']
-            #     and i.area1 == auth_entity_place_instance_data['area1']
-            #     and i.area2 == auth_entity_place_instance_data['area2']
-            # )
-
-            # # if place already exists, use it
-            # # otherwise, create it
-            # if place_auth is None:
-            #     place_auth = db.Place(**auth_entity_place_instance_data)
-            #     place_auth.loc = get_place_loc(place_auth)
-            #     commit()
 
             # if the affected place is undefined, set it equal to the
             # auth entity's place
@@ -459,26 +396,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
                 # link instance to required entities
                 db.Policy[d['id']].auth_entity.add(auth_entity)
-
-                # auth_entity = get(
-                #     i for i in db.Auth_Entity
-                #     if i.name == auth_entity_instance_data['name']
-                #     and i.office == auth_entity_instance_data['office']
-                #     and i.place == place_auth
-                # )
-                #
-                # # if entity already exists, use it
-                # # otherwise, create it
-                # if auth_entity is None:
-                #     auth_entity = db.Auth_Entity(
-                #         name=auth_entity_instance_data['name'],
-                #         office=auth_entity_instance_data['office'],
-                #         place=place_auth
-                #     )
-                #     commit()
-
-                # # link instance to required entities
-                # db.Policy[d['id']].auth_entity.add(auth_entity)
 
         ## Delete unused instances #############################################
         # delete auth_entities that are not used
@@ -649,7 +566,7 @@ class CovidPolicyPlugin(IngestPlugin):
         commit()
 
     @db_session
-    def create_docs(self, db):
+    def create_files_from_urls(self, db):
         """Create docs instances based on policies.
 
         Parameters
@@ -691,12 +608,12 @@ class CovidPolicyPlugin(IngestPlugin):
 
             instance_data['pdf'] = instance_data['pdf'].replace('.', '')
             instance_data['pdf'] += '.pdf'
-            doc = upsert(db.Doc, instance_data)
+            file = upsert(db.File, instance_data)
 
-            upserted.add(doc)
+            upserted.add(file)
 
-            # link doc to policy
-            db.Policy[d['id']].doc.add(doc)
+            # link file to policy
+            db.Policy[d['id']].file.add(file)
             commit()
 
         # display any records that were missing a PDF
@@ -707,7 +624,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
     # Airtable attachment parsing for documents
     @db_session
-    def create_docs_2(self, db):
+    def create_files_from_attachments(self, db):
         """Create docs instances based Airtable attachments.
 
         Parameters
@@ -746,7 +663,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         # create file key
                         file_key = dd['id'] + ' - ' + dd['filename']
 
-                        # check if doc exists already
+                        # check if file exists already
                         # define get data
                         get_data = {
                             'pdf': file_key
@@ -761,39 +678,39 @@ class CovidPolicyPlugin(IngestPlugin):
                         }
 
                         # perform upsert and link to relevant policy/plan
-                        doc = upsert(db.Doc, get_data, set_data)
-                        upserted.add(doc)
-                        db.Policy[d['id']].doc.add(doc)
+                        file = upsert(db.File, get_data, set_data)
+                        upserted.add(file)
+                        db.Policy[d['id']].file.add(file)
 
     @db_session
     def validate_docs(self, db):
         print('Validating document files...')
-        # confirm file exists in S3 bucket for doc, if not, either add it
+        # confirm file exists in S3 bucket for file, if not, either add it
         # or remove the PDF text
         # define filename from db
         keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
         could_not_download = set()
-        for doc in db.Doc.select():
-            if doc.pdf is not None:
-                file_key = doc.pdf
+        for file in db.File.select():
+            if file.pdf is not None:
+                file_key = file.pdf
                 if file_key in keys:
                     # print('\nFile found')
                     pass
-                elif doc.data_source is None or doc.data_source.strip() == '':
+                elif file.data_source is None or file.data_source.strip() == '':
                     # print('\nDocument not found (404), no URL')
-                    doc.pdf = None
+                    file.pdf = None
                     commit()
                     missing_pdfs.append(
                         {
-                            'pdf': doc.pdf,
-                            'data_source': doc.data_source,
-                            'permalink': doc.permalink,
+                            'pdf': file.pdf,
+                            'data_source': file.data_source,
+                            'permalink': file.permalink,
                         }
                     )
                 else:
                     print('\nFetching and adding PDF to S3: ' + file_key)
-                    file_url = doc.permalink if doc.permalink is not None \
-                        else doc.data_source
+                    file_url = file.permalink if file.permalink is not None \
+                        else file.data_source
                     file = download_pdf(
                         file_url, file_key, None, as_object=True)
                     if file is not None:
@@ -843,3 +760,34 @@ class CovidPolicyPlugin(IngestPlugin):
         # TODO
 
         return valid
+
+    # Deprecated / Unused methods ##############################################
+
+    def load_data_google(self):
+        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
+        data, (2) data dictionary, and (3) glossary of terms.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        key = '135XlMpxubqpq6UFOOIMVrNqSU0tuA0ZZtaXFEIICZX4'
+
+        self.client.connect() \
+            .workbook(key=key)
+
+        self.data = self.client \
+            .worksheet(name='data') \
+            .as_dataframe(header_row=1)
+
+        self.data_dictionary = self.client \
+            .worksheet(name='appendix: data dictionary') \
+            .as_dataframe()
+
+        self.glossary = self.client \
+            .worksheet(name='appendix: glossary') \
+            .as_dataframe()
+
+        return self
