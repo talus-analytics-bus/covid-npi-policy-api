@@ -232,6 +232,7 @@ class SheetSettings():
         ]
         for irow, text, cell_format in rows:
             worksheet.write(irow, 0, text, cell_format)
+        worksheet.set_row(init_irow + 2, 150)
 
     def write_header(self, worksheet, logo_fn, logo_offset, title, intro_text):
         """Write the sheet header, including title, subtitle, logo, etc.
