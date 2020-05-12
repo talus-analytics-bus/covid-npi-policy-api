@@ -69,7 +69,7 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
                 and value != getattr(obj, key)
             if true_update:
                 action = 'update'
-                # print('Updated: value was ' + str(key) +
+                # print('\nUpdated: value was ' + str(key) +
                 #       ' = ' + str(getattr(obj, key)))
                 # print('--changed to ' + str(key) + ' = ' + str(value))
             obj.__setattr__(key, value)
@@ -77,7 +77,7 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
         return (action, obj)
 
 
-def download_pdf(
+def download_file(
     download_url: str, fn: str, write_path: str, as_object: bool = True
 ):
     """Download the PDF at the specified URL and either save it to disk or

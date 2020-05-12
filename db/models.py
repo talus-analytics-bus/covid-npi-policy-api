@@ -125,10 +125,10 @@ class Policy(db.Entity):
                     instance = File[id]
                     doc_instance_dict = instance.to_dict()
                     title = instance.name if instance.name is not None and \
-                        instance.name != '' else instance.pdf
+                        instance.name != '' else instance.filename
 
-                    doc_instance_dict['pdf'] = None if instance.pdf is None or \
-                        doc_instance_dict['pdf'] == '' \
+                    doc_instance_dict['filename'] = None if instance.filename is None or \
+                        doc_instance_dict['filename'] == '' \
                         else f'''/get/file/{title}?id={instance.id}'''
                     instance_dict['file'].append(
                         doc_instance_dict
@@ -172,7 +172,7 @@ class File(db.Entity):
     type = Required(str)
     data_source = Optional(str)
     permalink = Optional(str, nullable=True)
-    pdf = Optional(str, nullable=True)
+    filename = Optional(str, nullable=True)
 
     # relationships
     policies = Set('Policy')

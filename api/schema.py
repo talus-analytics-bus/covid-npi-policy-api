@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 # local modules
 from ingest import CovidPolicyPlugin
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place, Doc
+from .models import Policy, PolicyList, Auth_Entity, Place, File
 from db import db
 
 
@@ -89,43 +89,12 @@ def get_metadata(fields: list):
 
 
 @db_session
-def clean_docs():
-    # update database to remove files with broken links
-    files = db.File.select()
-    n = len(files)
-    i = 0
-    for file in files:
-        i = i + 1
-        print(str(i) + ' of ' + str(n))
-        if file.pdf is None:
-            print('No file, skipping')
-            continue
-        # define filename from db
-        file_key = file.pdf + '.pdf'
-        s3_bucket = 'covid-npi-policy-storage'
-
-        # retrieve file and write it to IO file object
-        # io_instance = BytesIO()
-        try:
-            s3.head_object(Bucket=s3_bucket, Key=file_key)
-            print('File found')
-        except Exception as e:
-            print('e')
-            print(e)
-            file.pdf = None
-            commit()
-            print('Document not found (404)')
-
-    return 'Done'
-
-
-@db_session
-# @cached
-def get_doc(id: int):
+@cached
+def get_file(id: int):
 
     # define filename from db
     file = db.File[id]
-    file_key = file.pdf
+    file_key = file.filename
     s3_bucket = 'covid-npi-policy-storage'
 
     # retrieve file and write it to IO file object

@@ -13,7 +13,7 @@ import pprint
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
-from .util import upsert, download_pdf, bcolors
+from .util import upsert, download_file, bcolors
 import pandas as pd
 
 # constants
@@ -640,7 +640,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         policy_doc_keys = [
             'policy_name',
-            'policy_pdf',
+            'policy_filename',
             'policy_data_source',
         ]
 
@@ -658,15 +658,16 @@ class CovidPolicyPlugin(IngestPlugin):
         for i, d in self.data.iterrows():
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
-            if instance_data['pdf'] is None or \
-                    instance_data['pdf'].strip() == '':
+            if instance_data['filename'] is None or \
+                    instance_data['filename'].strip() == '':
                 missing_filenames.add(d['id'])
                 continue
             instance_data['type'] = 'policy'
             id = " - ".join(instance_data.values())
 
-            instance_data['pdf'] = instance_data['pdf'].replace('.', '')
-            instance_data['pdf'] += '.pdf'
+            instance_data['filename'] = instance_data['filename'].replace(
+                '.', '')
+            instance_data['filename'] += '.pdf'
             action, file = upsert(db.File, instance_data)
             if action == 'update':
                 n_updated += 1
@@ -739,7 +740,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         # check if file exists already
                         # define get data
                         get_data = {
-                            'pdf': file_key
+                            'filename': file_key
                         }
 
                         # define set data
@@ -782,15 +783,15 @@ class CovidPolicyPlugin(IngestPlugin):
         could_not_download = set()
         missing_filenames = set()
         for file in files:
-            if file.pdf is not None:
-                file_key = file.pdf
+            if file.filename is not None:
+                file_key = file.filename
                 if file_key in keys:
                     # print('\nFile found')
                     n_valid += 1
                     pass
                 elif file.data_source is None or file.data_source.strip() == '':
                     # print('\nDocument not found (404), no URL')
-                    file.pdf = None
+                    file.filename = None
                     commit()
                     missing_filenames.add(file.name)
                     n_missing += 1
@@ -798,7 +799,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     # print('\nFetching and adding PDF to S3: ' + file_key)
                     file_url = file.permalink if file.permalink is not None \
                         else file.data_source
-                    file = download_pdf(
+                    file = download_file(
                         file_url, file_key, None, as_object=True)
                     if file is not None:
                         response = s3.put_object(
@@ -808,12 +809,12 @@ class CovidPolicyPlugin(IngestPlugin):
                         )
                         n_added += 1
                     else:
-                        print('Could not download PDF at URL ' +
+                        print('Could not download file at URL ' +
                               str(file_url))
                         could_not_download.add(file_url)
                         n_failed += 1
             else:
-                print("Skipping, no PDF associated")
+                print("Skipping, no file associated")
         print('Valid: ' + str(n_valid))
         print('Added to S3: ' + str(n_added))
         print('Missing (no URL or filename): ' + str(n_missing))

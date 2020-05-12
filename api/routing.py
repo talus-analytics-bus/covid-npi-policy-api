@@ -29,9 +29,9 @@ async def get_metadata(fields: List[str] = Query(None)):
     return schema.get_metadata(fields)
 
 
-@app.get("/get/doc/{title}")
-async def get_doc(id: int, title: str):
-    return schema.get_doc(id)
+@app.get("/get/file/{title}")
+async def get_file(id: int, title: str):
+    return schema.get_file(id)
 
 
 @app.get("/get/policy", response_model=ListResponse, response_model_exclude_unset=True)
