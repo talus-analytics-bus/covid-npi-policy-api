@@ -173,6 +173,7 @@ class File(db.Entity):
     data_source = Optional(str)
     permalink = Optional(str, nullable=True)
     filename = Optional(str, nullable=True)
+    airtable_attachment = Required(bool, default=False)
 
     # relationships
     policies = Set('Policy')

@@ -72,6 +72,8 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
                 # print('\nUpdated: value was ' + str(key) +
                 #       ' = ' + str(getattr(obj, key)))
                 # print('--changed to ' + str(key) + ' = ' + str(value))
+                # print(cls)
+                # print(get['field'])
             obj.__setattr__(key, value)
         commit()
         return (action, obj)

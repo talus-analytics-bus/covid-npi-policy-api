@@ -440,13 +440,15 @@ class CovidPolicyPlugin(IngestPlugin):
             commit()
 
         print('\n\n[7] Ingesting places...')
-        print('Inserted: ' + str(n_inserted))
-        print('Updated: ' + str(n_updated))
+        print('Total in database: ' + str(len(db.Place.select())))
+        # print('Inserted: ' + str(n_inserted))
+        # print('Updated: ' + str(n_updated))
         print('Deleted: ' + str(n_deleted))
 
         print('\n\n[8] Ingesting authorizing entities...')
-        print('Inserted: ' + str(n_inserted_auth_entity))
-        print('Updated: ' + str(n_updated_auth_entity))
+        print('Total in database: ' + str(len(db.Auth_Entity.select())))
+        # print('Inserted: ' + str(n_inserted_auth_entity))
+        # print('Updated: ' + str(n_updated_auth_entity))
         print('Deleted: ' + str(n_deleted_auth_entity))
 
     @db_session
@@ -565,7 +567,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
                 'order': d['ID'],
-                'export': d['Export?'],
+                'export': d['Export?'] == True,
             }
 
             action, instance = upsert(db.Metadata, {
@@ -679,9 +681,19 @@ class CovidPolicyPlugin(IngestPlugin):
             db.Policy[d['id']].file.add(file)
             commit()
 
+        # delete any files that were not upserted from the database
+        to_delete = select(
+            i for i in db.File
+            if i not in upserted
+            and not i.airtable_attachment
+        )
+        n_deleted = len(to_delete)
+        to_delete.delete()
+        commit()
+
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
-        print('Deleted: ' + str('n/a'))
+        print('Deleted (still in S3): ' + str(n_deleted))
 
         # display any records that were missing a PDF
         if len(missing_filenames) > 0:
@@ -728,6 +740,7 @@ class CovidPolicyPlugin(IngestPlugin):
         upserted = set()
         n_inserted = 0
         n_updated = 0
+        n_deleted = 0
 
         # for each record in the raw data, potentially create file(s)
         for i, d in self.data.iterrows():
@@ -749,6 +762,7 @@ class CovidPolicyPlugin(IngestPlugin):
                             'type': key,
                             'data_source': d[policy_doc_keys[key]['data_source']],
                             'permalink': dd['url'],
+                            'airtable_attachment': True,
                         }
 
                         # perform upsert and link to relevant policy/plan
@@ -762,9 +776,19 @@ class CovidPolicyPlugin(IngestPlugin):
                         # link file to policy
                         db.Policy[d['id']].file.add(file)
 
+        # delete any files that were not upserted from the database
+        to_delete = select(
+            i for i in db.File
+            if i not in upserted
+            and i.airtable_attachment
+        )
+        n_deleted = len(to_delete)
+        to_delete.delete()
+        commit()
+
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
-        print('Deleted: ' + str('n/a'))
+        print('Deleted (still in S3): ' + str(n_deleted))
 
     @db_session
     def validate_docs(self, db):
@@ -815,6 +839,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         n_failed += 1
             else:
                 print("Skipping, no file associated")
+
         print('Valid: ' + str(n_valid))
         print('Added to S3: ' + str(n_added))
         print('Missing (no URL or filename): ' + str(n_missing))
