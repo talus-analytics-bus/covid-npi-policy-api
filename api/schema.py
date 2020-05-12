@@ -125,7 +125,7 @@ def get_doc(id: int):
 
     # define filename from db
     doc = db.Doc[id]
-    file_key = doc.pdf + '.pdf'
+    file_key = doc.pdf
     s3_bucket = 'covid-npi-policy-storage'
 
     # retrieve file and write it to IO file object

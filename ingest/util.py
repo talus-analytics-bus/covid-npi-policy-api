@@ -1,4 +1,8 @@
 """Ingest utility methods"""
+# standard packages
+import urllib3
+import certifi
+
 # 3rd party modules
 from pony.orm import db_session, commit, get, select
 from pony.orm.core import EntityMeta
@@ -42,9 +46,28 @@ def upsert(cls, get, set=None, skip=[]):
             if true_update:
                 print('Updated: value was ' + str(key) +
                       ' = ' + str(getattr(obj, key)))
-                print(len(getattr(obj, key)))
                 print('--changed to ' + str(key) + ' = ' + str(value))
-                print(len(value))
             obj.__setattr__(key, value)
         commit()
         return obj
+
+
+def download_pdf(download_url, fn, write_path, as_object=True):
+    http = urllib3.PoolManager(
+        cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
+    user_agent = 'Mozilla/5.0'
+    try:
+        response = http.request('GET', download_url, headers={
+                                'User-Agent': user_agent})
+        if response is not None and response.data is not None:
+            if as_object:
+                return response.data
+            else:
+                with open(write_path + fn, 'wb') as out:
+                    out.write(response.data)
+                return True
+    except Exception as e:
+        return None
+    else:
+        print('Error when downloading PDF (404)')
+        return False

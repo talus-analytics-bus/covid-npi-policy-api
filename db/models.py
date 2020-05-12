@@ -169,6 +169,7 @@ class Doc(db.Entity):
     name = Optional(str)
     type = Required(str)
     data_source = Optional(str)
+    permalink = Optional(str, nullable=True)
     pdf = Optional(str, nullable=True)
 
     # relationships

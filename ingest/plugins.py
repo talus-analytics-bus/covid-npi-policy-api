@@ -13,7 +13,7 @@ import pprint
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
-from .util import upsert
+from .util import upsert, download_pdf
 import pandas as pd
 
 # constants
@@ -169,9 +169,6 @@ class CovidPolicyPlugin(IngestPlugin):
             columns[display_name] = field
         self.data = self.data.rename(columns=columns)
 
-        print('self.data - new cols')
-        print(self.data)
-
         # if not valid:
         #     print('Data are invalid. Please correct issues and try again.')
         #     sys.exit(0)
@@ -179,7 +176,9 @@ class CovidPolicyPlugin(IngestPlugin):
         #     print('QA/QC found no issues. Continuing.')
 
         self.create_policies(db)
+        self.create_docs_2(db)
         self.create_docs(db)
+        self.validate_docs(db)
         self.create_auth_entities_and_places(db)
         return self
 
@@ -356,8 +355,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     place_affected = entity_class(
                         **place_affected_instance_data)
                     place_affected.loc = get_place_loc(place_affected)
+                    n = n + 1
                     commit()
-                n = n + 1
 
             # create Place instance for Auth_Entity based on Auth_Entity.Place
             # data fields
@@ -375,6 +374,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # otherwise, create it
             if place_auth is None:
                 place_auth = entity_class(**instance_data_auth)
+                n = n + 1
                 place_auth.loc = get_place_loc(place_auth)
                 commit()
 
@@ -428,6 +428,24 @@ class CovidPolicyPlugin(IngestPlugin):
                     except Error as e:
                         print('Error:')
                         print(e)
+        print('Number of places created = ' + str(n))
+
+        # delete auth_entities that are not used
+        auth_entities_to_delete = select(
+            i for i in db.Auth_Entity
+            if len(i.policies) == 0)
+        print('Deleting these auth entities:')
+        print(auth_entities_to_delete[:][:])
+        auth_entities_to_delete.delete()
+        commit()
+
+        # delete places that are not used
+        places_to_delete = select(
+            i for i in db.Place
+            if len(i.policies) == 0 and len(i.auth_entities) == 0)
+        print('Deleting these places:')
+        print(places_to_delete[:][:])
+        places_to_delete.delete()
 
     @db_session
     def create_policies(self, db):
@@ -478,6 +496,9 @@ class CovidPolicyPlugin(IngestPlugin):
 
         for i, d in self.data.iterrows():
             # upsert policies
+            pp.pprint(d)
+            print('keys')
+            print(keys)
             instance = upsert(
                 db.Policy,
                 {'id': d['id']},
@@ -531,7 +552,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
                 'order': d['ID'],
-                'export': True,
+                'export': d['Export?'],
             }
 
             instance = upsert(db.Metadata, {
@@ -600,60 +621,148 @@ class CovidPolicyPlugin(IngestPlugin):
         docs_by_id = dict()
 
         # track mising PDF filenames and source URLs
-        missing_pdfs = list()
+        missing_pdfs = set()
+        could_not_download = set()
+
+        # track upserted PDFs -- if there are any filenames in it that are not
+        # in the S3 bucket, upload those files to S3
+        upserted = set()
 
         for i, d in self.data.iterrows():
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
+            if instance_data['pdf'] is None or \
+                    instance_data['pdf'].strip() == '':
+                missing_pdfs.add(d['id'])
+                continue
             instance_data['type'] = 'policy'
             id = " - ".join(instance_data.values())
 
-            doc = None
-            if id in docs_by_id:
-                doc = docs_by_id[id]
-            else:
-                try:
-                    doc = db.Doc(**instance_data)
-                    docs_by_id[id] = doc
-                    commit()
-                except CacheIndexError as e:
-                    print('e')
-                    print(e)
-                    # print('\nError: Duplicate doc unique ID: ' +
-                    #       str(instance_data['id']))
-                    # sys.exit(0)
-                except ValueError as e:
-                    print('\nError: Unexpected value in this data:')
-                    print(instance_data)
-                    print(e)
-                    sys.exit(0)
+            instance_data['pdf'] += '.pdf'
+            doc = upsert(db.Doc, instance_data)
+
+            upserted.add(doc)
 
             # link doc to policy
             db.Policy[d['id']].doc.add(doc)
             commit()
 
-        print('Validating PDFs...')
+        # display any records that were missing a PDF
+        if len(missing_pdfs) > 0:
+            print(
+                f'''Missing PDFs for {len(missing_pdfs)} policies with these unique IDs:''')
+            pp.pprint(missing_pdfs)
+
+    # Airtable attachment parsing for documents
+    @db_session
+    def create_docs_2(self, db):
+        """Create docs instances based Airtable attachments.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        policy_doc_keys = \
+            {
+                'test_files': {
+                    'data_source': 'policy_data_source',
+                    'name': 'policy_name',
+                }
+            }
+
+        docs_by_id = dict()
+
+        # track missing PDF filenames and source URLs
+        missing_pdfs = list()
+
+        # track upserted PDFs -- if there are any filenames in it that are not
+        # in the S3 bucket, upload those files to S3
+        upserted = set()
+
+        for i, d in self.data.iterrows():
+            for key in policy_doc_keys:
+                if d[key] is not None and len(d[key]) > 0:
+                    print('\nd[key]')
+                    print(d[key])
+                    print(type(d[key][0]))
+
+                    for dd in d[key]:
+                        # create file key
+                        file_key = dd['id'] + ' - ' + dd['filename']
+
+                        # check if doc exists already
+                        # define get data
+                        get_data = {
+                            'pdf': file_key
+                        }
+
+                        # define set data
+                        set_data = {
+                            'name': d[policy_doc_keys[key]['name']],
+                            'type': key,
+                            'data_source': d[policy_doc_keys[key]['data_source']],
+                            'permalink': dd['url'],
+                        }
+
+                        # perform upsert and link to relevant policy/plan
+                        doc = upsert(db.Doc, get_data, set_data)
+                        upserted.add(doc)
+                        db.Policy[d['id']].doc.add(doc)
+
+    @db_session
+    def validate_docs(self, db):
+        print('Validating document files...')
         # confirm file exists in S3 bucket for doc, if not, either add it
         # or remove the PDF text
         # define filename from db
         keys = get_s3_bucket_keys()
+        could_not_download = set()
         for doc in db.Doc.select():
             if doc.pdf is not None:
-                file_key = doc.pdf + '.pdf'
+                file_key = doc.pdf
                 if file_key in keys:
-                    print('File found')
-                else:
-                    print('Document not found (404)')
+                    print('\nFile found')
+                    pass
+                elif doc.data_source is None or doc.data_source.strip() == '':
+                    # print('\nDocument not found (404), no URL')
                     doc.pdf = None
                     commit()
                     missing_pdfs.append(
                         {
                             'pdf': doc.pdf,
-                            'data_source': doc.data_source
+                            'data_source': doc.data_source,
+                            'permalink': doc.permalink,
                         }
                     )
+                else:
+                    print('\nFetching and adding PDF to S3: ' + file_key)
+                    file_url = doc.permalink if doc.permalink is not None \
+                        else doc.data_source
+                    file = download_pdf(
+                        file_url, file_key, None, as_object=True)
+                    if file is not None:
+                        response = s3.put_object(
+                            Body=file,
+                            Bucket=S3_BUCKET_NAME,
+                            Key=file_key,
+                        )
+                        print('Added PDF')
+                    else:
+                        print('Could not download PDF at URL ' +
+                              str(file_url))
+                        could_not_download.add(file_url)
             else:
                 print("Skipping, no PDF associated")
+        if len(could_not_download) > 0:
+            pp.pprint('Files could not be downloaded from the following sources:')
+            pp.pprint(could_not_download)
 
     def check(self, data):
         """Perform QA/QC on the data and return a report.
