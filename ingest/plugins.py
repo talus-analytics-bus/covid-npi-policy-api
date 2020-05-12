@@ -244,7 +244,7 @@ class CovidPolicyPlugin(IngestPlugin):
         Parameters
         ----------
         db : type
-            Description of parameter `db`.
+            PonyORM database instance
 
         Returns
         -------
@@ -254,6 +254,19 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # Local methods ########################################################
         def get_place_loc(i):
+            """Get well-known text location string for a place.
+
+            Parameters
+            ----------
+            i : type
+                Instance of `Place`.
+
+            Returns
+            -------
+            str
+                Well-known location string
+
+            """
             if i.area2.lower() not in ('unspecified', 'n/a'):
                 return f'''{i.area2}, {i.area1}, {i.iso3}'''
             elif i.area1.lower() not in ('unspecified', 'n/a'):
@@ -318,39 +331,30 @@ class CovidPolicyPlugin(IngestPlugin):
                 return d[key]
 
         # Main #################################################################
-
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
         # Auth_Entity.Place data fields.
         place_keys = select(
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Place'
             and i.export == True)[:][:]
+
         auth_entity_keys = select(
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
+
         auth_entity_place_keys = select(
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
 
-        # define constants
-        # TODO clean this up and probably do not use it
-        auth_entity_info = {
-            'keys': auth_entity_keys,
-            'check_multi': get_auth_entities_from_raw_data,
-        }
-
-        place_info = {
-            'keys': place_keys,
-        }
+        # track num of places added
+        n = 0
 
         # for each row of the data
-        n = 0
         for i, d in self.data.iterrows():
 
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
-
             instance_data = {key: formatter(key, d) for key in place_keys}
 
             # the affected place is different from the auth entity's place if it
