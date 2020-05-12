@@ -350,13 +350,17 @@ class CovidPolicyPlugin(IngestPlugin):
                 # perform upsert using get and set data fields
                 place_affected_get_keys = ['level', 'iso3', 'area1', 'area2']
                 place_affected_set_keys = ['dillons_rule', 'home_rule']
+                place_affected_get = {k: auth_entity_place_instance_data[k]
+                                      for k in place_affected_get_keys}
+                place_affected_set = {k: auth_entity_place_instance_data[k]
+                                      for k in place_affected_set_keys}
+
                 action, place_affected = upsert(
                     db.Place,
-                    {k: place_affected_instance_data[k]
-                        for k in place_affected_get_keys},
-                    {k: place_affected_instance_data[k]
-                        for k in place_affected_set_keys},
+                    place_affected_get,
+                    place_affected_set,
                 )
+                place_affected.loc = get_place_loc(place_affected)
                 if action == 'update':
                     n_updated += 1
                 elif action == 'insert':
@@ -370,13 +374,17 @@ class CovidPolicyPlugin(IngestPlugin):
             # perform upsert using get and set data fields
             get_keys = ['level', 'iso3', 'area1', 'area2']
             set_keys = ['dillons_rule', 'home_rule']
+            place_auth_get = {k: auth_entity_place_instance_data[k]
+                              for k in get_keys}
+            place_auth_set = {k: auth_entity_place_instance_data[k]
+                              for k in set_keys}
+
             action, place_auth = upsert(
                 db.Place,
-                {k: auth_entity_place_instance_data[k]
-                    for k in get_keys},
-                {k: auth_entity_place_instance_data[k]
-                    for k in set_keys},
+                place_auth_get,
+                place_auth_set,
             )
+            place_auth.loc = get_place_loc(place_auth)
             if action == 'update':
                 n_updated += 1
             elif action == 'insert':
