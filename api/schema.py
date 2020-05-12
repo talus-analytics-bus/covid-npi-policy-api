@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 # local modules
 from ingest import CovidPolicyPlugin
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place, Doc
+from .models import Policy, PolicyList, Auth_Entity, Place, File
 from db import db
 
 
@@ -75,7 +75,7 @@ def get_metadata(fields: list):
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
-            and i.entity.lower() == entity_name
+            and i.entity_name.lower() == entity_name
         )
         if metadatum is not None:
             data[d] = metadatum.to_dict()
@@ -89,43 +89,11 @@ def get_metadata(fields: list):
 
 
 @db_session
-def clean_docs():
-    # update database to remove docs with broken links
-    docs = db.Doc.select()
-    n = len(docs)
-    i = 0
-    for doc in docs:
-        i = i + 1
-        print(str(i) + ' of ' + str(n))
-        if doc.pdf is None:
-            print('No file, skipping')
-            continue
-        # define filename from db
-        file_key = doc.pdf + '.pdf'
-        s3_bucket = 'covid-npi-policy-storage'
-
-        # retrieve file and write it to IO file object
-        # io_instance = BytesIO()
-        try:
-            s3.head_object(Bucket=s3_bucket, Key=file_key)
-            print('File found')
-        except Exception as e:
-            print('e')
-            print(e)
-            doc.pdf = None
-            commit()
-            print('Document not found (404)')
-
-    return 'Done'
-
-
-@db_session
-# @cached
-def get_doc(id: int):
+def get_file(id: int):
 
     # define filename from db
-    doc = db.Doc[id]
-    file_key = doc.pdf + '.pdf'
+    file = db.File[id]
+    file_key = file.filename
     s3_bucket = 'covid-npi-policy-storage'
 
     # retrieve file and write it to IO file object
@@ -144,7 +112,11 @@ def get_doc(id: int):
     content = io_instance.read()
 
     # return file
-    return Response(content=content, media_type='application/pdf')
+    media_type = 'application'
+    if file_key.endswith('.pdf'):
+        media_type = 'application/pdf'
+
+    return Response(content=content, media_type=media_type)
 
 
 @db_session
@@ -152,10 +124,12 @@ def get_doc(id: int):
 def get_policy(
     filters=None,
     fields=None,
-    return_db_instances=False
+    return_db_instances=False,
+    order_by_field='date_start_effective'
 ):
     all = fields is None
-    q = select(i for i in db.Policy)
+    q = select(i for i in db.Policy).order_by(
+        getattr(db.Policy, order_by_field))
     if filters is not None:
         q = apply_filters(q, filters)
 
@@ -165,6 +139,9 @@ def get_policy(
         only_by_entity = defaultdict(list)
         if fields is not None:
             only_by_entity['policy'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
         only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
 
         instance_list = []
@@ -244,7 +221,39 @@ def get_optionset(fields=list()):
 def ingest_covid_npi_policy():
     plugin = CovidPolicyPlugin()
     plugin.load_client().load_data().process_data(db)
+    # plugin.load_client().load_data().process_data(db)
     return []
+
+
+@db_session
+def clean_docs():
+    # update database to remove docs with broken links
+    docs = db.Doc.select()
+    n = len(docs)
+    i = 0
+    for doc in docs:
+        i = i + 1
+        print(str(i) + ' of ' + str(n))
+        if doc.pdf is None:
+            print('No file, skipping')
+            continue
+        # define filename from db
+        file_key = doc.pdf + '.pdf'
+        s3_bucket = 'covid-npi-policy-storage'
+
+        # retrieve file and write it to IO file object
+        # io_instance = BytesIO()
+        try:
+            s3.head_object(Bucket=s3_bucket, Key=file_key)
+            print('File found')
+        except Exception as e:
+            print('e')
+            print(e)
+            doc.pdf = None
+            commit()
+            print('Document not found (404)')
+
+    return 'Done'
 
 
 def test():
