@@ -17,48 +17,93 @@ from .util import upsert, download_pdf
 import pandas as pd
 
 # constants
+# define S3 client used for adding / checking for files in the S3
+# storage bucket
 s3 = boto3.client('s3')
-pp = pprint.PrettyPrinter(indent=4)
-__all__ = ['CovidPolicyPlugin']
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
+# pretty printing: for printing JSON objects legibly
+pp = pprint.PrettyPrinter(indent=4)
 
-def get_s3_bucket_keys():
+# define exported classes
+__all__ = ['CovidPolicyPlugin']
+
+
+def get_s3_bucket_keys(s3_bucket_name: str):
+    """For the given S3 bucket, return all file keys, i.e., filenames.
+
+    Parameters
+    ----------
+    s3_bucket_name : str
+        Name of S3 bucket.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     nextContinuationToken = None
     keys = list()
     more_keys = True
+
+    # while there are still more keys to retrieve from the bucket
     while more_keys:
+
+        # use continuation token if it is defined
         response = None
         if nextContinuationToken is not None:
             response = s3.list_objects_v2(
                 Bucket=S3_BUCKET_NAME,
                 ContinuationToken=nextContinuationToken,
             )
+
+        # otherwise it is the first request for keys, so do not include it
         else:
             response = s3.list_objects_v2(
                 Bucket=S3_BUCKET_NAME,
-                # ContinuationToken='string',
             )
 
+        # set continuation key if it is provided in the response,
+        # otherwise do not since it means all keys have been returned
         if 'NextContinuationToken' in response:
             nextContinuationToken = response['NextContinuationToken']
         else:
             nextContinuationToken = None
 
+        # for each response object, extract the key and add it to the
+        # full list
         for d in response['Contents']:
             keys.append(d['Key'])
+
+        # are there more keys to pull from the bucket?
         more_keys = nextContinuationToken is not None
+
+    # return master list of all bucket keys
     return keys
 
 
 class IngestPlugin():
+    """Basic data ingest plugin.
+
+    Parameters
+    ----------
+    name : str
+        Name of project.
+
+    Attributes
+    ----------
+    name
+
+    """
+
     def __init__(self, name: str):
         self.name = name
 
 
 class CovidPolicyPlugin(IngestPlugin):
-    """Ingest COVID non-pharmaceutical interventions (NPI) policy data from a
-    Google Sheet.
+    """Ingest COVID non-pharmaceutical interventions (NPI) policy data from an
+    Airtable base.
 
     """
 
@@ -66,14 +111,16 @@ class CovidPolicyPlugin(IngestPlugin):
         return None
 
     def load_client(self):
-        """Load client to access Google Sheets.
+        """Load client to access Airtable. NOTE: You must set environment
+        variable `AIRTABLE_API_KEY` to use this.
 
         Returns
         -------
-        type
-            Description of returned object.
+        self
 
         """
+
+        # get Airtable client for specified base
         client = AirtableSource(
             name='Airtable',
             base_key='appOtKBVJRyuH83wf',
@@ -83,13 +130,12 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     def load_data(self):
-        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
-        data, (2) data dictionary, and (3) glossary of terms.
+        """Retrieve dataframes from Airtable base for datasets and
+        data dictionary.
 
         Returns
         -------
-        type
-            Description of returned object.
+        self
 
         """
 
@@ -142,43 +188,48 @@ class CovidPolicyPlugin(IngestPlugin):
         Parameters
         ----------
         db : type
-            Description of parameter `db`.
+            PonyORM database instance.
 
         Returns
         -------
-        type
-            Description of returned object.
+        self
 
         """
 
         # sort by policy ID
         self.data.sort_values('Unique ID')
 
-        # analyze for QA/QC
+        # analyze for QA/QC and quit if errors detected
         valid = self.check(self.data)
+        if not valid:
+            print('Data are invalid. Please correct issues and try again.')
+            sys.exit(0)
+        else:
+            print('QA/QC found no issues. Continuing.')
 
+        # upsert metadata records
         self.create_metadata(db)
 
         # set column names to database field names
         all_keys = select((i.ingest_field, i.display_name)
                           for i in db.Metadata)[:]
 
-        # use field names instead of column headers for data
+        # use field names instead of column headers for core dataset
+        # TODO do this for future data tables as needed
         columns = dict()
         for field, display_name in all_keys:
             columns[display_name] = field
         self.data = self.data.rename(columns=columns)
 
-        # if not valid:
-        #     print('Data are invalid. Please correct issues and try again.')
-        #     sys.exit(0)
-        # else:
-        #     print('QA/QC found no issues. Continuing.')
-
+        # create Policy instances
         self.create_policies(db)
+
+        # create and validate File instances (syncs the file objects to S3)
         self.create_docs_2(db)
         self.create_docs(db)
         self.validate_docs(db)
+
+        # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
         return self
 
@@ -717,7 +768,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # confirm file exists in S3 bucket for doc, if not, either add it
         # or remove the PDF text
         # define filename from db
-        keys = get_s3_bucket_keys()
+        keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
         could_not_download = set()
         for doc in db.Doc.select():
             if doc.pdf is not None:
