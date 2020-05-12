@@ -141,13 +141,17 @@ class CovidPolicyPlugin(IngestPlugin):
 
         self.client.connect()
 
+        # core data
         self.data = self.client \
             .worksheet(name='Policy Database') \
             .as_dataframe()
 
+        # data dictionary
         self.data_dictionary = self.client \
             .worksheet(name='Appendix: data dictionary') \
             .as_dataframe(view='API ingest')
+
+        # TODO glossary
 
         return self
 
@@ -244,30 +248,11 @@ class CovidPolicyPlugin(IngestPlugin):
 
         Returns
         -------
-        type
-            Description of returned object.
+        self
 
         """
-        auth_entity_keys = [
-            'name',
-            'office'
-            # NOTE: `office` not included here, handled specially
-        ]
 
-        place_keys = [
-            'level',
-            'iso3',
-            'area1',
-            'area2',
-        ]
-
-        place_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity_name == 'Place' and i.export == True)[:][:]
-        auth_entity_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
-        auth_entity_place_keys = select(
-            i.ingest_field for i in db.Metadata if i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
-
+        # Local methods ########################################################
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
                 return f'''{i.area2}, {i.area1}, {i.iso3}'''
@@ -328,6 +313,45 @@ class CovidPolicyPlugin(IngestPlugin):
             """
             return d['id']
 
+        # TODO move formatter to higher-level scope
+        def formatter(key, d):
+            """Return 'Unspecified' if a null value, otherwise return value.
+
+            Parameters
+            ----------
+            key : type
+                Description of parameter `key`.
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
+            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
+                return 'Unspecified'
+            else:
+                return d[key]
+
+        # Main #################################################################
+
+        # retrieve keys needed to ingest data for Place, Auth_Entity, and
+        # Auth_Entity.Place data fields.
+        place_keys = select(
+            i.ingest_field for i in db.Metadata if
+            i.entity_name == 'Place'
+            and i.export == True)[:][:]
+        auth_entity_keys = select(
+            i.ingest_field for i in db.Metadata if
+            i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
+        auth_entity_place_keys = select(
+            i.ingest_field for i in db.Metadata if
+            i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
+
+        # define constants
+        # TODO clean this up and probably do not use it
         auth_entity_info = {
             'keys': auth_entity_keys,
             'check_multi': get_auth_entities_from_raw_data,
@@ -351,27 +375,6 @@ class CovidPolicyPlugin(IngestPlugin):
             ]
         }
 
-        def formatter(key, d):
-            """Return 'Unspecified' if a null value, otherwise return value.
-
-            Parameters
-            ----------
-            key : type
-                Description of parameter `key`.
-            d : type
-                Description of parameter `d`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
-                return 'Unspecified'
-            else:
-                return d[key]
-
         # for each row of the data
         n = 0
         for i, d in self.data.iterrows():
@@ -386,7 +389,8 @@ class CovidPolicyPlugin(IngestPlugin):
             instance_data = {key: formatter(key, d) for key in keys}
             entity_class = getattr(db, name)
 
-            affected_diff_from_auth = d['place.level'] != None and d['place.level'] != ''
+            affected_diff_from_auth = d['place.level'] != None and \
+                d['place.level'] != ''
             place_affected = None
             if affected_diff_from_auth:
                 place_affected_instance_data = {
@@ -479,13 +483,14 @@ class CovidPolicyPlugin(IngestPlugin):
                     except Error as e:
                         print('Error:')
                         print(e)
-        print('Number of places created = ' + str(n))
+        print('\nNumber of places created: ' + str(n))
 
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i for i in db.Auth_Entity
             if len(i.policies) == 0)
-        print('Deleting these auth entities:')
+        print(
+            f'''Deleting these {len(auth_entities_to_delete)} auth entities:''')
         print(auth_entities_to_delete[:][:])
         auth_entities_to_delete.delete()
         commit()
@@ -494,7 +499,7 @@ class CovidPolicyPlugin(IngestPlugin):
         places_to_delete = select(
             i for i in db.Place
             if len(i.policies) == 0 and len(i.auth_entities) == 0)
-        print('Deleting these places:')
+        print(f'''Deleting these {len(places_to_delete)} places:''')
         print(places_to_delete[:][:])
         places_to_delete.delete()
 
