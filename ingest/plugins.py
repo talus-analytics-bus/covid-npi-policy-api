@@ -321,8 +321,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
             Returns
             -------
-            type
-                Description of returned object.
+            unknown
+                Formattedalue of data field for the record.
 
             """
             if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
@@ -346,9 +346,6 @@ class CovidPolicyPlugin(IngestPlugin):
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
 
-        # track num of places added
-        n = 0
-
         # for each row of the data
         for i, d in self.data.iterrows():
 
@@ -369,22 +366,33 @@ class CovidPolicyPlugin(IngestPlugin):
                 place_affected_instance_data = {
                     key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
-                place_affected = get(
-                    i for i in db.Place
-                    if i.level == place_affected_instance_data['level']
-                    and i.iso3 == place_affected_instance_data['iso3']
-                    and i.area1 == place_affected_instance_data['area1']
-                    and i.area2 == place_affected_instance_data['area2']
+                # perform upsert using get and set data fields
+                place_affected_get_keys = ['level', 'iso3', 'area1', 'area2']
+                place_affected_set_keys = ['dillons_rule', 'home_rule']
+                place_affected = upsert(
+                    db.Place,
+                    {k: place_affected_instance_data[k]
+                        for k in place_affected_get_keys},
+                    {k: place_affected_instance_data[k]
+                        for k in place_affected_set_keys},
                 )
 
-                # if entity already exists, use it
-                # otherwise, create it
-                if place_affected is None:
-                    place_affected = db.Place(
-                        **place_affected_instance_data)
-                    place_affected.loc = get_place_loc(place_affected)
-                    n = n + 1
-                    commit()
+                # place_affected = get(
+                #     i for i in db.Place
+                #     if i.level == place_affected_instance_data['level']
+                #     and i.iso3 == place_affected_instance_data['iso3']
+                #     and i.area1 == place_affected_instance_data['area1']
+                #     and i.area2 == place_affected_instance_data['area2']
+                # )
+
+                # # if entity already exists, use it
+                # # otherwise, create it
+                # if place_affected is None:
+                #     place_affected = db.Place(
+                #         **place_affected_instance_data)
+                #     place_affected.loc = get_place_loc(place_affected)
+                #     n = n + 1
+                #     commit()
 
             # get or create the place of the auth entity
             # TODO using upsert in case data fields change
@@ -392,21 +400,31 @@ class CovidPolicyPlugin(IngestPlugin):
                 key, d) for key in auth_entity_place_keys +
                 ['home_rule', 'dillons_rule']}
 
-            place_auth = get(
-                i for i in db.Place
-                if i.level == auth_entity_place_instance_data['level']
-                and i.iso3 == auth_entity_place_instance_data['iso3']
-                and i.area1 == auth_entity_place_instance_data['area1']
-                and i.area2 == auth_entity_place_instance_data['area2']
+            # perform upsert using get and set data fields
+            get_keys = ['level', 'iso3', 'area1', 'area2']
+            set_keys = ['dillons_rule', 'home_rule']
+            place_auth = upsert(
+                db.Place,
+                {k: auth_entity_place_instance_data[k]
+                    for k in get_keys},
+                {k: auth_entity_place_instance_data[k]
+                    for k in set_keys},
             )
 
-            # if place already exists, use it
-            # otherwise, create it
-            if place_auth is None:
-                place_auth = db.Place(**auth_entity_place_instance_data)
-                n = n + 1
-                place_auth.loc = get_place_loc(place_auth)
-                commit()
+            # place_auth = get(
+            #     i for i in db.Place
+            #     if i.level == auth_entity_place_instance_data['level']
+            #     and i.iso3 == auth_entity_place_instance_data['iso3']
+            #     and i.area1 == auth_entity_place_instance_data['area1']
+            #     and i.area2 == auth_entity_place_instance_data['area2']
+            # )
+
+            # # if place already exists, use it
+            # # otherwise, create it
+            # if place_auth is None:
+            #     place_auth = db.Place(**auth_entity_place_instance_data)
+            #     place_auth.loc = get_place_loc(place_auth)
+            #     commit()
 
             # if the affected place is undefined, set it equal to the
             # auth entity's place
@@ -414,6 +432,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 place_affected = place_auth
 
             # link instance to required entities
+            # TODO consider flagging updates here
             db.Policy[d['id']].place = place_affected
 
             ## Add auth_entities ###############################################
@@ -425,49 +444,62 @@ class CovidPolicyPlugin(IngestPlugin):
             for dd in raw_data:
 
                 # get or create auth entity
-                # TODO using upsert in case data fields change
                 auth_entity_instance_data = {key: formatter(
                     key, dd) for key in auth_entity_keys}
-                auth_entity = get(
-                    i for i in db.Auth_Entity
-                    if i.name == auth_entity_instance_data['name']
-                    and i.office == auth_entity_instance_data['office']
-                    and i.place == place_auth
-                )
+                auth_entity_instance_data['place'] = place_auth
 
-                # if entity already exists, use it
-                # otherwise, create it
-                if auth_entity is None:
-                    auth_entity = db.Auth_Entity(
-                        name=auth_entity_instance_data['name'],
-                        office=auth_entity_instance_data['office'],
-                        place=place_auth
-                    )
-                    commit()
+                # perform upsert using get and set data fields
+                get_keys = ['name', 'office', 'place']
+                auth_entity = upsert(
+                    db.Auth_Entity,
+                    {k: auth_entity_instance_data[k]
+                        for k in get_keys},
+                    {},
+                )
 
                 # link instance to required entities
                 db.Policy[d['id']].auth_entity.add(auth_entity)
 
-        print('\nNumber of places created: ' + str(n))
+                # auth_entity = get(
+                #     i for i in db.Auth_Entity
+                #     if i.name == auth_entity_instance_data['name']
+                #     and i.office == auth_entity_instance_data['office']
+                #     and i.place == place_auth
+                # )
+                #
+                # # if entity already exists, use it
+                # # otherwise, create it
+                # if auth_entity is None:
+                #     auth_entity = db.Auth_Entity(
+                #         name=auth_entity_instance_data['name'],
+                #         office=auth_entity_instance_data['office'],
+                #         place=place_auth
+                #     )
+                #     commit()
+
+                # # link instance to required entities
+                # db.Policy[d['id']].auth_entity.add(auth_entity)
 
         ## Delete unused instances #############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i for i in db.Auth_Entity
             if len(i.policies) == 0)
-        print(
-            f'''Deleting these {len(auth_entities_to_delete)} auth entities:''')
-        print(auth_entities_to_delete[:][:])
-        auth_entities_to_delete.delete()
-        commit()
+        if len(auth_entities_to_delete) > 0:
+            print(
+                f'''Deleting these {len(auth_entities_to_delete)} auth entities:''')
+            print(auth_entities_to_delete[:][:])
+            auth_entities_to_delete.delete()
+            commit()
 
         # delete places that are not used
         places_to_delete = select(
             i for i in db.Place
             if len(i.policies) == 0 and len(i.auth_entities) == 0)
-        print(f'''Deleting these {len(places_to_delete)} places:''')
-        print(places_to_delete[:][:])
-        places_to_delete.delete()
+        if len(places_to_delete) > 0:
+            print(f'''Deleting these {len(places_to_delete)} places:''')
+            print(places_to_delete[:][:])
+            places_to_delete.delete()
 
     @db_session
     def create_policies(self, db):

@@ -13,22 +13,34 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 @db_session
-def upsert(cls, get, set=None, skip=[]):
-    """
-    Interacting with Pony entities.
-    https://github.com/ponyorm/pony/issues/131#issuecomment-343869846
+def upsert(cls, get: dict, set: dict = None, skip: list = []):
+    """Insert or update record into specified class based on checking for
+    existence with dictionary data field map `get`, and creating with
+    data based on values in dictionaries `get` and `set`, skipping any
+    data fields defined in `skip`.
 
-    :param cls: The actual entity class
-    :param get: Identify the object (e.g. row) with this dictionary
-    :param set:
-    :return:
+    Parameters
+    ----------
+    cls : type
+        Description of parameter `cls`.
+    get : dict
+        Description of parameter `get`.
+    set : dict
+        Description of parameter `set`.
+    skip : list
+        Description of parameter `skip`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
     """
     # does the object exist
     assert isinstance(
         cls, EntityMeta), "{cls} is not a database entity".format(cls=cls)
 
     # if no set dictionary has been specified
-    # TODO DELETE
     set = set or {}
 
     if not cls.exists(**get):
@@ -40,18 +52,40 @@ def upsert(cls, get, set=None, skip=[]):
         for key, value in set.items():
             if key in skip:
                 continue
-            true_update = str(value).strip() != str(getattr(obj, key)).strip() \
-                and value != getattr(obj, key)
-            if true_update:
-                print('Updated: value was ' + str(key) +
-                      ' = ' + str(getattr(obj, key)))
-                print('--changed to ' + str(key) + ' = ' + str(value))
+            # true_update = str(value).strip() != str(getattr(obj, key)).strip() \
+            #     and value != getattr(obj, key)
+            # if true_update:
+            #     print('Updated: value was ' + str(key) +
+            #           ' = ' + str(getattr(obj, key)))
+            #     print('--changed to ' + str(key) + ' = ' + str(value))
             obj.__setattr__(key, value)
         commit()
         return obj
 
 
-def download_pdf(download_url, fn, write_path, as_object=True):
+def download_pdf(
+    download_url: str, fn: str, write_path: str, as_object: bool = True
+):
+    """Download the PDF at the specified URL and either save it to disk or
+    return it as a byte stream.
+
+    Parameters
+    ----------
+    download_url : type
+        Description of parameter `download_url`.
+    fn : type
+        Description of parameter `fn`.
+    write_path : type
+        Description of parameter `write_path`.
+    as_object : type
+        Description of parameter `as_object`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     http = urllib3.PoolManager(
         cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
     user_agent = 'Mozilla/5.0'
