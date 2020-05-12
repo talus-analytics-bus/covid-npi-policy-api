@@ -156,10 +156,12 @@ def get_doc(id: int):
 def get_policy(
     filters=None,
     fields=None,
-    return_db_instances=False
+    return_db_instances=False,
+    order_by_field='date_start_effective'
 ):
     all = fields is None
-    q = select(i for i in db.Policy)
+    q = select(i for i in db.Policy).order_by(
+        getattr(db.Policy, order_by_field))
     if filters is not None:
         q = apply_filters(q, filters)
 

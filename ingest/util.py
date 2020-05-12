@@ -33,7 +33,6 @@ def upsert(cls, get, set=None, skip=[]):
 
     if not cls.exists(**get):
         # make new object
-        print("\nCreated")
         return cls(**set, **get)
     else:
         # get the existing object

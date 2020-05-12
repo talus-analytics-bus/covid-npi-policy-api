@@ -295,24 +295,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     )
                 return entities
 
-        def get_policy_for_auth_entity_or_place(d):
-            """Given raw datum `d` returns the unique ID in the database for the
-            Policy instance that should be linked to the authorizing entity /
-            place implied by `d`.
-
-            Parameters
-            ----------
-            d : type
-                Description of parameter `d`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            return d['id']
-
         # TODO move formatter to higher-level scope
         def formatter(key, d):
             """Return 'Unspecified' if a null value, otherwise return value.
@@ -355,24 +337,10 @@ class CovidPolicyPlugin(IngestPlugin):
         auth_entity_info = {
             'keys': auth_entity_keys,
             'check_multi': get_auth_entities_from_raw_data,
-            'link': [
-                {
-                    'entity_class_name': 'Policy',
-                    # defines func to get unique ID of instance to link on
-                    'on': get_policy_for_auth_entity_or_place,
-                },
-            ]
         }
 
         place_info = {
             'keys': place_keys,
-            'link': [
-                {
-                    'entity_class_name': 'Policy',
-                    # defines func to get unique ID of instance to link on
-                    'on': get_policy_for_auth_entity_or_place,
-                }
-            ]
         }
 
         # for each row of the data
@@ -382,22 +350,23 @@ class CovidPolicyPlugin(IngestPlugin):
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
-            keys = place_keys
-            info = place_info
-            name = 'Place'
 
-            instance_data = {key: formatter(key, d) for key in keys}
-            entity_class = getattr(db, name)
+            instance_data = {key: formatter(key, d) for key in place_keys}
 
+            # the affected place is different from the auth entity's place if it
+            # exists (is defined in the record) and is different
             affected_diff_from_auth = d['place.level'] != None and \
                 d['place.level'] != ''
+
+            # get or create the place affected
+            # TODO using upsert in case data fields change
             place_affected = None
             if affected_diff_from_auth:
                 place_affected_instance_data = {
                     key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
                 place_affected = get(
-                    i for i in entity_class
+                    i for i in db.Place
                     if i.level == place_affected_instance_data['level']
                     and i.iso3 == place_affected_instance_data['iso3']
                     and i.area1 == place_affected_instance_data['area1']
@@ -407,32 +376,36 @@ class CovidPolicyPlugin(IngestPlugin):
                 # if entity already exists, use it
                 # otherwise, create it
                 if place_affected is None:
-                    place_affected = entity_class(
+                    place_affected = db.Place(
                         **place_affected_instance_data)
                     place_affected.loc = get_place_loc(place_affected)
                     n = n + 1
                     commit()
 
-            # create Place instance for Auth_Entity based on Auth_Entity.Place
-            # data fields
-            instance_data_auth = {key.split('.')[-1]: formatter(
-                key, d) for key in auth_entity_place_keys + ['home_rule', 'dillons_rule']}
+            # get or create the place of the auth entity
+            # TODO using upsert in case data fields change
+            auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
+                key, d) for key in auth_entity_place_keys +
+                ['home_rule', 'dillons_rule']}
+
             place_auth = get(
-                i for i in entity_class
-                if i.level == instance_data_auth['level']
-                and i.iso3 == instance_data_auth['iso3']
-                and i.area1 == instance_data_auth['area1']
-                and i.area2 == instance_data_auth['area2']
+                i for i in db.Place
+                if i.level == auth_entity_place_instance_data['level']
+                and i.iso3 == auth_entity_place_instance_data['iso3']
+                and i.area1 == auth_entity_place_instance_data['area1']
+                and i.area2 == auth_entity_place_instance_data['area2']
             )
 
-            # if entity already exists, use it
+            # if place already exists, use it
             # otherwise, create it
             if place_auth is None:
-                place_auth = entity_class(**instance_data_auth)
+                place_auth = db.Place(**auth_entity_place_instance_data)
                 n = n + 1
                 place_auth.loc = get_place_loc(place_auth)
                 commit()
 
+            # if the affected place is undefined, set it equal to the
+            # auth entity's place
             if place_affected is None:
                 place_affected = place_auth
 
@@ -440,51 +413,40 @@ class CovidPolicyPlugin(IngestPlugin):
             db.Policy[d['id']].place = place_affected
 
             ## Add auth_entities ###############################################
-            keys = auth_entity_keys
-            info = auth_entity_info
-            name = 'Auth_Entity'
-            raw_data = d if 'check_multi' not in info \
-                else info['check_multi'](d)
+            # parse auth entities in raw data record (there may be more than
+            # one defined for each record)
+            raw_data = get_auth_entities_from_raw_data(d)
+
+            # for each individual auth entity
             for dd in raw_data:
-                instance_data = {key: formatter(
-                    key, dd) for key in keys}
-                entity_class = getattr(db, name)
+
+                # get or create auth entity
+                # TODO using upsert in case data fields change
+                auth_entity_instance_data = {key: formatter(
+                    key, dd) for key in auth_entity_keys}
                 auth_entity = get(
-                    i for i in entity_class
-                    if i.name == instance_data['name']
-                    and i.office == instance_data['office']
+                    i for i in db.Auth_Entity
+                    if i.name == auth_entity_instance_data['name']
+                    and i.office == auth_entity_instance_data['office']
                     and i.place == place_auth
                 )
-                instance = auth_entity
 
                 # if entity already exists, use it
                 # otherwise, create it
-                if instance is None:
-                    instance = entity_class(
-                        name=instance_data['name'],
-                        office=instance_data['office'],
+                if auth_entity is None:
+                    auth_entity = db.Auth_Entity(
+                        name=auth_entity_instance_data['name'],
+                        office=auth_entity_instance_data['office'],
                         place=place_auth
                     )
                     commit()
 
-                # # do facile entity links
-                # instance.place = place_auth
-                # commit()
-
                 # link instance to required entities
-                for link in info['link']:
-                    try:
-                        entity_class = getattr(db, link['entity_class_name'])
-                        setattr(entity_class[link['on'](d)],
-                                name.lower(), instance)
-                        commit()
-                    except ObjectNotFound as e:
-                        print('Error: Instance not found for linkage. Skipping.')
-                    except Error as e:
-                        print('Error:')
-                        print(e)
+                db.Policy[d['id']].auth_entity.add(auth_entity)
+
         print('\nNumber of places created: ' + str(n))
 
+        ## Delete unused instances #############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i for i in db.Auth_Entity
@@ -779,7 +741,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if doc.pdf is not None:
                 file_key = doc.pdf
                 if file_key in keys:
-                    print('\nFile found')
+                    # print('\nFile found')
                     pass
                 elif doc.data_source is None or doc.data_source.strip() == '':
                     # print('\nDocument not found (404), no URL')
