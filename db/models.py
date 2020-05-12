@@ -125,6 +125,7 @@ class Policy(db.Entity):
                     doc_instance_dict = instance.to_dict()
                     title = instance.name if instance.name is not None and \
                         instance.name != '' else instance.pdf
+
                     doc_instance_dict['pdf'] = None if instance.pdf is None or \
                         doc_instance_dict['pdf'] == '' \
                         else f'''/get/doc/{title}?id={instance.id}'''

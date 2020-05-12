@@ -144,7 +144,11 @@ def get_doc(id: int):
     content = io_instance.read()
 
     # return file
-    return Response(content=content, media_type='application/pdf')
+    media_type = 'application'
+    if file_key.endswith('.pdf'):
+        media_type = 'application/pdf'
+
+    return Response(content=content, media_type=media_type)
 
 
 @db_session
@@ -165,6 +169,9 @@ def get_policy(
         only_by_entity = defaultdict(list)
         if fields is not None:
             only_by_entity['policy'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
         only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
 
         instance_list = []

@@ -496,9 +496,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         for i, d in self.data.iterrows():
             # upsert policies
-            pp.pprint(d)
-            print('keys')
-            print(keys)
             instance = upsert(
                 db.Policy,
                 {'id': d['id']},
@@ -638,6 +635,7 @@ class CovidPolicyPlugin(IngestPlugin):
             instance_data['type'] = 'policy'
             id = " - ".join(instance_data.values())
 
+            instance_data['pdf'] = instance_data['pdf'].replace('.', '')
             instance_data['pdf'] += '.pdf'
             doc = upsert(db.Doc, instance_data)
 
@@ -689,9 +687,6 @@ class CovidPolicyPlugin(IngestPlugin):
         for i, d in self.data.iterrows():
             for key in policy_doc_keys:
                 if d[key] is not None and len(d[key]) > 0:
-                    print('\nd[key]')
-                    print(d[key])
-                    print(type(d[key][0]))
 
                     for dd in d[key]:
                         # create file key
@@ -705,7 +700,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
                         # define set data
                         set_data = {
-                            'name': d[policy_doc_keys[key]['name']],
+                            'name': dd['filename'],
                             'type': key,
                             'data_source': d[policy_doc_keys[key]['data_source']],
                             'permalink': dd['url'],
