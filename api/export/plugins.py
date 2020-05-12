@@ -205,7 +205,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         for d in policies:
             row = defaultdict(dict)
             for dd in metadata:
-                if dd.entity == 'Policy':
+                if dd.entity_name == 'Policy':
                     value = getattr(d, dd.field)
 
                     # format date values properly
@@ -227,7 +227,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                         else:
                             row[dd.colgroup][dd.display_name] = value
                 else:
-                    join = get_joined_entity(d, dd.entity)
+                    join = get_joined_entity(d, dd.entity_name)
 
                     if join is None:
                         row[dd.colgroup][dd.display_name] = ''

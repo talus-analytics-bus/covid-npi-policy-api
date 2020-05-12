@@ -145,9 +145,9 @@ class CovidPolicyPlugin(IngestPlugin):
         ]
 
         place_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Place' and i.export == True)
+            i.field for i in db.Metadata if i.entity_name == 'Place' and i.export == True)
         auth_entity_keys = select(
-            i.field for i in db.Metadata if i.entity == 'Auth_Entity' and i.export == True)
+            i.field for i in db.Metadata if i.entity_name == 'Auth_Entity' and i.export == True)
 
         def get_place_loc(i):
             if i.area2.lower() not in ('unspecified', 'n/a'):
@@ -376,7 +376,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        keys = select(i.field for i in db.Metadata if i.entity ==
+        keys = select(i.field for i in db.Metadata if i.entity_name ==
                       'Policy' and i.export == True)[:]
 
         # maintain dict of attributes to set post-creation
