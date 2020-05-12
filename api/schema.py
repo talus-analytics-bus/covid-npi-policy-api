@@ -89,7 +89,6 @@ def get_metadata(fields: list):
 
 
 @db_session
-@cached
 def get_file(id: int):
 
     # define filename from db
