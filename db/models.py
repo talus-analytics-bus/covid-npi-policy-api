@@ -3,7 +3,7 @@
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
 # from enum import Enum
 # from pony.orm.dbapiprovider import StrConverter
 
@@ -33,24 +33,40 @@ from .config import db
 # db.provider.converter_classes.append((Enum, EnumConverter))
 
 
+@db_session
+def custom_delete(entity_class, ingested_records):
+    to_delete = select(
+        i for i in entity_class
+        if i not in ingested_records
+    )
+    to_delete.delete()
+    return len(to_delete)
+
+
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
     field = Required(str)
+    ingest_field = Required(str)
+    order = Required(int)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
     possible_values = Optional(str)
     notes = Optional(str)
-    entity = Required(str)
+    entity_name = Required(str)
     export = Required(bool)
-    PrimaryKey(entity, field)
+    PrimaryKey(entity_name, field)
+
+    def delete_2(ingested_records):
+        return custom_delete(db.Metadata, ingested_records)
 
 
 class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
     _table_ = "policy"
     id = PrimaryKey(int, auto=False)
+    source_id = Required(str, unique=True)
 
     # descriptive information
     policy_name = Optional(str)
@@ -74,13 +90,16 @@ class Policy(db.Entity):
     date_end_actual = Optional(date)
 
     # relationships
-    doc = Set('Doc')
-    auth_entity = Set('Auth_Entity')
+    file = Set('File', table="file_to_policy")
+    auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Optional('Place')
-    prior_policy = Set('Policy')
+    prior_policy = Set('Policy', table="policy_to_prior_policy")
 
     # reverse attributes
     _prior_policy = Set('Policy')
+
+    def delete_2(ingested_records):
+        return custom_delete(db.Policy, ingested_records)
 
     def to_dict_2(self, **kwargs):
         only_by_entity = kwargs['only_by_entity'] if 'only_by_entity' \
@@ -100,17 +119,18 @@ class Policy(db.Entity):
                 for id in v:
                     instances.append(Auth_Entity[id].to_dict())
                 instance_dict[k] = instances
-            elif k == 'doc':
-                instance_dict['doc'] = list()
+            elif k == 'file':
+                instance_dict['file'] = list()
                 for id in v:
-                    instance = Doc[id]
+                    instance = File[id]
                     doc_instance_dict = instance.to_dict()
                     title = instance.name if instance.name is not None and \
-                        instance.name != '' else instance.pdf
-                    doc_instance_dict['pdf'] = None if instance.pdf is None or \
-                        doc_instance_dict['pdf'] == '' \
-                        else f'''/get/doc/{title}?id={instance.id}'''
-                    instance_dict['doc'].append(
+                        instance.name != '' else instance.filename
+
+                    doc_instance_dict['filename'] = None if instance.filename is None or \
+                        doc_instance_dict['filename'] == '' \
+                        else f'''/get/file/{title}?id={instance.id}'''
+                    instance_dict['file'].append(
                         doc_instance_dict
                     )
         return instance_dict
@@ -144,14 +164,16 @@ class Auth_Entity(db.Entity):
     place = Optional('Place')
 
 
-class Doc(db.Entity):
+class File(db.Entity):
     """Supporting documentation."""
-    _table_ = "doc"
+    _table_ = "file"
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
     type = Required(str)
     data_source = Optional(str)
-    pdf = Optional(str, nullable=True)
+    permalink = Optional(str, nullable=True)
+    filename = Optional(str, nullable=True)
+    airtable_attachment = Required(bool, default=False)
 
     # relationships
     policies = Set('Policy')
