@@ -12,6 +12,18 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 
+# define colors for printing colorized terminal text
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 @db_session
 def upsert(cls, get: dict, set: dict = None, skip: list = []):
     """Insert or update record into specified class based on checking for
@@ -45,22 +57,24 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
 
     if not cls.exists(**get):
         # make new object
-        return cls(**set, **get)
+        return ('insert', cls(**set, **get))
     else:
         # get the existing object
         obj = cls.get(**get)
+        action = 'none'
         for key, value in set.items():
             if key in skip:
                 continue
-            # true_update = str(value).strip() != str(getattr(obj, key)).strip() \
-            #     and value != getattr(obj, key)
-            # if true_update:
-            #     print('Updated: value was ' + str(key) +
-            #           ' = ' + str(getattr(obj, key)))
-            #     print('--changed to ' + str(key) + ' = ' + str(value))
+            true_update = str(value).strip() != str(getattr(obj, key)).strip() \
+                and value != getattr(obj, key)
+            if true_update:
+                action = 'update'
+                # print('Updated: value was ' + str(key) +
+                #       ' = ' + str(getattr(obj, key)))
+                # print('--changed to ' + str(key) + ' = ' + str(value))
             obj.__setattr__(key, value)
         commit()
-        return obj
+        return (action, obj)
 
 
 def download_pdf(

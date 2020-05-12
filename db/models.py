@@ -40,6 +40,7 @@ def custom_delete(entity_class, ingested_records):
         if i not in ingested_records
     )
     to_delete.delete()
+    return len(to_delete)
 
 
 class Metadata(db.Entity):
@@ -58,7 +59,7 @@ class Metadata(db.Entity):
     PrimaryKey(entity_name, field)
 
     def delete_2(ingested_records):
-        custom_delete(db.Metadata, ingested_records)
+        return custom_delete(db.Metadata, ingested_records)
 
 
 class Policy(db.Entity):
@@ -98,7 +99,7 @@ class Policy(db.Entity):
     _prior_policy = Set('Policy')
 
     def delete_2(ingested_records):
-        custom_delete(db.Policy, ingested_records)
+        return custom_delete(db.Policy, ingested_records)
 
     def to_dict_2(self, **kwargs):
         only_by_entity = kwargs['only_by_entity'] if 'only_by_entity' \

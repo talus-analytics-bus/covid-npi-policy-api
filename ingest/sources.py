@@ -11,6 +11,9 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 
+# local modules
+from .util import bcolors
+
 # constants
 pp = pprint.PrettyPrinter(indent=4)
 __all__ = ['GoogleSheetSource']
@@ -43,11 +46,12 @@ class AirtableSource(DataSource):
         try:
             ws = Airtable(self.base_key, table_name=name, api_key=self.api_key)
             self.ws = ws
+            self.ws_name = name
             return self
 
         except Exception as e:
             print(e)
-            print('Failed to open worksheet with name ' + str(name))
+            print('\nFailed to open worksheet with name ' + str(name))
 
     def as_dataframe(self, header_row: int = 0, view: str = None):
         try:
@@ -61,7 +65,8 @@ class AirtableSource(DataSource):
 
             df = pd.DataFrame.from_records(records)
 
-            print(f'''Found {len(df)} records in worksheet''')
+            print(
+                f'''\n{bcolors.OKGREEN}Found {len(df)} records in worksheet "{self.ws_name}"{bcolors.ENDC}''')
 
             # remove NaN values
             df = df.replace(pd.np.nan, '', regex=True)
@@ -69,7 +74,7 @@ class AirtableSource(DataSource):
             return df
         except Exception as e:
             print(e)
-            print('Failed to open worksheet')
+            print('\nFailed to open worksheet')
 
 
 class GoogleSheetSource(DataSource):
