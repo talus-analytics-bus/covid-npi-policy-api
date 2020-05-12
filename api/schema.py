@@ -75,7 +75,7 @@ def get_metadata(fields: list):
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
-            and i.entity.lower() == entity_name
+            and i.entity_name.lower() == entity_name
         )
         if metadatum is not None:
             data[d] = metadatum.to_dict()

@@ -270,7 +270,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i for i in db.Metadata
             if i.export == True
-        )
+        ).order_by(db.Metadata.order)
 
         # init export data list
         rows = list()
