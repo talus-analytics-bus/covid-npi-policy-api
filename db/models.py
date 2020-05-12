@@ -66,7 +66,7 @@ class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
     _table_ = "policy"
     id = PrimaryKey(int, auto=False)
-    source_id = Required(str, unique=True)
+    source_id = Optional(str, unique=True)
 
     # descriptive information
     policy_name = Optional(str)

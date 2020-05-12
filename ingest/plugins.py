@@ -450,12 +450,14 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
             db.Metadata(**{
                 'field': d['Database field name'],
+                'ingest_field': d['Database field name'],
                 'display_name': d['Field'],
+                'order': 0,
                 'colgroup': colgroup,
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
-                'entity': d['Database entity'],
+                'entity_name': d['Database entity'],
                 'export': True,
             })
             commit()
@@ -464,12 +466,25 @@ class CovidPolicyPlugin(IngestPlugin):
         other_metadata = [
             {
                 'field': 'loc',
+                'ingest_field': 'loc',
                 'display_name': 'Country / Specific location',
+                'order': 0,
                 'colgroup': '',
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
                 'notes': '',
-                'entity': 'Place',
+                'entity_name': 'Place',
+                'export': False,
+            }, {
+                'field': 'source_id',
+                'ingest_field': 'source_id',
+                'display_name': 'Source ID',
+                'order': 0,
+                'colgroup': '',
+                'definition': 'The ID of the record in the original source',
+                'possible_values': 'Any text',
+                'notes': '',
+                'entity_name': 'Policy',
                 'export': False,
             }
         ]
@@ -494,7 +509,7 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         policy_doc_keys = [
             'policy_name',
-            'policy_pdf',
+            'policy_filename',
             'policy_data_source',
         ]
 
@@ -504,20 +519,22 @@ class CovidPolicyPlugin(IngestPlugin):
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
             instance_data['type'] = 'policy'
+            if instance_data['filename'] is not None:
+                instance_data['filename'] += '.pdf'
             id = " - ".join(instance_data.values())
 
-            doc = None
+            file = None
             if id in docs_by_id:
-                doc = docs_by_id[id]
+                file = docs_by_id[id]
             else:
                 try:
-                    doc = db.Doc(**instance_data)
-                    docs_by_id[id] = doc
+                    file = db.File(**instance_data)
+                    docs_by_id[id] = file
                     commit()
                 except CacheIndexError as e:
                     print('e')
                     print(e)
-                    # print('\nError: Duplicate doc unique ID: ' +
+                    # print('\nError: Duplicate file unique ID: ' +
                     #       str(instance_data['id']))
                     # sys.exit(0)
                 except ValueError as e:
@@ -526,8 +543,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     print(e)
                     sys.exit(0)
 
-            # link doc to policy
-            db.Policy[d['id']].doc.add(doc)
+            # link file to policy
+            db.Policy[d['id']].file.add(file)
             commit()
 
     def check(self, data):
