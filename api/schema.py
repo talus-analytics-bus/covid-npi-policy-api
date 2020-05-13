@@ -13,11 +13,13 @@ from fastapi.responses import FileResponse, Response
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, File
+from .util import str_to_date
 from db import db
 
 
 # constants
 s3 = boto3.client('s3')
+S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
 
 def cached(func):
@@ -80,23 +82,34 @@ def get_metadata(fields: list):
         Response containing metadata information for the fields.
 
     """
-    # for each field, parse its entity and get the metadata for it
+    # define output data dict
     data = dict()
 
+    # for each field for which metadat is needed
+    n = 0
     for d in fields:
+
+        # get entity class name and field
         entity_name, field = d.split('.')
+
+        # get metadata instance from db that matches this field
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
             and i.entity_name.lower() == entity_name
         )
+
+        # store metadata fields in output data if they exist
         if metadatum is not None:
             data[d] = metadatum.to_dict()
+            n += 1
         else:
             data[d] = dict()
+
+    # return response dictionary
     return {
         'success': True,
-        'message': f'''Metadata values retrieved''',
+        'message': f'''Found {n} metadata values.''',
         'data': data
     }
 
@@ -119,31 +132,30 @@ def get_file(id: int):
 
     """
 
-    # define filename from db
+    # define filename from File instance field
     file = db.File[id]
-    file_key = file.filename
-    s3_bucket = 'covid-npi-policy-storage'
+    key = file.filename
 
-    # retrieve file and write it to IO file object
-    io_instance = BytesIO()
+    # retrieve file and write it to IO file object `data`
+    # if the file is not found in S3, return a 404 error
+    data = BytesIO()
     try:
-        s3.download_fileobj(s3_bucket, file_key, io_instance)
+        s3.download_fileobj(S3_BUCKET_NAME, key, data)
     except Exception as e:
         print('e')
         print(e)
         return 'Document not found (404)'
 
     # return to start of IO stream
-    io_instance.seek(0)
+    data.seek(0)
 
     # return export file
-    content = io_instance.read()
+    content = data.read()
 
-    # return file
+    # return file with correct media type given its extension
     media_type = 'application'
-    if file_key.endswith('.pdf'):
+    if key.endswith('.pdf'):
         media_type = 'application/pdf'
-
     return Response(content=content, media_type=media_type)
 
 
@@ -161,7 +173,7 @@ def get_policy(
     ----------
     filters : dict
         Dictionary of filters to be applied to policy data (see function
-        `apply_filters` below).
+        `apply_policy_filters` below).
     fields : list
         List of Policy instance fields that should be returned. If None, then
         all fields are returned.
@@ -189,7 +201,7 @@ def get_policy(
 
     # apply filters if any
     if filters is not None:
-        q = apply_filters(q, filters)
+        q = apply_policy_filters(q, filters)
 
     # return query object if arguments requested it
     if return_db_instances:
@@ -260,8 +272,8 @@ def get_optionset(fields: list = list()):
     for d_str in fields:
 
         # split into entity class name and field
-        entity_class_name, field = d_str.split('.')
-        entity_class = getattr(db, entity_class_name)
+        entity_name, field = d_str.split('.')
+        entity_class = getattr(db, entity_name)
 
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
@@ -297,15 +309,16 @@ def get_optionset(fields: list = list()):
     }
 
 
-def apply_filters(q, filters):
-    """Given the PonyORM query and filters, applies filters with AND logic.
+def apply_policy_filters(q, filters: dict = dict()):
+    """Given the PonyORM query for policies and relevant filters, applies
+    filters with AND logic.
 
     TODO ensure this works for arbitrary large numbers of filtered fields.
 
     Parameters
     ----------
     q : pony.orm.Query
-        A Query instance, e.g., created by a call to `select`.
+        A Query instance, e.g., created by a call to `select`, for policies
     filters : dict[str, list]
         Dictionary with keys of field names and values of lists of
         allowed values (AND logic).
@@ -316,26 +329,44 @@ def apply_filters(q, filters):
         The query with filters applied.
 
     """
+    # for each filter set provided
     for field, allowed_values in filters.items():
+
+        # if no values were specified, assume no filter is applied
+        # and continue
         if len(allowed_values) == 0:
             continue
+
+        # if it is a date field, handle it specially
         if field.startswith('date'):
-            def str_to_date(s):
-                return datetime.strptime(s, '%Y-%m-%d').date()
+
+            # set allowed values to be start and end date instances
             allowed_values = list(
                 map(str_to_date, allowed_values)
             )
+
+        # is the filter applied by joining a policy instance to a
+        # different entity?
+        # TODO generalize this and rename function `apply_policy_filters`
         join = field in ('level', 'loc', 'area1')
+
+        # if the filter is not a join, i.e., is on policy native fields
         if not join:
+
+            # apply the filter
             q = select(
                 i
                 for i in q
                 if getattr(i, field) in allowed_values
             )
+
+        # otherwise, apply the filter to the linked entity
         else:
             q = select(
                 i
                 for i in q
                 if getattr(i.place, field) in allowed_values
             )
+
+    # return the filtered query instance
     return q
