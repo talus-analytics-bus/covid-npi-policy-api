@@ -67,6 +67,20 @@ def export(filters):
 @db_session
 @cached
 def get_metadata(fields: list):
+    """Returns Metadata instance fields for the fields specified.
+
+    Parameters
+    ----------
+    fields : list
+        List of fields as strings with entity name prefixed, e.g.,
+        `policy.id`.
+
+    Returns
+    -------
+    dict
+        Response containing metadata information for the fields.
+
+    """
     # for each field, parse its entity and get the metadata for it
     data = dict()
 
@@ -90,6 +104,21 @@ def get_metadata(fields: list):
 
 @db_session
 def get_file(id: int):
+    """Serves the file from S3 that corresponds to the File instances with
+    the specified id.
+
+    Parameters
+    ----------
+    id : int
+        Unique ID of the File instance which corresponds to the S3 file to
+        be served.
+
+    Returns
+    -------
+    fastapi.responses.Response
+        The file.
+
+    """
 
     # define filename from db
     file = db.File[id]
@@ -158,15 +187,6 @@ def get_policy(
         return res
 
 
-def get_auth_entity_loc(i):
-    if i.area2.lower() not in ('unspecified', 'n/a'):
-        return f'''{i.area2}, {i.area1}, {i.iso3}'''
-    elif i.area1.lower() not in ('unspecified', 'n/a'):
-        return f'''{i.area1}, {i.iso3}'''
-    else:
-        return i.iso3
-
-
 @db_session
 @cached
 def get_optionset(fields=list()):
@@ -223,10 +243,6 @@ def ingest_covid_npi_policy():
     plugin.load_client().load_data().process_data(db)
     # plugin.load_client().load_data().process_data(db)
     return []
-
-
-def test():
-    ingest_covid_npi_policy()
 
 
 def apply_filters(q, filters):

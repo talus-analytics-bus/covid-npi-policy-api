@@ -87,7 +87,7 @@ async def ingest(project_name: str = None):
 # Test endpoints
 ##
 @app.get("/test")
-async def get(test_param: str = 'GET successful'):
+async def get_test(test_param: str = 'GET successful'):
     """Test GET endpoint.
 
     Parameters
