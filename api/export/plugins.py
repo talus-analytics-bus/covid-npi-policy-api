@@ -57,6 +57,8 @@ class CovidPolicyExportPlugin(ExcelExport):
             'data': 7
         }
         self.filters = filters
+
+        # Define a sheet settings instance for each tab of the XLSX
         self.sheet_settings = [
             SheetSettings(
                 name='Exported data',
@@ -200,17 +202,32 @@ class CovidPolicyExportPlugin(ExcelExport):
             'area2': lambda instance, value: value if instance.level == 'Local area' else 'N/A',
         }
 
-        # for each policy
-        # TODO clean up
+        # for each policy (i.e., row)
         for d in policies:
+
+            # create dict to store row information
             row = defaultdict(dict)
+
+            # for each metadatum (i.e., column in the spreadsheet)
             for dd in metadata:
-                if dd.entity_name == 'Policy':
+
+                # check whether it is a policy or a joined entity
+                join = dd.entity_name != 'Policy'
+
+                # if it is not a join (data field entity is Policy)
+                if not join:
+
+                    # get value of data field
                     value = getattr(d, dd.field)
 
-                    # format date values properly
+                    # format date values
+                    # DATES #--------------------------------------------------#
+                    # YYYY-MM-DD
                     if type(value) == date:
                         row[dd.colgroup][dd.display_name] = str(value)
+
+                    # SETS / LISTS #-------------------------------------------#
+                    # semicolon-delimited list of values
                     elif type(value) != str and iterable(value):
                         value_list = []
                         for v in value:
@@ -220,48 +237,63 @@ class CovidPolicyExportPlugin(ExcelExport):
                                 value_list.append(str(v))
                         row[dd.colgroup][dd.display_name] = \
                             "; ".join(value_list)
+
+                    # STRINGS AND NUMBERS #------------------------------------#
+                    # run through formatters
                     else:
                         if dd.field in formatters:
                             row[dd.colgroup][dd.display_name] = formatters[dd.field](
                                 d, value)
                         else:
                             row[dd.colgroup][dd.display_name] = value
-                else:
-                    join = get_joined_entity(d, dd.entity_name)
 
-                    if join is None:
+                # otherwise, if the data field is on an entity other than Policy
+                else:
+
+                    # get the joined entity
+                    joined_entity = get_joined_entity(d, dd.entity_name)
+
+                    if joined_entity is None:
                         row[dd.colgroup][dd.display_name] = ''
                         continue
                     else:
-                        if iterable(join):
+
+                        # check if the joined entity is a set or single
+                        is_set = iterable(joined_entity)
+
+                        # SET OF ENTITIES #------------------------------------#
+                        # iterate over them and return a semicolon-delimited
+                        # list of values, formatting if necessary
+                        # TODO generalize to reuse above code
+                        if is_set:
                             values = list()
                             if dd.field not in formatters:
                                 values = "; ".join(
-                                    [getattr(ddd, dd.field) for ddd in join
+                                    [getattr(ddd, dd.field) for ddd in joined_entity
                                         if getattr(ddd, dd.field) is not None]
                                 )
                             else:
                                 func = formatters[dd.field]
                                 values = "; ".join(
                                     [func(ddd, getattr(ddd, dd.field))
-                                     for ddd in join]
+                                     for ddd in joined_entity]
                                 )
 
                             row[dd.colgroup][dd.display_name] = values
                             continue
-
-                    if type(join) == list:
-                        values = "; ".join([getattr(v, dd.field)
-                                            for v in join])
-                        row[dd.colgroup][dd.display_name] = values
-                    else:
-                        value = getattr(join, dd.field)
-                        if dd.field in formatters:
-                            row[dd.colgroup][dd.display_name] = formatters[dd.field](
-                                join, value)
+                        # SINGLE ENTITY #--------------------------------------#
+                        # run through formatters
+                        # TODO generalize to reuse above code
                         else:
-                            row[dd.colgroup][dd.display_name] = value
+                            value = getattr(joined_entity, dd.field)
+                            if dd.field in formatters:
+                                row[dd.colgroup][dd.display_name] = \
+                                    formatters[dd.field](joined_entity, value)
+                            else:
+                                row[dd.colgroup][dd.display_name] = value
+            # append row data to overall row list
             rows.append(row)
+        # return list of rows
         return rows
 
     def default_data_getter_legend(self):
@@ -277,6 +309,8 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         # for each metadatum
         for row_type in ('definition', 'possible_values'):
+
+            # append rows containing the field's definition and possible values
             row = defaultdict(dict)
             for d in metadata:
                 row[d.colgroup][d.display_name] = getattr(d, row_type)

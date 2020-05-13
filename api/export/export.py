@@ -395,6 +395,8 @@ class GenericExcelExport(ExcelExport):
             'colnames': 6,
             'data': 7
         }
+
+        # Define a sheet settings instance for each tab of the XLSX
         self.sheet_settings = [
             SheetSettings(
                 name='Exported data',

@@ -3,17 +3,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+# define API app
 app = FastAPI()
 
-# TODO serve PDFs from S3 bucket and delete these lines
-# app.mount("/pdf", StaticFiles(directory="api/pdf"), name="pdf")
-
+# set allowed origins
 allow_origin_regex = \
     "(http:\/\/localhost:.*|" + \
     "https?:\/\/.*\.cloudfront\.net|" + \
     "https?:\/\/.*\.talusanalytics.*)"
 
-
+# add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=allow_origin_regex,

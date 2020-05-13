@@ -181,7 +181,7 @@ def get_file(id: int):
 def get_policy(
     filters: dict = None,
     fields: list = None,
-    order_by_field: str = 'date_start_effective'
+    order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
 ):
     """Returns Policy instance data that match the provided filters.

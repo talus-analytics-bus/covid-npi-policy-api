@@ -7,6 +7,7 @@ from api import schema
 from db import db
 from ingest import CovidPolicyPlugin
 
+# generate database mapping and ingest data for the COVID-AMP project
 db.generate_mapping()
 plugin = CovidPolicyPlugin()
 plugin.load_client().load_data().process_data(db)
