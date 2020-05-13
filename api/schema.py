@@ -90,6 +90,20 @@ def get_metadata(fields: list):
 
 @db_session
 def get_file(id: int):
+    """Serves the file from S3 that corresponds to the File instances with
+    the specified id.
+
+    Parameters
+    ----------
+    id : int
+        Description of parameter `id`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
 
     # define filename from db
     file = db.File[id]
