@@ -102,18 +102,19 @@ class Policy(db.Entity):
         return custom_delete(db.Policy, ingested_records)
 
     def to_dict_2(self, **kwargs):
-        only_by_entity = kwargs['only_by_entity'] if 'only_by_entity' \
+        return_fields_by_entity = \
+            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
             in kwargs else dict()
         if 'only' in kwargs:
-            only_by_entity['policy'] = kwargs['only']
+            return_fields_by_entity['policy'] = kwargs['only']
             del kwargs['only']
-        del kwargs['only_by_entity']
+        del kwargs['return_fields_by_entity']
         instance_dict = Policy.to_dict(
-            self, only=only_by_entity['policy'], **kwargs)
+            self, only=return_fields_by_entity['policy'], **kwargs)
         for k, v in instance_dict.items():
             if k == 'place':
                 instance_dict[k] = Place[v].to_dict(
-                    only=only_by_entity['place'])
+                    only=return_fields_by_entity['place'])
             elif k == 'auth_entity':
                 instances = list()
                 for id in v:
@@ -127,7 +128,8 @@ class Policy(db.Entity):
                     title = instance.name if instance.name is not None and \
                         instance.name != '' else instance.filename
 
-                    doc_instance_dict['filename'] = None if instance.filename is None or \
+                    doc_instance_dict['filename'] = \
+                        None if instance.filename is None or \
                         doc_instance_dict['filename'] == '' \
                         else f'''/get/file/{title}?id={instance.id}'''
                     instance_dict['file'].append(

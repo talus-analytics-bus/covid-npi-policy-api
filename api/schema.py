@@ -11,7 +11,6 @@ from pony.orm import db_session, select, get, commit
 from fastapi.responses import FileResponse, Response
 
 # local modules
-from ingest import CovidPolicyPlugin
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, File
 from db import db
@@ -151,36 +150,78 @@ def get_file(id: int):
 @db_session
 @cached
 def get_policy(
-    filters=None,
-    fields=None,
-    return_db_instances=False,
-    order_by_field='date_start_effective'
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_start_effective'
+    return_db_instances: bool = False,
 ):
+    """Returns Policy instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to policy data (see function
+        `apply_filters` below).
+    fields : list
+        List of Policy instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class `Policy` that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered policies, otherwise returns the list of dictionaries
+        containing the policy data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
     all = fields is None
+
+    # get ordered policies from database
     q = select(i for i in db.Policy).order_by(
         getattr(db.Policy, order_by_field))
+
+    # apply filters if any
     if filters is not None:
         q = apply_filters(q, filters)
 
+    # return query object if arguments requested it
     if return_db_instances:
         return q
+
+    # otherwise prepare list of dictionaries to return
     else:
-        only_by_entity = defaultdict(list)
+
+        return_fields_by_entity = defaultdict(list)
         if fields is not None:
-            only_by_entity['policy'] = fields
+            return_fields_by_entity['policy'] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
+        return_fields_by_entity['place'] = ['id', 'level', 'area1', 'loc']
 
-        instance_list = []
+        # define list of instances to return
+        data = []
+
+        # for each policy
         for d in q:
 
+            # convert it to a dictionary returning only the specified fields
             d_dict = d.to_dict_2(
-                only_by_entity=only_by_entity)
-            instance_list.append(d_dict)
+                return_fields_by_entity=return_fields_by_entity)
+
+            # add it to the output list
+            data.append(d_dict)
+
+        # create response from output list
         res = PolicyList(
-            data=instance_list,
+            data=data,
             success=True,
             message=f'''{len(q)} policies found'''
         )
@@ -189,7 +230,7 @@ def get_policy(
 
 @db_session
 @cached
-def get_optionset(fields=list()):
+def get_optionset(fields: list = list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -207,22 +248,38 @@ def get_optionset(fields=list()):
 
     Returns
     -------
-    api.models.OptionSetList
-        List of possible optionset values for each field.
+    dict
+        List of possible optionset values for each field, contained in a
+        response dictionary
 
     """
+    # define output data dict
     data = dict()
+
+    # for each field to get optionset values for:
     for d_str in fields:
-        d_arr = d_str.split('.')
-        entity_class = getattr(db, d_arr[0])
-        field = d_arr[1]
-        options = select(getattr(i, field)
-                         for i in entity_class)[:][:]
+
+        # split into entity class name and field
+        entity_class_name, field = d_str.split('.')
+        entity_class = getattr(db, entity_class_name)
+
+        # get all possible values for the field in the database, and sort them
+        # such that "Unspecified" is last
+        # TODO handle other special values like "Unspecified" as needed
+        options = select(getattr(i, field) for i in entity_class)[:][:]
         options.sort()
         options.sort(key=lambda x: x == 'Unspecified')
+
+        # return values and labels, etc. for each option
         id = 0
+
+        # init list of optionset values for the field
         data[field] = []
+
+        # for each possible option currently in the data
         for dd in options:
+
+            # append an optionset entry
             data[field].append(
                 {
                     'id': id,
@@ -231,18 +288,13 @@ def get_optionset(fields=list()):
                 }
             )
             id = id + 1
+
+    # return all optionset values
     return {
+        'data': data,
         'success': True,
-        'message': f'''Optionset values retrieved''',
-        'data': data
+        'message': f'''Returned {len(fields)} optionset lists''',
     }
-
-
-def ingest_covid_npi_policy():
-    plugin = CovidPolicyPlugin()
-    plugin.load_client().load_data().process_data(db)
-    # plugin.load_client().load_data().process_data(db)
-    return []
 
 
 def apply_filters(q, filters):
