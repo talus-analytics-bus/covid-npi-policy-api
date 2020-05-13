@@ -57,12 +57,29 @@ def cached(func):
 
 @db_session
 @cached
-def export(filters):
+def export(filters: dict = None):
+    """Return XLSX data export for policies with the given filters applied.
+
+    Parameters
+    ----------
+    filters : dict
+        The filters to apply.
+
+    Returns
+    -------
+    fastapi.responses.Response
+        The XLSX data export file.
+
+    """
     # Create Excel export file
     genericExcelExport = CovidPolicyExportPlugin(db, filters)
     content = genericExcelExport.build()
-
-    return Response(content=content, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    media_type = 'application/' + \
+        'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    return Response(
+        content=content,
+        media_type=media_type
+    )
 
 
 @db_session
