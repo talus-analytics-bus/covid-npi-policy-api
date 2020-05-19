@@ -83,9 +83,7 @@ class Metadata(db.Entity):
         return custom_delete(db.Metadata, records)
 
 
-class Policy(db.Entity):
-    """Non-pharmaceutical intervention (NPI) policies."""
-    _table_ = "policy"
+class PolicyPlan(db.Entity):
     id = PrimaryKey(int, auto=False)
     source_id = Required(str, unique=True)
 
@@ -95,13 +93,10 @@ class Policy(db.Entity):
     primary_ph_measure = Optional(str)
     ph_measure_details = Optional(str)
     policy_type = Optional(str)
-    primary_impact = Optional(str)
+    primary_impact = Optional(StrArray)
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
-    auth_entity_has_authority = Optional(str)
-    authority_name = Optional(str)
-    auth_entity_authority_data_source = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
 
     # key dates
@@ -114,10 +109,22 @@ class Policy(db.Entity):
     file = Set('File', table="file_to_policy")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Optional('Place')
-    prior_policy = Set('Policy', table="policy_to_prior_policy")
+    prior_policy = Set('PolicyPlan', table="policy_to_prior_policy")
 
     # reverse attributes
-    _prior_policy = Set('Policy')
+    _prior_policy = Set('PolicyPlan')
+
+
+class Plan(PolicyPlan):
+    """Plans. Similar to policies but they lack legal authority."""
+    pass
+
+
+class Policy(PolicyPlan):
+    """Non-pharmaceutical intervention (NPI) policies."""
+    auth_entity_has_authority = Optional(str)
+    authority_name = Optional(str)
+    auth_entity_authority_data_source = Optional(str)
 
     def delete_2(records):
         """Custom delete function for Policy class.
@@ -223,7 +230,7 @@ class Place(db.Entity):
     dillons_rule = Optional(str)
 
     # relationships
-    policies = Set('Policy')
+    policies = Set('PolicyPlan')
     auth_entities = Set('Auth_Entity')
 
 
@@ -235,7 +242,7 @@ class Auth_Entity(db.Entity):
     office = Optional(str)
 
     # relationships
-    policies = Set('Policy')
+    policies = Set('PolicyPlan')
     place = Optional('Place')
 
 
@@ -251,4 +258,4 @@ class File(db.Entity):
     airtable_attachment = Required(bool, default=False)
 
     # relationships
-    policies = Set('Policy')
+    policies = Set('PolicyPlan')
