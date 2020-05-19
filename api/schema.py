@@ -295,7 +295,9 @@ def get_optionset(fields: list = list()):
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
         # TODO handle other special values like "Unspecified" as needed
-        options = select(getattr(i, field) for i in entity_class)[:][:]
+        options = select(
+            getattr(i, field) for i in entity_class
+        )[:][:]
         options.sort()
         options.sort(key=lambda x: x == 'Unspecified')
 
@@ -307,6 +309,10 @@ def get_optionset(fields: list = list()):
 
         # for each possible option currently in the data
         for dd in options:
+
+            # skip blank strings
+            if dd.strip() == '':
+                continue
 
             # append an optionset entry
             data[field].append(
