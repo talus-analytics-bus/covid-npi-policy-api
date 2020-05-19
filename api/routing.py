@@ -12,12 +12,17 @@ from db import db
 
 @app.post("/post/export")
 async def export(body: PolicyFilters):
-    """Download XLSX of data.
+    """Return XLSX data export for policies with the given filters applied.
+
+    Parameters
+    ----------
+    filters : dict
+        The filters to apply.
 
     Returns
     -------
-    def
-        Description of returned object.
+    fastapi.responses.Response
+        The XLSX data export file.
 
     """
     filters = body.filters if bool(body.filters) == True else None
@@ -26,21 +31,78 @@ async def export(body: PolicyFilters):
 
 @app.get("/get/metadata", response_model=MetadataList)
 async def get_metadata(fields: List[str] = Query(None)):
+    """Returns Metadata instance fields for the fields specified.
+
+    Parameters
+    ----------
+    fields : list
+        List of fields as strings with entity name prefixed, e.g.,
+        `policy.id`.
+
+    Returns
+    -------
+    dict
+        Response containing metadata information for the fields.
+
+    """
     return schema.get_metadata(fields)
 
 
 @app.get("/get/file/{title}")
 async def get_file(id: int, title: str):
+    """Return file from S3 with the matching ID using the provided title.
+
+    Parameters
+    ----------
+    id : int
+        ID of File instance.
+    title : str
+        Title to give file.
+
+    Returns
+    -------
+    fastapi.responses.Response
+        The file.
+
+    """
     return schema.get_file(id)
 
 
 @app.get("/get/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def get_policy(fields: List[str] = Query(None)):
+    """Return Policy data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
     return schema.get_policy(fields=fields)
 
 
 @app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_policy(body: PolicyFilters, fields: List[str] = Query(None)):
+    """Return Policy data with filters applied.
+
+    Parameters
+    ----------
+    body : PolicyFilters
+        Filters to apply.
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary
+
+    """
     return schema.get_policy(filters=body.filters, fields=fields)
 
 
@@ -68,26 +130,11 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
     return schema.get_optionset(fields)
 
 
-@app.get("/ingest")
-async def ingest(project_name: str = None):
-    if project_name == 'covid-npi-policy':
-        print('Ingesting data...')
-        # db.generate_mapping(check_tables=False, create_tables=False)
-        db.drop_all_tables(with_all_data=True)
-        db.create_tables()
-        schema.ingest_covid_npi_policy()
-        return 'Ingest completed'
-    else:
-        raise NotImplementedError(
-            'Error: Unknown `project_name`: ' + str(project_name))
-        return 'Ingest failed'
-
-
 ##
 # Test endpoints
 ##
 @app.get("/test")
-async def get(test_param: str = 'GET successful'):
+async def get_test(test_param: str = 'GET successful'):
     """Test GET endpoint.
 
     Parameters
@@ -97,7 +144,7 @@ async def get(test_param: str = 'GET successful'):
 
     Returns
     -------
-    def
+    list[dict]
         A message containing the value of `test_param` indicating the GET was
         successful.
 

@@ -11,14 +11,15 @@ from pony.orm import db_session, select, get, commit
 from fastapi.responses import FileResponse, Response
 
 # local modules
-from ingest import CovidPolicyPlugin
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, Auth_Entity, Place, File
+from .util import str_to_date
 from db import db
 
 
 # constants
 s3 = boto3.client('s3')
+S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
 
 def cached(func):
@@ -56,34 +57,76 @@ def cached(func):
 
 @db_session
 @cached
-def export(filters):
+def export(filters: dict = None):
+    """Return XLSX data export for policies with the given filters applied.
+
+    Parameters
+    ----------
+    filters : dict
+        The filters to apply.
+
+    Returns
+    -------
+    fastapi.responses.Response
+        The XLSX data export file.
+
+    """
     # Create Excel export file
     genericExcelExport = CovidPolicyExportPlugin(db, filters)
     content = genericExcelExport.build()
-
-    return Response(content=content, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    media_type = 'application/' + \
+        'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    return Response(
+        content=content,
+        media_type=media_type
+    )
 
 
 @db_session
 @cached
 def get_metadata(fields: list):
-    # for each field, parse its entity and get the metadata for it
+    """Returns Metadata instance fields for the fields specified.
+
+    Parameters
+    ----------
+    fields : list
+        List of fields as strings with entity name prefixed, e.g.,
+        `policy.id`.
+
+    Returns
+    -------
+    dict
+        Response containing metadata information for the fields.
+
+    """
+    # define output data dict
     data = dict()
 
+    # for each field for which metadat is needed
+    n = 0
     for d in fields:
+
+        # get entity class name and field
         entity_name, field = d.split('.')
+
+        # get metadata instance from db that matches this field
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
             and i.entity_name.lower() == entity_name
         )
+
+        # store metadata fields in output data if they exist
         if metadatum is not None:
             data[d] = metadatum.to_dict()
+            n += 1
         else:
             data[d] = dict()
+
+    # return response dictionary
     return {
         'success': True,
-        'message': f'''Metadata values retrieved''',
+        'message': f'''Found {n} metadata values.''',
         'data': data
     }
 
@@ -96,94 +139,127 @@ def get_file(id: int):
     Parameters
     ----------
     id : int
-        Description of parameter `id`.
+        Unique ID of the File instance which corresponds to the S3 file to
+        be served.
 
     Returns
     -------
-    type
-        Description of returned object.
+    fastapi.responses.Response
+        The file.
 
     """
 
-    # define filename from db
+    # define filename from File instance field
     file = db.File[id]
-    file_key = file.filename
-    s3_bucket = 'covid-npi-policy-storage'
+    key = file.filename
 
-    # retrieve file and write it to IO file object
-    io_instance = BytesIO()
+    # retrieve file and write it to IO file object `data`
+    # if the file is not found in S3, return a 404 error
+    data = BytesIO()
     try:
-        s3.download_fileobj(s3_bucket, file_key, io_instance)
+        s3.download_fileobj(S3_BUCKET_NAME, key, data)
     except Exception as e:
         print('e')
         print(e)
         return 'Document not found (404)'
 
     # return to start of IO stream
-    io_instance.seek(0)
+    data.seek(0)
 
     # return export file
-    content = io_instance.read()
+    content = data.read()
 
-    # return file
+    # return file with correct media type given its extension
     media_type = 'application'
-    if file_key.endswith('.pdf'):
+    if key.endswith('.pdf'):
         media_type = 'application/pdf'
-
     return Response(content=content, media_type=media_type)
 
 
 @db_session
 @cached
 def get_policy(
-    filters=None,
-    fields=None,
-    return_db_instances=False,
-    order_by_field='date_start_effective'
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_start_effective',
+    return_db_instances: bool = False,
 ):
+    """Returns Policy instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to policy data (see function
+        `apply_policy_filters` below).
+    fields : list
+        List of Policy instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class `Policy` that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered policies, otherwise returns the list of dictionaries
+        containing the policy data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
     all = fields is None
+
+    # get ordered policies from database
     q = select(i for i in db.Policy).order_by(
         getattr(db.Policy, order_by_field))
-    if filters is not None:
-        q = apply_filters(q, filters)
 
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
+
+    # return query object if arguments requested it
     if return_db_instances:
         return q
+
+    # otherwise prepare list of dictionaries to return
     else:
-        only_by_entity = defaultdict(list)
+
+        return_fields_by_entity = defaultdict(list)
         if fields is not None:
-            only_by_entity['policy'] = fields
+            return_fields_by_entity['policy'] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        only_by_entity['place'] = ['id', 'level', 'area1', 'loc']
+        return_fields_by_entity['place'] = ['id', 'level', 'area1', 'loc']
 
-        instance_list = []
+        # define list of instances to return
+        data = []
+
+        # for each policy
         for d in q:
 
+            # convert it to a dictionary returning only the specified fields
             d_dict = d.to_dict_2(
-                only_by_entity=only_by_entity)
-            instance_list.append(d_dict)
+                return_fields_by_entity=return_fields_by_entity)
+
+            # add it to the output list
+            data.append(d_dict)
+
+        # create response from output list
         res = PolicyList(
-            data=instance_list,
+            data=data,
             success=True,
             message=f'''{len(q)} policies found'''
         )
         return res
 
 
-def get_auth_entity_loc(i):
-    if i.area2.lower() not in ('unspecified', 'n/a'):
-        return f'''{i.area2}, {i.area1}, {i.iso3}'''
-    elif i.area1.lower() not in ('unspecified', 'n/a'):
-        return f'''{i.area1}, {i.iso3}'''
-    else:
-        return i.iso3
-
-
 @db_session
 @cached
-def get_optionset(fields=list()):
+def get_optionset(fields: list = list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -201,88 +277,100 @@ def get_optionset(fields=list()):
 
     Returns
     -------
-    api.models.OptionSetList
-        List of possible optionset values for each field.
+    dict
+        List of possible optionset values for each field, contained in a
+        response dictionary
 
     """
+
+    # define which data fields use groups
+    # TODO dynamically
+    fields_using_groups = ('Policy.ph_measure_details')
+
+    # define output data dict
     data = dict()
+
+    # for each field to get optionset values for:
     for d_str in fields:
-        d_arr = d_str.split('.')
-        entity_class = getattr(db, d_arr[0])
-        field = d_arr[1]
-        options = select(getattr(i, field)
-                         for i in entity_class)[:][:]
+
+        # split into entity class name and field
+        entity_name, field = d_str.split('.')
+        entity_class = getattr(db, entity_name)
+
+        # get all possible values for the field in the database, and sort them
+        # such that "Unspecified" is last
+        # TODO handle other special values like "Unspecified" as needed
+        options = select(
+            getattr(i, field) for i in entity_class
+        )[:][:]
         options.sort()
         options.sort(key=lambda x: x == 'Unspecified')
+
+        # skip blank strings
+        options = filter(lambda x: x.strip() != '', options)
+
+        # assign groups, if applicable
+        uses_groups = d_str in fields_using_groups
+        if uses_groups:
+            options_with_groups = list()
+            for option in options:
+                # get group from glossary data
+                parent = db.Glossary.get(
+                    **{
+                        'entity_name': entity_name,
+                        'field': field,
+                        'subterm': option
+                    }
+                )
+                # if a parent was found use its term as the group, otherwise
+                # specify "Other" as the group
+                if parent:
+                    options_with_groups.append([option, parent.term])
+                else:
+                    # TODO figure out best way to handle "Other" cases
+                    options_with_groups.append([option, 'Other'])
+            options = options_with_groups
+
+        # return values and labels, etc. for each option
         id = 0
+
+        # init list of optionset values for the field
         data[field] = []
+
+        # for each possible option currently in the data
         for dd in options:
-            data[field].append(
-                {
-                    'id': id,
-                    'value': dd,
-                    'label': dd
-                }
-            )
+
+            # append an optionset entry
+            value = dd if not uses_groups else dd[0]
+            group = None if not uses_groups else dd[1]
+            datum = {
+                'id': id,
+                'value': value,
+                'label': value
+            }
+            if uses_groups:
+                datum['group'] = group
+            data[field].append(datum)
             id = id + 1
+
+    # return all optionset values
     return {
+        'data': data,
         'success': True,
-        'message': f'''Optionset values retrieved''',
-        'data': data
+        'message': f'''Returned {len(fields)} optionset lists''',
     }
 
 
-def ingest_covid_npi_policy():
-    plugin = CovidPolicyPlugin()
-    plugin.load_client().load_data().process_data(db)
-    # plugin.load_client().load_data().process_data(db)
-    return []
-
-
-@db_session
-def clean_docs():
-    # update database to remove docs with broken links
-    docs = db.Doc.select()
-    n = len(docs)
-    i = 0
-    for doc in docs:
-        i = i + 1
-        print(str(i) + ' of ' + str(n))
-        if doc.pdf is None:
-            print('No file, skipping')
-            continue
-        # define filename from db
-        file_key = doc.pdf + '.pdf'
-        s3_bucket = 'covid-npi-policy-storage'
-
-        # retrieve file and write it to IO file object
-        # io_instance = BytesIO()
-        try:
-            s3.head_object(Bucket=s3_bucket, Key=file_key)
-            print('File found')
-        except Exception as e:
-            print('e')
-            print(e)
-            doc.pdf = None
-            commit()
-            print('Document not found (404)')
-
-    return 'Done'
-
-
-def test():
-    ingest_covid_npi_policy()
-
-
-def apply_filters(q, filters):
-    """Given the PonyORM query and filters, applies filters with AND logic.
+def apply_policy_filters(q, filters: dict = dict()):
+    """Given the PonyORM query for policies and relevant filters, applies
+    filters with AND logic.
 
     TODO ensure this works for arbitrary large numbers of filtered fields.
 
     Parameters
     ----------
     q : pony.orm.Query
-        A Query instance, e.g., created by a call to `select`.
+        A Query instance, e.g., created by a call to `select`, for policies
     filters : dict[str, list]
         Dictionary with keys of field names and values of lists of
         allowed values (AND logic).
@@ -293,26 +381,44 @@ def apply_filters(q, filters):
         The query with filters applied.
 
     """
+    # for each filter set provided
     for field, allowed_values in filters.items():
+
+        # if no values were specified, assume no filter is applied
+        # and continue
         if len(allowed_values) == 0:
             continue
+
+        # if it is a date field, handle it specially
         if field.startswith('date'):
-            def str_to_date(s):
-                return datetime.strptime(s, '%Y-%m-%d').date()
+
+            # set allowed values to be start and end date instances
             allowed_values = list(
                 map(str_to_date, allowed_values)
             )
+
+        # is the filter applied by joining a policy instance to a
+        # different entity?
+        # TODO generalize this and rename function `apply_policy_filters`
         join = field in ('level', 'loc', 'area1')
+
+        # if the filter is not a join, i.e., is on policy native fields
         if not join:
+
+            # apply the filter
             q = select(
                 i
                 for i in q
                 if getattr(i, field) in allowed_values
             )
+
+        # otherwise, apply the filter to the linked entity
         else:
             q = select(
                 i
                 for i in q
                 if getattr(i.place, field) in allowed_values
             )
+
+    # return the filtered query instance
     return q
