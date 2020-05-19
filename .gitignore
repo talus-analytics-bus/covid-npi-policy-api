@@ -1,5 +1,7 @@
 # Shell scripts
 bin/
+sh/
+ingest/sh
 
 # PDFs
 /api/pdf
