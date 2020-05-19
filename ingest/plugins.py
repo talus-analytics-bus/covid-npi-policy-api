@@ -173,13 +173,18 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # sort by policy ID
+        print(self.data)
         self.data.sort_values('Unique ID')
+
+        # remove records without a unique ID
+        self.data = self.data.loc[self.data['Unique ID'] != '', :]
+        # self.data = self.data.loc[type(self.data['Unique ID']) == int, :]
 
         # analyze for QA/QC and quit if errors detected
         valid = self.check(self.data)
         if not valid:
             print('Data are invalid. Please correct issues and try again.')
-            sys.exit(0)
+            # sys.exit(0)
         else:
             print('QA/QC found no issues. Continuing.')
 
@@ -331,6 +336,13 @@ class CovidPolicyPlugin(IngestPlugin):
         # for each row of the data
         for i, d in self.data.iterrows():
 
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
@@ -462,6 +474,7 @@ class CovidPolicyPlugin(IngestPlugin):
     @db_session
     def create_policies(self, db):
         """Create policy instances.
+        TODO generalize to plans, etc.
 
         Parameters
         ----------
@@ -510,6 +523,14 @@ class CovidPolicyPlugin(IngestPlugin):
         n_updated = 0
 
         for i, d in self.data.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
             # upsert policies
             action, instance = upsert(
                 db.Policy,
@@ -524,15 +545,23 @@ class CovidPolicyPlugin(IngestPlugin):
             upserted.add(instance)
 
         for i, d in self.data.iterrows():
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
             # upsert policies
             # TODO consider how to count these updates, since they're done
             # after new instances are created (if counting them at all)
-            upsert(
-                db.Policy,
-                {'id': d['id']},
-                {'prior_policy': [db.Policy.get(
-                    source_id=source_id) for source_id in d['prior_policy']]},
-            )
+            if d['prior_policy'] != '':
+                upsert(
+                    db.Policy,
+                    {'id': d['id']},
+                    {'prior_policy': [db.Policy.get(
+                        source_id=source_id) for source_id in d['prior_policy']]},
+                )
 
         # delete all records in table but not in ingest dataset
         n_deleted = db.Policy.delete_2(upserted)
@@ -666,6 +695,14 @@ class CovidPolicyPlugin(IngestPlugin):
         n_updated = 0
 
         for i, d in self.data.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
             if instance_data['filename'] is None or \
@@ -752,6 +789,14 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # for each record in the raw data, potentially create file(s)
         for i, d in self.data.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
             for key in policy_doc_keys:
                 if d[key] is not None and len(d[key]) > 0:
                     for dd in d[key]:
@@ -887,7 +932,7 @@ class CovidPolicyPlugin(IngestPlugin):
         dupes = data.duplicated(['Unique ID'])
         if dupes.any():
             print('\nDetected duplicate unique IDs:')
-            print(data[dupes == True].loc[:, 'id'])
+            print(data[dupes == True].loc[:, 'Unique ID'])
             valid = False
 
         # dates formatted well
