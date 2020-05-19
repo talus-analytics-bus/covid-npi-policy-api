@@ -63,7 +63,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             SheetSettings(
                 name='Exported data',
                 type='data',
-                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID MAPS website.',
+                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.',
                 init_irow={
                     'logo': 0,
                     'title': 1,
