@@ -152,7 +152,10 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='Appendix: data dictionary') \
             .as_dataframe(view='API ingest')
 
-        # TODO glossary
+        # glossary
+        self.glossary = self.client \
+            .worksheet(name='Appendix: glossary') \
+            .as_dataframe(view='API ingest')
 
         return self
 
@@ -190,6 +193,9 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # upsert metadata records
         self.create_metadata(db)
+
+        # upsert glossary terms
+        self.create_glossary(db)
 
         # set column names to database field names
         all_keys = select((i.ingest_field, i.display_name)
@@ -655,6 +661,52 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # delete all records in table but not in ingest dataset
         n_deleted = db.Metadata.delete_2(upserted)
+        commit()
+        print('Inserted: ' + str(n_inserted))
+        print('Updated: ' + str(n_updated))
+        print('Deleted: ' + str(n_deleted))
+
+    @db_session
+    def create_glossary(self, db):
+        """Create glossary instances if they do not exist. If they do exist,
+        update them.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        print('\n\n[2b] Ingesting glossary...')
+        colgroup = ''
+        upserted = set()
+        n_inserted = 0
+        n_updated = 0
+        for i, d in self.glossary.iterrows():
+            attributes = {
+                'definition': d['Definition'],
+                'reference': d['Reference'],
+                'entity_name': d['Database entity'],
+                'field': d['Database field name'],
+            }
+
+            action, instance = upsert(db.Glossary, {
+                'term': d['Key Term'],
+                'subterm': d['Field Value'],
+            }, attributes)
+            if action == 'update':
+                n_updated += 1
+            elif action == 'insert':
+                n_inserted += 1
+            upserted.add(instance)
+
+        # delete all records in table but not in ingest dataset
+        n_deleted = db.Glossary.delete_2(upserted)
         commit()
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))

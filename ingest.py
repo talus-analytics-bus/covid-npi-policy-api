@@ -8,7 +8,7 @@ from db import db
 from ingest import CovidPolicyPlugin
 
 # generate database mapping and ingest data for the COVID-AMP project
-db.generate_mapping()
+db.generate_mapping(create_tables=True)
 plugin = CovidPolicyPlugin()
 plugin.load_client().load_data().process_data(db)
 sys.exit(0)

@@ -83,6 +83,26 @@ class Metadata(db.Entity):
         return custom_delete(db.Metadata, records)
 
 
+class Glossary(db.Entity):
+    """Definitions of terms, including parents of sub-categories."""
+    _table_ = "glossary"
+    id = PrimaryKey(int, auto=True)
+    term = Required(str)
+    subterm = Optional(str, default="n/a")
+    definition = Optional(str, default="Definition currently being developed")
+    reference = Optional(str, default="None")
+    entity_name = Optional(str)
+    field = Optional(str)
+
+    def delete_2(records):
+        """Custom delete function for Glossary class.
+
+        See `custom_delete` definition for more information.
+
+        """
+        return custom_delete(db.Glossary, records)
+
+
 class PolicyPlan(db.Entity):
     id = PrimaryKey(int, auto=False)
     source_id = Required(str, unique=True)

@@ -282,6 +282,11 @@ def get_optionset(fields: list = list()):
         response dictionary
 
     """
+
+    # define which data fields use groups
+    # TODO dynamically
+    fields_using_groups = ('Policy.ph_measure_details')
+
     # define output data dict
     data = dict()
 
@@ -301,6 +306,16 @@ def get_optionset(fields: list = list()):
         options.sort()
         options.sort(key=lambda x: x == 'Unspecified')
 
+        # skip blank strings
+        options = filter(lambda x: x.strip() != '', options)
+
+        # assign groups, if applicable
+        uses_groups = d_str in fields_using_groups
+        if d_str in fields_using_groups:
+            options = [
+                [option, 'MVM test group'] for option in options
+            ]
+
         # return values and labels, etc. for each option
         id = 0
 
@@ -310,18 +325,17 @@ def get_optionset(fields: list = list()):
         # for each possible option currently in the data
         for dd in options:
 
-            # skip blank strings
-            if dd.strip() == '':
-                continue
-
             # append an optionset entry
-            data[field].append(
-                {
-                    'id': id,
-                    'value': dd,
-                    'label': dd
-                }
-            )
+            value = dd if not uses_groups else dd[0]
+            group = None if not uses_groups else dd[1]
+            datum = {
+                'id': id,
+                'value': value,
+                'label': value
+            }
+            if uses_groups:
+                datum['group'] = group
+            data[field].append(datum)
             id = id + 1
 
     # return all optionset values
