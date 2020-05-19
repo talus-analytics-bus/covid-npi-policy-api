@@ -311,10 +311,25 @@ def get_optionset(fields: list = list()):
 
         # assign groups, if applicable
         uses_groups = d_str in fields_using_groups
-        if d_str in fields_using_groups:
-            options = [
-                [option, 'MVM test group'] for option in options
-            ]
+        if uses_groups:
+            options_with_groups = list()
+            for option in options:
+                # get group from glossary data
+                parent = db.Glossary.get(
+                    **{
+                        'entity_name': entity_name,
+                        'field': field,
+                        'subterm': option
+                    }
+                )
+                # if a parent was found use its term as the group, otherwise
+                # specify "Other" as the group
+                if parent:
+                    options_with_groups.append([option, parent.term])
+                else:
+                    # TODO figure out best way to handle "Other" cases
+                    options_with_groups.append([option, 'Other'])
+            options = options_with_groups
 
         # return values and labels, etc. for each option
         id = 0
