@@ -101,6 +101,24 @@ class IngestPlugin():
         self.name = name
 
 
+def reject(x):
+    """Reject instance if this function returns False, or accept it to
+    the database otherwise.
+
+    Parameters
+    ----------
+    x : type
+        Description of parameter `x`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    return x['desc'] == ''
+
+
 class CovidPolicyPlugin(IngestPlugin):
     """Ingest COVID non-pharmaceutical interventions (NPI) policy data from an
     Airtable base.
@@ -349,6 +367,9 @@ class CovidPolicyPlugin(IngestPlugin):
             except:
                 continue
 
+            if reject(d):
+                continue
+
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
@@ -423,6 +444,7 @@ class CovidPolicyPlugin(IngestPlugin):
             raw_data = get_auth_entities_from_raw_data(d)
 
             # for each individual auth entity
+            db.Policy[d['id']].auth_entity = set()
             for dd in raw_data:
 
                 # get or create auth entity
@@ -445,6 +467,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
                 # link instance to required entities
                 db.Policy[d['id']].auth_entity.add(auth_entity)
+            commit()
 
         ## Delete unused instances #############################################
         # delete auth_entities that are not used
@@ -538,6 +561,9 @@ class CovidPolicyPlugin(IngestPlugin):
             except:
                 continue
 
+            if reject(d):
+                continue
+
             # upsert policies
             action, instance = upsert(
                 db.Policy,
@@ -559,15 +585,22 @@ class CovidPolicyPlugin(IngestPlugin):
             except:
                 continue
 
+            if reject(d):
+                continue
+
             # upsert policies
             # TODO consider how to count these updates, since they're done
             # after new instances are created (if counting them at all)
             if d['prior_policy'] != '':
+                prior_policies = list()
+                for source_id in d['prior_policy']:
+                    prior_policy_instance = db.Policy.get(source_id=source_id)
+                    if prior_policy_instance is not None:
+                        prior_policies.append(prior_policy_instance)
                 upsert(
                     db.Policy,
                     {'id': d['id']},
-                    {'prior_policy': [db.Policy.get(
-                        source_id=source_id) for source_id in d['prior_policy']]},
+                    {'prior_policy': prior_policies},
                 )
 
         # delete all records in table but not in ingest dataset
@@ -768,6 +801,9 @@ class CovidPolicyPlugin(IngestPlugin):
             except:
                 continue
 
+            if reject(d):
+                continue
+
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
             if instance_data['filename'] is None or \
@@ -860,6 +896,9 @@ class CovidPolicyPlugin(IngestPlugin):
             try:
                 int(d['id'])
             except:
+                continue
+
+            if reject(d):
                 continue
 
             for key in policy_doc_keys:
