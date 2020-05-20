@@ -389,9 +389,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 # perform upsert using get and set data fields
                 place_affected_get_keys = ['level', 'iso3', 'area1', 'area2']
                 place_affected_set_keys = ['dillons_rule', 'home_rule']
-                place_affected_get = {k: auth_entity_place_instance_data[k]
+                place_affected_get = {k: place_affected_instance_data[k]
                                       for k in place_affected_get_keys}
-                place_affected_set = {k: auth_entity_place_instance_data[k]
+                place_affected_set = {k: place_affected_instance_data[k]
                                       for k in place_affected_set_keys}
 
                 action, place_affected = upsert(
