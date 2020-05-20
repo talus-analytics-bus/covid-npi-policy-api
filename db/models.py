@@ -63,7 +63,7 @@ class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
     field = Required(str)
-    ingest_field = Required(str)
+    ingest_field = Optional(str)
     order = Required(int)
     display_name = Optional(str)
     colgroup = Optional(str)

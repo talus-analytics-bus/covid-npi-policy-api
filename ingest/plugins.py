@@ -496,7 +496,8 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[3] Ingesting policy data...')
 
         keys = select(i.field for i in db.Metadata if i.entity_name ==
-                      'Policy' and i.field != 'id')[:]
+                      'Policy' and i.field != 'id' and
+                      i.ingest_field != '')[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -649,6 +650,18 @@ class CovidPolicyPlugin(IngestPlugin):
                 'order': 0,
                 'notes': '',
                 'export': False,
+            }), ({
+                'field': 'date_end_actual_or_anticipated',
+                'entity_name': 'Policy',
+            }, {
+                'ingest_field': '',
+                'display_name': 'Policy end date',
+                'colgroup': '',
+                'definition': 'The date on which the policy or law will (or did) end',
+                'possible_values': 'Any date',
+                'order': 0,
+                'notes': '',
+                'export': True,
             })
         ]
         for get, d in other_metadata:

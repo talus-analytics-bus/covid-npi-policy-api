@@ -433,6 +433,41 @@ def apply_policy_filters(q, filters: dict = dict()):
                 map(str_to_date, allowed_values)
             )
 
+            # if it's the special "dates_in_effect" filter, handle it
+            # and continue
+            if field == 'dates_in_effect':
+                start = allowed_values[0]
+                end = allowed_values[1]
+                q = select(
+                    i
+                    for i in q
+                    if
+                    not (
+                        (
+                            i.date_start_effective > end and
+                            i.date_end_actual > end
+                        ) or
+                        (
+                            i.date_start_effective < start and
+                            i.date_end_actual < start
+                        ) or
+                        i.date_start_effective is None
+                    ) or
+                    (i.date_end_actual is None and i.date_end_anticipated is not None and
+                     not (
+                         (
+                             i.date_start_effective > end and
+                             i.date_end_anticipated > end
+                         ) or
+                         (
+                             i.date_start_effective < start and
+                             i.date_end_anticipated < start
+                         ) or
+                         i.date_start_effective is None
+                     ))
+                )
+                continue
+
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_policy_filters`
