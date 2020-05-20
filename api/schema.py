@@ -233,7 +233,8 @@ def get_policy(
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        return_fields_by_entity['place'] = ['id', 'level', 'area1', 'loc']
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'area1', 'area2', 'loc', 'iso3']
 
         # define list of instances to return
         data = []
@@ -286,6 +287,7 @@ def get_optionset(fields: list = list()):
     # define which data fields use groups
     # TODO dynamically
     fields_using_groups = ('Policy.ph_measure_details')
+    fields_using_geo_groups = ('Place.area1', 'Place.area2')
 
     # define output data dict
     data = dict()
@@ -310,8 +312,10 @@ def get_optionset(fields: list = list()):
         options = filter(lambda x: x.strip() != '', options)
 
         # assign groups, if applicable
-        uses_groups = d_str in fields_using_groups
-        if uses_groups:
+        uses_nongeo_groups = d_str in fields_using_groups
+        uses_geo_groups = d_str in fields_using_geo_groups
+        uses_groups = uses_nongeo_groups or uses_geo_groups
+        if uses_nongeo_groups:
             options_with_groups = list()
             for option in options:
                 # get group from glossary data
@@ -329,6 +333,38 @@ def get_optionset(fields: list = list()):
                 else:
                     # TODO figure out best way to handle "Other" cases
                     options_with_groups.append([option, 'Other'])
+            options = options_with_groups
+        elif uses_geo_groups:
+            options_with_groups = list()
+            if field == 'area1':
+                for option in options:
+                    # get group from glossary data
+                    parent = select(
+                        i for i in db.Place
+                        if i.area1 == option
+                    ).first()
+                    # if a parent was found use its term as the group, otherwise
+                    # specify "Other" as the group
+                    if parent:
+                        options_with_groups.append([option, parent.iso3])
+                    else:
+                        # TODO figure out best way to handle "Other" cases
+                        options_with_groups.append([option, 'Other'])
+            elif field == 'area2':
+                for option in options:
+                    # get group from glossary data
+                    parent = select(
+                        i for i in db.Place
+                        if i.area2 == option
+                    ).first()
+                    # if a parent was found use its term as the group, otherwise
+                    # specify "Other" as the group
+                    if parent:
+                        options_with_groups.append([option, parent.area1])
+                    else:
+                        # TODO figure out best way to handle "Other" cases
+                        options_with_groups.append([option, 'Other'])
+
             options = options_with_groups
 
         # return values and labels, etc. for each option
@@ -400,7 +436,7 @@ def apply_policy_filters(q, filters: dict = dict()):
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_policy_filters`
-        join = field in ('level', 'loc', 'area1')
+        join = field in ('level', 'loc', 'area1', 'iso3', 'area2')
 
         # if the filter is not a join, i.e., is on policy native fields
         if not join:
