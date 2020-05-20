@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c248c631b35efb31f645d84384b288b742ce43f5a87bdc947ace25f098fcc7ca"
+            "sha256": "d3d00c1e950ef7fd4cdd5c7139cb5d3ea1f65c2168154491a6c2f9cfff3dad84"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -23,6 +23,14 @@
             ],
             "index": "pypi",
             "version": "==0.5.0"
+        },
+        "airtable-python-wrapper": {
+            "hashes": [
+                "sha256:87fe8e7be6b0a3f64199f50fbc7869278ce5343eaf27b6a3dff025ea2aee4519",
+                "sha256:f0166b125e315163edf2b8f692155f0760c681ebad15f1f39cbb045d24f4f6c5"
+            ],
+            "index": "pypi",
+            "version": "==0.13.0"
         },
         "boto3": {
             "hashes": [
@@ -178,6 +186,14 @@
             ],
             "index": "pypi",
             "version": "==3.5.0"
+        },
+        "gunicorn": {
+            "hashes": [
+                "sha256:1904bb2b8a43658807108d59c3f3d56c2b6121a701161de0ddf9ad140073c626",
+                "sha256:cd4a810dd51bf497552cf3f863b575dabd73d6ad6a91075b65936b151cbf4f9c"
+            ],
+            "index": "pypi",
+            "version": "==20.0.4"
         },
         "h11": {
             "hashes": [
