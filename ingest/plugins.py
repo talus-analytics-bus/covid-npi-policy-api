@@ -270,9 +270,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 Well-known location string
 
             """
-            if i.area2.lower() not in ('unspecified', 'n/a'):
+            if i.area2.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area2}, {i.area1}, {i.iso3}'''
-            elif i.area1.lower() not in ('unspecified', 'n/a'):
+            elif i.area1.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area1}, {i.iso3}'''
             else:
                 return i.iso3
@@ -801,13 +801,20 @@ class CovidPolicyPlugin(IngestPlugin):
             except:
                 continue
 
-            if reject(d):
+            # if an attachment is available, skip
+            attachment_available = d['Attachment for policy'] is not None and \
+                len(d['Attachment for policy']) > 0
+
+            if reject(d) or attachment_available:
+
                 continue
 
             instance_data = {key.split('_', 1)[1]: d[key]
                              for key in policy_doc_keys}
-            if instance_data['filename'] is None or \
-                    instance_data['filename'].strip() == '':
+
+            if not attachment_available and \
+                (instance_data['filename'] is None or
+                 instance_data['filename'].strip() == ''):
                 missing_filenames.add(d['id'])
                 continue
             instance_data['type'] = 'policy'
@@ -868,13 +875,13 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         print('\n\n[4] Ingesting files from Airtable attachments...')
 
-        policy_doc_keys = \
-            {
-                'test_files': {
-                    'data_source': 'policy_data_source',
-                    'name': 'policy_name',
-                }
+        policy_doc_keys = {
+            'Attachment for policy': {
+                'data_source': 'policy_data_source',
+                'name': 'policy_name',
+                'type': 'policy',
             }
+        }
 
         docs_by_id = dict()
 
@@ -903,6 +910,14 @@ class CovidPolicyPlugin(IngestPlugin):
 
             for key in policy_doc_keys:
                 if d[key] is not None and len(d[key]) > 0:
+                    # remove all non-airtable attachments of this type
+                    type = policy_doc_keys[key]['type']
+                    policy = db.Policy[d['id']]
+                    to_delete = select(
+                        i for i in policy.file
+                        if i.type == type
+                        and not i.airtable_attachment
+                    ).delete()
                     for dd in d[key]:
                         # create file key
                         file_key = dd['id'] + ' - ' + dd['filename']
@@ -916,7 +931,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         # define set data
                         set_data = {
                             'name': dd['filename'],
-                            'type': key,
+                            'type': type,
                             'data_source': d[policy_doc_keys[key]['data_source']],
                             'permalink': dd['url'],
                             'airtable_attachment': True,
@@ -960,17 +975,24 @@ class CovidPolicyPlugin(IngestPlugin):
         n_missing = 0
         n_added = 0
         n_failed = 0
+        n_checked = 0
         keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
         could_not_download = set()
         missing_filenames = set()
         for file in files:
+            n_checked += 1
+            print(f'''Checking file {n_checked} of {len(files)}...''')
             if file.filename is not None:
                 file_key = file.filename
                 if file_key in keys:
                     # print('\nFile found')
                     n_valid += 1
                     pass
-                elif file.data_source is None or file.data_source.strip() == '':
+                elif (
+                    file.data_source is None or file.data_source.strip() == ''
+                ) and (
+                    file.permalink is None or file.permalink.strip() == ''
+                ):
                     # print('\nDocument not found (404), no URL')
                     file.filename = None
                     commit()
@@ -1002,12 +1024,14 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Missing (no URL or filename): ' + str(n_missing))
         print('Failed to fetch from URL: ' + str(n_failed))
         if n_missing > 0:
+            missing_filenames = list(missing_filenames)
             missing_filenames.sort()
             print(
                 f'''\n{bcolors.BOLD}[Warning] URLs or filenames were not provided for {n_missing} files with the following names:{bcolors.ENDC}''')
             print(bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC)
 
         if n_failed > 0:
+            could_not_download = list(could_not_download)
             could_not_download.sort()
             print(
                 f'''\n{bcolors.BOLD}[Warning] Files could not be downloaded from the following {n_failed} sources:{bcolors.ENDC}''')
