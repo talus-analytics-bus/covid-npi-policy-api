@@ -303,6 +303,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i for i in db.Metadata
             if i.export == True
+            and i.ingest_field != ''
         ).order_by(db.Metadata.order)
 
         # init export data list
