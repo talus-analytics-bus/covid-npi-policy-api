@@ -199,7 +199,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # remove records without a unique ID
         self.data = self.data.loc[self.data['Unique ID'] != '', :]
-        # self.data = self.data.loc[type(self.data['Unique ID']) == int, :]
 
         # analyze for QA/QC and quit if errors detected
         valid = self.check(self.data)
@@ -225,6 +224,17 @@ class CovidPolicyPlugin(IngestPlugin):
         for field, display_name in all_keys:
             columns[display_name] = field
         self.data = self.data.rename(columns=columns)
+
+        # format certain values
+        for col in ('auth_entity.level', 'place.level'):
+            for to_replace, value in (
+                ('Intermediate area', 'State / Province'),
+                ('Local area', 'Local')
+            ):
+                self.data[col] = self.data[col].replace(
+                    to_replace=to_replace,
+                    value=value
+                )
 
         # create Policy instances
         self.create_policies(db)

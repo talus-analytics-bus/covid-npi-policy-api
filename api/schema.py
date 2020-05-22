@@ -382,7 +382,8 @@ def get_optionset(fields: list = list()):
             datum = {
                 'id': id,
                 'value': value,
-                'label': value
+                'label': value,
+                # 'label': get_label_from_value(field, value),
             }
             if uses_groups:
                 datum['group'] = group
@@ -395,6 +396,36 @@ def get_optionset(fields: list = list()):
         'success': True,
         'message': f'''Returned {len(fields)} optionset lists''',
     }
+
+
+def get_label_from_value(field, value):
+    """Given the data field and value, return the label that should be used
+    to refer to the value in front-ends.
+
+    TODO more dynamically
+
+    Parameters
+    ----------
+    field : type
+        Description of parameter `field`.
+    value : type
+        Description of parameter `value`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    if field == 'level':
+        if value == 'Intermediate area':
+            return 'State / province'
+        elif value == 'Local area':
+            return 'Local'
+        else:
+            return value
+    else:
+        return value
 
 
 def apply_policy_filters(q, filters: dict = dict()):
