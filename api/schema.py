@@ -306,7 +306,7 @@ def get_optionset(fields: list = list()):
             getattr(i, field) for i in entity_class
         )[:][:]
         options.sort()
-        options.sort(key=lambda x: x == 'Unspecified')
+        options.sort(key=lambda x: x in('Unspecified', 'Local'))
 
         # skip blank strings
         options = filter(lambda x: x.strip() != '', options)
