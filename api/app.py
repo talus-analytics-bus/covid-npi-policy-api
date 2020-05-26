@@ -10,6 +10,7 @@ app = FastAPI()
 allow_origin_regex = \
     "(http:\/\/localhost:.*|" + \
     "https?:\/\/covidamp\.org|" + \
+    "https?:\/\/test\.covidamp\.org|" + \
     "https?:\/\/.*\.cloudfront\.net|" + \
     "https?:\/\/.*\.talusanalytics.*)"
 
