@@ -19,6 +19,10 @@ jobs:
           name: Deploying
           command: eb deploy covid-npi-policy-api-dev
 
+      - run:
+          name: Deploying
+          command: eb deploy covid-npi-policy-api-prod
+
 workflows:
   version: 2
   build:
