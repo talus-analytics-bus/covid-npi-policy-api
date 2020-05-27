@@ -200,7 +200,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         formatters = {
             'area1': lambda instance, value: value if instance.level != 'Country' else 'N/A',
-            'area2': lambda instance, value: value if instance.level == 'Local area' else 'N/A',
+            'area2': lambda instance, value: value if instance.level == 'Local' else 'N/A',
         }
 
         # for each policy (i.e., row)
