@@ -17,11 +17,25 @@ jobs:
 
       - run:
           name: Deploying
-          command: eb deploy covid-npi-policy-api-dev
+          command: eb deploy covid-npi-policy-api-prod
+  deploy-test:
+    working_directory: ~/repo
+
+    docker:
+      - image: circleci/python:3.6.4
+
+    steps:
+      - checkout
+
+      - run:
+          name: Installing Deployment Dependencies
+          working_directory: /
+          command: |
+            sudo pip3 install awsebcli --upgrade
 
       - run:
           name: Deploying
-          command: eb deploy covid-npi-policy-api-prod
+          command: eb deploy covid-npi-policy-api-dev
 
 workflows:
   version: 2
@@ -32,3 +46,8 @@ workflows:
             branches:
               only:
                 - master
+      - deploy-test:
+          filters:
+            branches:
+              only:
+                - dev
