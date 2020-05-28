@@ -1,11 +1,13 @@
 """Define API endpoints"""
 # 3rd party modules
 from fastapi import Query
+from starlette.responses import RedirectResponse
 from typing import List
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, ListResponse
+from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, \
+    ListResponse
 from .app import app
 from db import db
 
@@ -46,6 +48,27 @@ async def get_metadata(fields: List[str] = Query(None)):
 
     """
     return schema.get_metadata(fields)
+
+
+@app.get("/get/file/redirect")
+async def get_file(id: int):
+    """Return file from S3 with the matching ID using the provided title.
+
+    Parameters
+    ----------
+    id : int
+        ID of File instance.
+    title : str
+        Title to give file.
+
+    Returns
+    -------
+    fastapi.responses.Response
+        The file.
+
+    """
+    title = schema.get_file_title(id)
+    return RedirectResponse(url=f'''/get/file/{title}?id={id}''')
 
 
 @app.get("/get/file/{title}")

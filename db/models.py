@@ -215,25 +215,14 @@ class Policy(PolicyPlan):
             # File
             elif k == 'file':
                 instance_dict['file'] = list()
+                file_fields = ['id']
                 for id in v:
                     instance = File[id]
-                    doc_instance_dict = instance.to_dict()
-
-                    # form a title for the file instance
-                    # TODO on data ingest and store as a separate data field
-                    title = instance.name if instance.name is not None and \
-                        instance.name != '' else instance.filename
-
-                    # form API URL for the file instance
-                    # TODO on data ingest and store as a separate data field
-                    doc_instance_dict['filename'] = \
-                        None if instance.filename is None or \
-                        doc_instance_dict['filename'] == '' \
-                        else f'''/get/file/{title}?id={instance.id}'''
+                    doc_instance_dict = instance.to_dict(only=file_fields)
 
                     # append file dict to list
                     instance_dict['file'].append(
-                        doc_instance_dict
+                        doc_instance_dict['id']
                     )
         return instance_dict
 

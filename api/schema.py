@@ -132,6 +132,28 @@ def get_metadata(fields: list):
 
 
 @db_session
+def get_file_title(id: int):
+    """Gets file title from database.
+
+    Parameters
+    ----------
+    id : int
+        Unique ID of the File instance which corresponds to the S3 file to
+        be served.
+
+    Returns
+    -------
+    str
+        The file title.
+
+    """
+
+    # define filename from File instance field
+    file = db.File[id]
+    return file.name
+
+
+@db_session
 def get_file(id: int):
     """Serves the file from S3 that corresponds to the File instances with
     the specified id.
@@ -234,7 +256,7 @@ def get_policy(
         # TODO dynamically set fields returned for Place and other
         # linked entities
         return_fields_by_entity['place'] = [
-            'id', 'level', 'area1', 'area2', 'loc', 'iso3']
+            'id', 'level', 'loc']
 
         # define list of instances to return
         data = []

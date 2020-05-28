@@ -46,7 +46,7 @@ class Auth_Entity(BaseModel):
 
 class File(BaseModel):
     id: int
-    type: str
+    type: str = None
     filename: str = None
     data_source: str = None
 
@@ -70,7 +70,7 @@ class Policy(BaseModel):
     # relationships
     auth_entity: List[Auth_Entity] = None
     place: Place = None
-    file: List[File] = None
+    file: List = None
 
 
 class PolicyFilters(BaseModel):
