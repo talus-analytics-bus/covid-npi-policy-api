@@ -228,8 +228,10 @@ class CovidPolicyPlugin(IngestPlugin):
         # format certain values
         for col in ('auth_entity.level', 'place.level'):
             for to_replace, value in (
-                ('Intermediate area', 'State / Province'),
-                ('Local area', 'Local')
+                ('State/Province (Intermediate area)', 'State / Province'),
+                ('Local area (county, city)', 'Local'),
+                ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
+                 'Multiple countries / Global policy'),
             ):
                 self.data[col] = self.data[col].replace(
                     to_replace=to_replace,
