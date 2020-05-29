@@ -215,13 +215,14 @@ class CovidPolicyPlugin(IngestPlugin):
         self.create_glossary(db)
 
         # set column names to database field names
-        all_keys = select((i.ingest_field, i.display_name)
+        all_keys = select((i.ingest_field, i.display_name, i.field)
                           for i in db.Metadata)[:]
 
         # use field names instead of column headers for core dataset
         # TODO do this for future data tables as needed
         columns = dict()
-        for field, display_name in all_keys:
+        for ingest_field, display_name, db_field in all_keys:
+            field = ingest_field if ingest_field != '' else db_field
             columns[display_name] = field
         self.data = self.data.rename(columns=columns)
 
@@ -717,7 +718,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'possible_values': 'Any date',
                 'order': 0,
                 'notes': '',
-                'export': True,
+                'export': False,
             })
         ]
         for get, d in other_metadata:
@@ -825,8 +826,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
 
             # if an attachment is available, skip
-            attachment_available = d['Attachment for policy'] is not None and \
-                len(d['Attachment for policy']) > 0
+            attachment_available = d['attachment_for_policy'] is not None and \
+                len(d['attachment_for_policy']) > 0
 
             if reject(d) or attachment_available:
 
@@ -899,7 +900,7 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[4] Ingesting files from Airtable attachments...')
 
         policy_doc_keys = {
-            'Attachment for policy': {
+            'attachment_for_policy': {
                 'data_source': 'policy_data_source',
                 'name': 'policy_name',
                 'type': 'policy',
@@ -943,7 +944,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     ).delete()
                     for dd in d[key]:
                         # create file key
-                        file_key = dd['id'] + ' - ' + dd['filename']
+                        file_key = dd['id'] + ' - ' + dd['filename'] + '.pdf'
 
                         # check if file exists already
                         # define get data

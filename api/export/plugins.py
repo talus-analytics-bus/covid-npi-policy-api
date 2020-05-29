@@ -179,7 +179,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i for i in db.Metadata
             if i.export == True
-            and i.ingest_field != ''
+            # and i.ingest_field != ''
         ).order_by(db.Metadata.order)
 
         # get all policies (one policy per row exported)
@@ -211,6 +211,17 @@ class CovidPolicyExportPlugin(ExcelExport):
 
             # for each metadatum (i.e., column in the spreadsheet)
             for dd in metadata:
+
+                # if it's the PDF permalink column: handle specially
+                if dd.display_name == 'Attachment for policy':
+                    permalinks = list()
+                    for file in d.file:
+                        permalinks.append(
+                            'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
+                    row[dd.colgroup]['Attachment for policy'] = "\n".join(
+                        permalinks)
+                    print(row[dd.colgroup]['Attachment for policy'])
+                    continue
 
                 # check whether it is a policy or a joined entity
                 join = dd.entity_name != 'Policy'
@@ -292,6 +303,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                                     formatters[dd.field](joined_entity, value)
                             else:
                                 row[dd.colgroup][dd.display_name] = value
+
             # append row data to overall row list
             rows.append(row)
         # return list of rows
@@ -303,7 +315,6 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i for i in db.Metadata
             if i.export == True
-            and i.ingest_field != ''
         ).order_by(db.Metadata.order)
 
         # init export data list
