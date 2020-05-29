@@ -243,8 +243,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                     elif type(value) != str and iterable(value):
                         value_list = []
                         for v in value:
-                            if type(v) == db.Policy:
-                                value_list.append(str(v.id))
+                            if type(v) == db.Policy or type(v) == db.PolicyPlan:
+                                value_list.append(
+                                    v.policy_name + ' (ID = ' + str(v.id) + ')')
                             else:
                                 value_list.append(str(v))
                         row[dd.colgroup][dd.display_name] = \
