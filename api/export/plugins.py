@@ -218,9 +218,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                     for file in d.file:
                         permalinks.append(
                             'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
-                    row[dd.colgroup]['Attachment for policy'] = "\n".join(
+                    row[dd.colgroup]['Permalink for policy PDF(s)'] = "\n".join(
                         permalinks)
-                    print(row[dd.colgroup]['Attachment for policy'])
+                    print(row[dd.colgroup]['Permalink for policy PDF(s)'])
                     continue
 
                 # check whether it is a policy or a joined entity
@@ -326,6 +326,13 @@ class CovidPolicyExportPlugin(ExcelExport):
             # append rows containing the field's definition and possible values
             row = defaultdict(dict)
             for d in metadata:
-                row[d.colgroup][d.display_name] = getattr(d, row_type)
+                if d.display_name == 'Attachment for policy':
+                    if row_type == 'definition':
+                        row[d.colgroup][
+                            'Permalink for policy PDF(s)'] = 'URL of permanently hosted PDF document(s) for the policy'
+                    elif row_type == 'possible_values':
+                        row[d.colgroup]['Permalink for policy PDF(s)'] = 'Any URL(s)'
+                else:
+                    row[d.colgroup][d.display_name] = getattr(d, row_type)
             rows.append(row)
         return rows
