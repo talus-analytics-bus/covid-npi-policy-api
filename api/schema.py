@@ -328,6 +328,7 @@ def get_optionset(fields: list = list()):
             getattr(i, field) for i in entity_class
         )[:][:]
         options.sort()
+        options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in('Unspecified', 'Local'))
 
         # skip blank strings
@@ -400,6 +401,11 @@ def get_optionset(fields: list = list()):
 
             # append an optionset entry
             value = dd if not uses_groups else dd[0]
+
+            # skip unspecified values
+            if value == 'Unspecified':
+                continue
+
             group = None if not uses_groups else dd[1]
             datum = {
                 'id': id,
