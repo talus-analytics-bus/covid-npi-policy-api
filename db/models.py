@@ -64,7 +64,7 @@ class Metadata(db.Entity):
     _table_ = "metadata"
     field = Required(str)
     ingest_field = Optional(str)
-    order = Required(int)
+    order = Required(float)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
@@ -145,6 +145,7 @@ class Policy(PolicyPlan):
     auth_entity_has_authority = Optional(str)
     authority_name = Optional(str)
     auth_entity_authority_data_source = Optional(str)
+    relaxing_or_restricting = Optional(str)
 
     def delete_2(records):
         """Custom delete function for Policy class.

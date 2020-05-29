@@ -238,6 +238,17 @@ class CovidPolicyPlugin(IngestPlugin):
                     value=value
                 )
 
+        # replace USA with United States (temp)
+        # TODO dynamically get country name from ISO
+        for col in ('auth_entity.iso3', 'place.iso3'):
+            for to_replace, value in (
+                ('USA', 'United States'),
+            ):
+                self.data[col] = self.data[col].replace(
+                    to_replace=to_replace,
+                    value=value
+                )
+
         # create Policy instances
         self.create_policies(db)
 
@@ -655,7 +666,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'],
-                'order': d['ID'],
+                'order': d['Order'],
                 'export': d['Export?'] == True,
             }
 
