@@ -7,7 +7,7 @@ from typing import List
 # local modules
 from . import schema
 from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, \
-    ListResponse
+    ListResponse, PolicyStatusList
 from .app import app
 from db import db
 
@@ -107,6 +107,42 @@ async def get_policy(fields: List[str] = Query(None)):
 
     """
     return schema.get_policy(fields=fields)
+
+
+@app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_policy(geo_res=str):
+    """Return Policy data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
+    return schema.get_policy_status(geo_res=geo_res)
+
+
+@app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_policy(body: PolicyFilters, geo_res=str):
+    """Return Policy data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
+    return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
 @app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)

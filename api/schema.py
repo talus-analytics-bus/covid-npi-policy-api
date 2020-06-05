@@ -12,7 +12,8 @@ from fastapi.responses import FileResponse, Response
 
 # local modules
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place, File
+from .models import Policy, PolicyList, PolicyStatus, PolicyStatusList, \
+    Auth_Entity, Place, File
 from .util import str_to_date
 from db import db
 
@@ -241,6 +242,83 @@ def get_policy(
     # apply filters if any
     if filters is not None:
         q = apply_policy_filters(q, filters)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+
+        return_fields_by_entity = defaultdict(list)
+        if fields is not None:
+            return_fields_by_entity['policy'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc']
+
+        # define list of instances to return
+        data = []
+
+        # for each policy
+        for d in q:
+
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                return_fields_by_entity=return_fields_by_entity)
+
+            # add it to the output list
+            data.append(d_dict)
+
+        # create response from output list
+        res = PolicyList(
+            data=data,
+            success=True,
+            message=f'''{len(q)} policies found'''
+        )
+        return res
+
+
+@db_session
+@cached
+def get_policy_status(
+    geo_res: str = None,
+    filters: dict = dict()
+):
+    """TODO"""
+
+    # DEBUG filter by USA only
+    filters['iso3'] = ['United States']
+
+    # get ordered policies from database
+    q = select(i for i in db.Policy if i.place.level ==
+               'State / Province')
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
+
+    q_area1 = select(i.place.area1 for i in q if i.place.level ==
+                     'State / Province')
+
+    data_tmp = dict()
+    for i in q_area1:
+        print(i)
+        if i not in data_tmp:
+            data_tmp[i] = PolicyStatus(
+                place_name=i,
+                value="policy in place"
+            )
+    data = list(data_tmp.values())
+    # create response from output list
+    res = PolicyStatusList(
+        data=data,
+        success=True,
+        message=f'''Debug'''
+    )
+    return res
 
     # return query object if arguments requested it
     if return_db_instances:

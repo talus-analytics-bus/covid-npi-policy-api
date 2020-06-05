@@ -73,12 +73,21 @@ class Policy(BaseModel):
     file: List = None
 
 
+class PolicyStatus(BaseModel):
+    place_name: str
+    value: str
+
+
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
 
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class PolicyStatusList(Response):
+    data: List[PolicyStatus]
 
 
 class OptionSetList(Response):
