@@ -86,6 +86,10 @@ class PolicyList(Response):
     data: List[Policy]
 
 
+class PolicyDict(Response):
+    data: Dict[str, List[Policy]]
+
+
 class PolicyStatusList(Response):
     data: List[PolicyStatus]
 

@@ -7,12 +7,12 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit
+from pony.orm import db_session, select, get, commit, desc
 from fastapi.responses import FileResponse, Response
 
 # local modules
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, PolicyStatus, PolicyStatusList, \
+from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
     Auth_Entity, Place, File
 from .util import str_to_date
 from db import db
@@ -206,6 +206,7 @@ def get_policy(
     fields: list = None,
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
+    by_category: str = None,
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -237,7 +238,7 @@ def get_policy(
 
     # get ordered policies from database
     q = select(i for i in db.Policy).order_by(
-        getattr(db.Policy, order_by_field))
+        desc(getattr(db.Policy, order_by_field)))
 
     # apply filters if any
     if filters is not None:
@@ -272,12 +273,25 @@ def get_policy(
             # add it to the output list
             data.append(d_dict)
 
-        # create response from output list
-        res = PolicyList(
-            data=data,
-            success=True,
-            message=f'''{len(q)} policies found'''
-        )
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Policy
+        if by_category is not None:
+            data_by_category = defaultdict(list)
+            for i in data:
+                data_by_category[i[by_category]].append(i)
+
+            res = PolicyDict(
+                data=data_by_category,
+                success=True,
+                message=f'''{len(q)} policies found'''
+            )
+        else:
+            # create response from output list
+            res = PolicyList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} policies found'''
+            )
         return res
 
 
@@ -575,33 +589,25 @@ def apply_policy_filters(q, filters: dict = dict()):
             if field == 'dates_in_effect':
                 start = allowed_values[0]
                 end = allowed_values[1]
+
                 q = select(
                     i
                     for i in q
                     if
-                    not (
-                        (
-                            i.date_start_effective > end and
-                            i.date_end_actual > end
-                        ) or
-                        (
-                            i.date_start_effective < start and
-                            i.date_end_actual < start
-                        ) or
-                        i.date_start_effective is None
-                    ) or
-                    (i.date_end_actual is None and i.date_end_anticipated is not None and
-                     not (
-                         (
-                             i.date_start_effective > end and
-                             i.date_end_anticipated > end
-                         ) or
-                         (
-                             i.date_start_effective < start and
-                             i.date_end_anticipated < start
-                         ) or
-                         i.date_start_effective is None
-                     ))
+                    # starts before AND ends after
+                    (i.date_start_effective < start and (i.date_end_actual > end or (
+                        i.date_end_actual is None and i.date_end_anticipated > end)))
+
+                    # starts during OR ends during
+                    or (
+                        (i.date_start_effective >= start and i.date_start_effective <= end) or (
+                            (i.date_end_actual >= start and i.date_end_actual <= end) or (
+                                i.date_end_actual is None and (
+                                    i.date_end_anticipated >= start and i.date_end_anticipated <= end)
+                            )
+                        )
+                    )
+
                 )
                 continue
 
