@@ -144,6 +144,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             db.Metric,
             {
                 'metric_name': 'covid_total_cases_provinces',
+                'metric_id': 72
             },
             {
                 'temporal_resolution': 'daily',
@@ -157,6 +158,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                 'metric_definition': 'The total cumulative number of COVID-19 cases by date and state / province'
             }
         )
+        commit()
 
         # upsert metric for daily US NEW caseload
         action, covid_new_cases_provinces = upsert(
@@ -179,6 +181,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                 'view_name': 'metric_73'
             }
         )
+        commit()
 
         # upsert metric for 7-day US NEW caseload
         action, covid_new_cases_provinces_7d = upsert(
@@ -201,6 +204,8 @@ class CovidCaseloadPlugin(IngestPlugin):
                 'view_name': 'metric_74'
             }
         )
+        commit()
+
         print('Done.')
 
         print('\nUpserting observations...')
@@ -216,9 +221,11 @@ class CovidCaseloadPlugin(IngestPlugin):
                         if str((i.datetime + timedelta(hours=12)).date()) == d['date']
                     ).first()
 
-                    if datetime is None:
+                    if dt is None:
+                        print('error: missing dt')
                         continue
                     else:
+                        print(str(dt.datetime))
                         action, obs_affected = upsert(
                             db.Observation,
                             {
@@ -232,7 +239,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 'updated_at': updated_at,
                             }
                         )
-
+            break
         print('Done.')
 
 
