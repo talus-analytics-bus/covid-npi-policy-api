@@ -2,6 +2,10 @@
 # standard packages
 import urllib3
 import certifi
+import requests
+import csv
+import json
+from collections import defaultdict
 
 # 3rd party modules
 from pony.orm import db_session, commit, get, select
@@ -11,8 +15,9 @@ import pprint
 # constants
 pp = pprint.PrettyPrinter(indent=4)
 
-
 # define colors for printing colorized terminal text
+
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -80,7 +85,7 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
 
 
 def download_file(
-    download_url: str, fn: str, write_path: str, as_object: bool = True
+    download_url: str, fn: str = None, write_path: str = None, as_object: bool = True
 ):
     """Download the PDF at the specified URL and either save it to disk or
     return it as a byte stream.
@@ -120,3 +125,31 @@ def download_file(
     else:
         print('Error when downloading PDF (404)')
         return False
+
+
+def us_caseload_csv_to_dict(download_url: str):
+
+    output = defaultdict(list)
+
+    r = requests.get(download_url, allow_redirects=True)
+    file_dict = defaultdict(list)
+    rows = r.iter_lines(decode_unicode=True)
+
+    # remove the header row from the generator
+    next(rows)
+
+    for row in rows:
+        row_list = row.split(',')
+
+        file_dict[row_list[1]].append(row_list)
+
+    for state, data in file_dict.items():
+        for day in data:
+            output[day[1]].append({
+                'date':  day[0],
+                'state':  day[1],
+                'fips':  day[2],
+                'cases':  day[3],
+                'deaths':  day[4],
+            })
+    return output

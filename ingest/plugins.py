@@ -1,8 +1,9 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
 import os
+import pytz
 from os import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 # 3rd party modules
@@ -13,7 +14,7 @@ import pprint
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
-from .util import upsert, download_file, bcolors
+from .util import upsert, download_file, bcolors, us_caseload_csv_to_dict
 import pandas as pd
 
 # constants
@@ -26,7 +27,7 @@ S3_BUCKET_NAME = 'covid-npi-policy-storage'
 pp = pprint.PrettyPrinter(indent=4)
 
 # define exported classes
-__all__ = ['CovidPolicyPlugin']
+__all__ = ['CovidPolicyPlugin', 'CovidCaseloadPlugin']
 
 
 def get_s3_bucket_keys(s3_bucket_name: str):
@@ -117,6 +118,122 @@ def reject(x):
 
     """
     return x['desc'] == ''
+
+
+class CovidCaseloadPlugin(IngestPlugin):
+    """Ingest COVID caseload data and upload to metric database
+
+    TODO convert this to AWS Lambda
+
+    """
+
+    def __init__(self):
+        return None
+
+    @db_session
+    def upsert_data(self, db):
+        print('Fetching data from New York Times server...')
+        download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+        data = us_caseload_csv_to_dict(download_url)
+        print('Done.')
+
+        print('\nUpserting relevant metric...')
+
+        # upsert metric for daily US caseload
+        action, covid_total_cases_provinces = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_total_cases_provinces',
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The total cumulative number of COVID-19 cases by date and state / province'
+            }
+        )
+
+        # upsert metric for daily US NEW caseload
+        action, covid_new_cases_provinces = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_new_cases_provinces',
+                'metric_id': 73
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The number of new COVID-19 cases by date and state / province',
+                'is_view': True,
+                'view_name': 'metric_73'
+            }
+        )
+
+        # upsert metric for 7-day US NEW caseload
+        action, covid_new_cases_provinces_7d = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_new_cases_provinces_7d',
+                'metric_id': 74
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The number of new COVID-19 cases in the last 7 days by date and state / province',
+                'is_view': True,
+                'view_name': 'metric_74'
+            }
+        )
+        print('Done.')
+
+        print('\nUpserting observations...')
+        updated_at = datetime.now()
+        for name in data:
+            place = db.Place.select().filter(name=name).first()
+            if place is None:
+                continue
+            else:
+                for d in data[name]:
+                    dt = select(
+                        i for i in db.DateTime
+                        if str((i.datetime + timedelta(hours=12)).date()) == d['date']
+                    ).first()
+
+                    if datetime is None:
+                        continue
+                    else:
+                        action, obs_affected = upsert(
+                            db.Observation,
+                            {
+                                'metric': covid_total_cases_provinces,
+                                'date_time': dt,
+                                'place': place,
+                                'data_source': 'New York Times',  # TODO correct
+                            },
+                            {
+                                'value': d['cases'],
+                                'updated_at': updated_at,
+                            }
+                        )
+
+        print('Done.')
 
 
 class CovidPolicyPlugin(IngestPlugin):
@@ -566,8 +683,7 @@ class CovidPolicyPlugin(IngestPlugin):
             elif key == 'id':
                 return int(d[key])
             elif key in ('prior_policy'):
-                post_creation_attrs[d['id']]['prior_policy'] = \
-                    set(d[key])
+                post_creation_attrs[d['id']]['prior_policy'] = set(d[key])
                 return set()
             return d[key]
 
