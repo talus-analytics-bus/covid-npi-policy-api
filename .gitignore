@@ -8,7 +8,7 @@ ingest/sh
 
 # Private config files
 config/
-config-local.ini
+config-*.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
