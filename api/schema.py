@@ -373,7 +373,7 @@ def get_policy_status(
 
 
 @db_session
-@cached
+# @cached
 def get_optionset(fields: list = list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
