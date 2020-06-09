@@ -314,8 +314,7 @@ def get_policy_status(
     if filters is not None:
         q = apply_policy_filters(q, filters)
 
-    q_area1 = select(i.place.area1 for i in q if i.place.level ==
-                     'State / Province')
+    q_area1 = select(i.place.area1 for i in q)
 
     data_tmp = dict()
     for i in q_area1:
