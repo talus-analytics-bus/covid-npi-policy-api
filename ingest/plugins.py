@@ -225,7 +225,6 @@ class CovidCaseloadPlugin(IngestPlugin):
                         print('error: missing dt')
                         continue
                     else:
-                        print(str(dt.datetime))
                         action, obs_affected = upsert(
                             db.Observation,
                             {
@@ -239,7 +238,6 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 'updated_at': updated_at,
                             }
                         )
-            break
         print('Done.')
 
 
