@@ -17,10 +17,10 @@ from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusLi
 from .util import str_to_date
 from db import db
 
-# Code optimization profiling
-import cProfile
-import pstats
-p = cProfile.Profile()
+# # Code optimization profiling
+# import cProfile
+# import pstats
+# p = cProfile.Profile()
 
 # constants
 s3 = boto3.client('s3')
@@ -36,6 +36,10 @@ def cached(func):
 
         key = str(kwargs)
         if key in cache:
+            print('key')
+            print(key)
+            print('kwargs')
+            print(kwargs)
             return cache[key]
 
         results = func(*func_args, **kwargs)
@@ -204,7 +208,7 @@ def get_file(id: int):
 
 
 @db_session
-# @cached
+@cached
 def get_policy(
     filters: dict = None,
     fields: list = None,
@@ -376,7 +380,7 @@ def get_policy_status(
 
 
 @db_session
-# @cached
+@cached
 def get_optionset(fields: list = list()):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
@@ -403,8 +407,8 @@ def get_optionset(fields: list = list()):
 
     """
 
-    # Enable profiling
-    p.enable()
+    # # Enable profiling
+    # p.enable()
 
     # define which data fields use groups
     # TODO dynamically
@@ -518,13 +522,13 @@ def get_optionset(fields: list = list()):
             data[field].append(datum)
             id = id + 1
 
-    # Disable profiling
-    p.disable()
-
-    # Dump the stats to a file
-    p.dump_stats("res_focus.prof")
-    p2 = pstats.Stats('res_focus.prof')
-    p2.sort_stats('cumulative').print_stats(10)
+    # # Disable profiling
+    # p.disable()
+    #
+    # # Dump the stats to a file
+    # p.dump_stats("res_focus.prof")
+    # p2 = pstats.Stats('res_focus.prof')
+    # p2.sort_stats('cumulative').print_stats(10)
 
     # return all optionset values
     return {
