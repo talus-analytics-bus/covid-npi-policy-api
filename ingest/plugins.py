@@ -250,7 +250,7 @@ class CovidPolicyPlugin(IngestPlugin):
     def __init__(self):
         return None
 
-    def load_client(self):
+    def load_client(self, base_key):
         """Load client to access Airtable. NOTE: You must set environment
         variable `AIRTABLE_API_KEY` to use this.
 
@@ -263,7 +263,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # get Airtable client for specified base
         client = AirtableSource(
             name='Airtable',
-            base_key='appOtKBVJRyuH83wf',
+            base_key=base_key,
             api_key=os.environ.get('AIRTABLE_API_KEY')
         )
         self.client = client
@@ -296,6 +296,30 @@ class CovidPolicyPlugin(IngestPlugin):
         self.glossary = self.client \
             .worksheet(name='Appendix: glossary') \
             .as_dataframe(view='API ingest')
+
+        # observations
+        self.observations = self.client \
+            .worksheet(name='Appendix: glossary') \
+            .as_dataframe(view='API ingest')
+
+        return self
+
+    @db_session
+    def load_observations(self):
+        print(
+            '\n\n[X] Connecting to Airtable for observations and fetching tables...')
+        airtable_iter = self.client.worksheet(
+            name='Test_data').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+        airtable_all = self.client.worksheet(
+            name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+
+        print('airtable_all')
+        print(airtable_all)
+        # for page in airtable_iter:
+        #     for record in page:
+        #         # TODO add observations
+        #         print(record)
+        #         pass
 
         return self
 
@@ -383,8 +407,16 @@ class CovidPolicyPlugin(IngestPlugin):
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
 
+        # add table of lockdown level by location by date
+        self.create_observations(db)
+
         print('\nData ingest completed.')
         return self
+
+    @db_session
+    def process_observations(self, db):
+        print('self.observations')
+        print(self.observations)
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -646,6 +678,33 @@ class CovidPolicyPlugin(IngestPlugin):
         # print('Inserted: ' + str(n_inserted_auth_entity))
         # print('Updated: ' + str(n_updated_auth_entity))
         print('Deleted: ' + str(n_deleted_auth_entity))
+
+    @db_session
+    def create_observations(self, db):
+        """Create observations, e.g., lockdown status, for places on dates.
+
+        Parameters
+        ----------
+        db : type
+            PonyORM database instance
+
+        Returns
+        -------
+        self
+
+        """
+
+        # Main #################################################################
+        print('\n\n[X] Adding observations...')
+        for i, d in self.observations.iterrows():
+            print(d)
+
+        ## Delete unused instances #############################################
+        # delete auth_entities that are not used
+        # print('Total in database: ' + str(len(db.Place.select())))
+        # # print('Inserted: ' + str(n_inserted))
+        # # print('Updated: ' + str(n_updated))
+        # print('Deleted: ' + str(n_deleted))
 
     @db_session
     def create_policies(self, db):

@@ -242,6 +242,19 @@ class Place(db.Entity):
     # relationships
     policies = Set('PolicyPlan')
     auth_entities = Set('Auth_Entity')
+    observations = Set('Observation')
+
+
+class Observation(db.Entity):
+    """Observations made on places at dates."""
+    _table_ = "observation"
+    id = PrimaryKey(int, auto=True)
+    date = Required(date)
+    metric = Required(int)
+    value = Required(str)
+
+    # relationships
+    place = Required('Place')
 
 
 class Auth_Entity(db.Entity):
