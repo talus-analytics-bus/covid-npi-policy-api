@@ -289,7 +289,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # data dictionary
         self.data_dictionary = self.client \
-            .worksheet(name='Appendix: data dictionary') \
+            .worksheet(name='Appendix: Policy data dictionary') \
             .as_dataframe(view='API ingest')
 
         # glossary
@@ -361,16 +361,16 @@ class CovidPolicyPlugin(IngestPlugin):
                     value=value
                 )
 
-        # replace USA with United States (temp)
-        # TODO dynamically get country name from ISO
-        for col in ('auth_entity.iso3', 'place.iso3'):
-            for to_replace, value in (
-                ('USA', 'United States'),
-            ):
-                self.data[col] = self.data[col].replace(
-                    to_replace=to_replace,
-                    value=value
-                )
+        # # replace USA with United States (temp)
+        # # TODO dynamically get country name from ISO
+        # for col in ('place.iso3', 'place.area1', 'place.area2'):
+        #     for to_replace, value in (
+        #         ('N/A', None),
+        #     ):
+        #         self.data[col] = self.data[col].replace(
+        #             to_replace=to_replace,
+        #             value=value
+        #         )
 
         # create Policy instances
         self.create_policies(db)
@@ -524,7 +524,8 @@ class CovidPolicyPlugin(IngestPlugin):
             # the affected place is different from the auth entity's place if it
             # exists (is defined in the record) and is different
             affected_diff_from_auth = d['place.level'] != None and \
-                d['place.level'] != ''
+                d['place.level'] != '' and d['place.iso3'] != None and \
+                d['place.iso3'] != ''
 
             # get or create the place affected
             place_affected = None
@@ -879,6 +880,8 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
         for i, d in self.glossary.iterrows():
+            if d['Key Term'] is None or d['Key Term'].strip() == '':
+                continue
             attributes = {
                 'definition': d['Definition'],
                 'reference': d['Reference'],
