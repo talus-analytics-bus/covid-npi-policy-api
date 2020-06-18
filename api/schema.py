@@ -7,7 +7,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc
+from pony.orm import db_session, select, get, commit, desc, count
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -321,7 +321,7 @@ def get_policy_status(
     # initialize output data
     data = None
 
-    # Case A: Social distancing
+    # Case A: Lockdown level
     is_lockdown_level = 'lockdown_level' in filters and \
         filters['lockdown_level'][0] == 'lockdown_level'
     if is_lockdown_level:
@@ -663,12 +663,17 @@ def apply_policy_filters(q, filters: dict = dict()):
                 end = allowed_values[1]
 
                 q = select(
-                    i
-                    for i in q
-                    if
+                    i for i in q
+                    # starts before or during `start` when end date unknown
+                    if (
+                        i.date_end_actual is None and i.date_end_anticipated \
+                        is None and i.date_start_effective <= start
+                    )
                     # starts before AND ends after
-                    (i.date_start_effective < start and (i.date_end_actual > end or (
-                        i.date_end_actual is None and i.date_end_anticipated > end)))
+                    or (
+                        i.date_start_effective < start and (i.date_end_actual > end or (
+                            i.date_end_actual is None and i.date_end_anticipated > end))
+                    )
 
                     # starts during OR ends during
                     or (
