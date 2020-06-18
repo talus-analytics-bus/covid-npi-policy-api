@@ -322,9 +322,9 @@ def get_policy_status(
     data = None
 
     # Case A: Social distancing
-    is_social_distancing = 'primary_ph_measure' in filters and \
-        filters['primary_ph_measure'][0] == 'Social distancing'
-    if is_social_distancing:
+    is_lockdown_level = 'lockdown_level' in filters and \
+        filters['lockdown_level'][0] == 'lockdown_level'
+    if is_lockdown_level:
 
         # get dates to check
         start = None
