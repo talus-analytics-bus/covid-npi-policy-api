@@ -8,7 +8,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, commit, get, select
+from pony.orm import db_session, commit, get, select, delete
 from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
 
@@ -305,21 +305,77 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
-    def load_observations(self):
+    def load_observations(self, db):
         print(
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
         airtable_iter = self.client.worksheet(
             name='Test_data').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
-        airtable_all = self.client.worksheet(
-            name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+        # airtable_all = self.client.worksheet(
+        #     name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
-        print('airtable_all')
-        print(airtable_all)
-        # for page in airtable_iter:
-        #     for record in page:
-        #         # TODO add observations
-        #         print(record)
-        #         pass
+        # print('airtable_all')
+        # print(airtable_all)
+
+        # clear existing
+        delete(i for i in db.Observation if i.metric == 0)
+
+        # add new observations
+        skipped = 0
+        for page in airtable_iter:
+            for record in page:
+                # TODO add observations
+                d = record['fields']
+                if 'Name' not in d:
+                    skipped += 1
+                    continue
+                if not d['Date'].startswith('2020'):
+                    skipped += 1
+                    continue
+                print('\n')
+                print(d)
+
+                # get place
+                # place = db.Place.get(
+                #     iso3='USA', area1=d['Name'], area2='Unspecified', level='State / Province')
+                place = select(
+                    i for i in db.Place
+                    if i.iso3 == 'USA'
+                    and i.area1 == d['Name']
+                    and (i.area2 == 'Unspecified' or i.area2 == '')
+                    and i.level == 'State / Province'
+                ).first()
+
+                if place is None:
+                    action, place = upsert(
+                        db.Place,
+                        {
+                            'iso3': 'USA',
+                            'area1': d['Name'],
+                            'area2': 'Unspecified',
+                            'level': 'State / Province'
+                        },
+                        {
+                            'loc': f'''{d['Name']}, USA'''
+                        }
+                    )
+                    print('\naction')
+                    print(action)
+
+                if place is None:
+                    print('[FATAL ERROR] Missing place')
+                    sys.exit(0)
+
+                action, d = upsert(
+                    db.Observation,
+                    {'source_id': record['id']},
+                    {
+                        'date': d['Date'],
+                        'metric': 0,
+                        'value': d['Status'],
+                        'place': place,
+                    }
+                )
+                commit()
 
         return self
 

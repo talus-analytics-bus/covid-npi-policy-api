@@ -11,7 +11,7 @@ from ingest import CovidPolicyPlugin
 db.generate_mapping(create_tables=True)
 plugin = CovidPolicyPlugin()
 # plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
-plugin.load_client('appd8zCyjJqdgYL27').load_observations()
+plugin.load_client('appd8zCyjJqdgYL27').load_observations(db)
 # 'appd8zCyjJqdgYL27').load_observations().process_observations(db)
 sys.exit(0)
 

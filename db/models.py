@@ -252,6 +252,7 @@ class Observation(db.Entity):
     date = Required(date)
     metric = Required(int)
     value = Required(str)
+    source_id = Required(str)
 
     # relationships
     place = Required('Place')

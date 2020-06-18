@@ -304,7 +304,7 @@ def get_policy(
 
 
 @db_session
-@cached
+# @cached
 def get_policy_status(
     geo_res: str = None,
     filters: dict = dict()
@@ -312,32 +312,84 @@ def get_policy_status(
     """TODO"""
 
     # DEBUG filter by USA only
-    filters['iso3'] = ['United States']
+    filters['iso3'] = ['USA']
 
     # get ordered policies from database
     q = select(i for i in db.Policy if i.place.level ==
                'State / Province')
 
-    # apply filters if any
-    if filters is not None:
-        q = apply_policy_filters(q, filters)
+    # initialize output data
+    data = None
 
-    q_area1 = select(i.place.area1 for i in q)
+    # Case A: Social distancing
+    is_social_distancing = 'primary_ph_measure' in filters and \
+        filters['primary_ph_measure'][0] == 'Social distancing'
+    if is_social_distancing:
 
-    data_tmp = dict()
-    for i in q_area1:
-        print(i)
-        if i not in data_tmp:
-            data_tmp[i] = PolicyStatus(
-                place_name=i,
-                value="policy in place"
+        # get dates to check
+        start = None
+        end = None
+        if 'dates_in_effect' in filters:
+            start, end = filters['dates_in_effect']
+            start = datetime.strptime(start, '%Y-%m-%d').date()
+            end = datetime.strptime(end, '%Y-%m-%d').date()
+
+        # error checking
+        if start is None or end is None:
+            return PolicyStatusList(
+                data=list(),
+                success=False,
+                message=f'''Start and end dates required in filters.'''
             )
-    data = list(data_tmp.values())
+        # error checking
+        elif start != end:
+            return PolicyStatusList(
+                data=list(),
+                success=False,
+                message=f'''Start and end dates must be identical.'''
+            )
+        else:
+
+            # get all observations for the current date and convert them into
+            # policy statuses
+            observations = select(
+                i for i in db.Observation
+                if i.metric == 0
+                and i.date == start
+            )
+
+            # collate list of lockdown level statuses based on state / province
+            data = list()
+            for d in observations:
+                data.append(
+                    PolicyStatus(
+                        place_name=d.place.area1,
+                        value=d.value
+                    )
+                )
+    else:
+
+        # Case B: Any other category
+        # apply filters if any
+        if filters is not None:
+            q = apply_policy_filters(q, filters)
+
+        q_area1 = select(i.place.area1 for i in q)
+
+        data_tmp = dict()
+        for i in q_area1:
+            if i not in data_tmp:
+                data_tmp[i] = PolicyStatus(
+                    place_name=i,
+                    value="policy in place"
+                )
+        data = list(data_tmp.values())
+
     # create response from output list
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Debug'''
+        message=f'''Found {str(len(data))} policy statuses'''
     )
     return res
 
