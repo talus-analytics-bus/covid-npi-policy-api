@@ -74,8 +74,9 @@ class Policy(BaseModel):
 
 
 class PolicyStatus(BaseModel):
-    place_name: str
+    place_name: str = None
     value: str
+    datestamp: date = None
 
 
 class PolicyFilters(BaseModel):

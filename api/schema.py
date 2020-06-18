@@ -306,7 +306,9 @@ def get_policy(
 @db_session
 # @cached
 def get_policy_status(
+    is_lockdown_level: bool = None,
     geo_res: str = None,
+    name: str = None,
     filters: dict = dict()
 ):
     """TODO"""
@@ -322,8 +324,11 @@ def get_policy_status(
     data = None
 
     # Case A: Lockdown level
-    is_lockdown_level = 'lockdown_level' in filters and \
-        filters['lockdown_level'][0] == 'lockdown_level'
+    if is_lockdown_level is None:
+        is_lockdown_level = (
+            'lockdown_level' in filters and
+            filters['lockdown_level'][0] == 'lockdown_level'
+        )
     if is_lockdown_level:
 
         # get dates to check
@@ -334,15 +339,7 @@ def get_policy_status(
             start = datetime.strptime(start, '%Y-%m-%d').date()
             end = datetime.strptime(end, '%Y-%m-%d').date()
 
-        # error checking
-        if start is None or end is None:
-            return PolicyStatusList(
-                data=list(),
-                success=False,
-                message=f'''Start and end dates required in filters.'''
-            )
-        # error checking
-        elif start != end:
+        if start is not None and end is not None and start != end:
             return PolicyStatusList(
                 data=list(),
                 success=False,
@@ -350,21 +347,34 @@ def get_policy_status(
             )
         else:
 
+            # start is None and end is None:
+            specify_date = start is None and end is None
+
             # get all observations for the current date and convert them into
             # policy statuses
             observations = select(
                 i for i in db.Observation
                 if i.metric == 0
-                and i.date == start
-            )
+                and (start is None or i.date == start)
+            ).order_by(db.Observation.date)
+
+            if name is not None:
+                observations = observations.filter(
+                    lambda x: x.place.area1 == name)
 
             # collate list of lockdown level statuses based on state / province
             data = list()
             for d in observations:
+                datum = {
+                    'value': d.value,
+                }
+                if specify_date:
+                    datum['datestamp'] = d.date
+                if name is None:
+                    datum['place_name'] = d.place.area1
                 data.append(
                     PolicyStatus(
-                        place_name=d.place.area1,
-                        value=d.value
+                        **datum
                     )
                 )
     else:
@@ -389,7 +399,7 @@ def get_policy_status(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} policy statuses'''
+        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
     )
     return res
 

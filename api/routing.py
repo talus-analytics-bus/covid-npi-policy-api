@@ -110,7 +110,7 @@ async def get_policy(fields: List[str] = Query(None)):
 
 
 @app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_policy(geo_res=str):
+async def get_policy_status(geo_res=str):
     """Return Policy data.
 
     Parameters
@@ -127,8 +127,34 @@ async def get_policy(geo_res=str):
     return schema.get_policy_status(geo_res=geo_res)
 
 
+@app.get("/get/lockdown_level/{iso3}/{geo_res}/{name}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level(iso3=str('USA'), geo_res=str('state'), name=str):
+    """Get lockdown level of a location by date.
+
+    Parameters
+    ----------
+    iso3 : str
+        Three-character ISO code of a country, e.g., 'USA'.
+
+    geo_res : str
+        Spatial resolution of the data needed, e.g., 'state'.
+        NOTE: Only 'state' is currently supported.
+
+    name : str
+        Name of the area, e.g., 'Alabama'.
+
+    Returns
+    -------
+    list
+        List of lockdown levels the location defined by `name`, by date. All
+        dates for which data are available are returned.
+
+    """
+    return schema.get_policy_status(is_lockdown_level=True, geo_res=geo_res, name=name)
+
+
 @app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_policy(body: PolicyFilters, geo_res=str):
+async def post_policy_status(body: PolicyFilters, geo_res=str):
     """Return Policy data.
 
     Parameters
