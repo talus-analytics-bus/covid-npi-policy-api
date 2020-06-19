@@ -211,11 +211,17 @@ class CovidCaseloadPlugin(IngestPlugin):
         print('\nUpserting observations...')
         updated_at = datetime.now()
         for name in data:
+            print('\n')
+            print(name)
             place = db.Place.select().filter(name=name).first()
             if place is None:
                 continue
             else:
+                # i = 0
+                # max_i = str(len(data[name]))
                 for d in data[name]:
+                    # print('upserting ' + str(i) + ' of ' + max_i)
+                    # i = i + 1
                     dt = select(
                         i for i in db.DateTime
                         if str((i.datetime + timedelta(hours=12)).date()) == d['date']
@@ -309,7 +315,7 @@ class CovidPolicyPlugin(IngestPlugin):
         print(
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
         airtable_iter = self.client.worksheet(
-            name='Test_data').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+            name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
         # airtable_all = self.client.worksheet(
         #     name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
@@ -371,7 +377,9 @@ class CovidPolicyPlugin(IngestPlugin):
                     {
                         'date': d['Date'],
                         'metric': 0,
-                        'value': d['Status'],
+                        'value': 'Unclear lockdown level'
+                        if d['Status'] == 'Safer at home default'
+                        else d['Status'],
                         'place': place,
                     }
                 )

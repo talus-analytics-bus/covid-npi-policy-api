@@ -5,14 +5,22 @@ from os import sys
 # local modules
 from api import schema
 from db import db
+from db_metric import db
 from ingest import CovidPolicyPlugin
 
 # generate database mapping and ingest data for the COVID-AMP project
 db.generate_mapping(create_tables=True)
 plugin = CovidPolicyPlugin()
+
+# update core policy data
 # plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
-plugin.load_client('appd8zCyjJqdgYL27').load_observations(db)
-# 'appd8zCyjJqdgYL27').load_observations().process_observations(db)
+
+# Update observations of lockdown level
+plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+
+# # Update caseload data
+# plugin_caseload = CovidCaseloadPlugin()
+# plugin_caseload.upsert_data()
 sys.exit(0)
 
 # # Drop all data/tables before ingesting
