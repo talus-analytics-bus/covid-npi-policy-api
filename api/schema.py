@@ -420,7 +420,7 @@ def get_policy_status(
     return res
 
 
-# @cached
+@cached
 @db_session
 def get_lockdown_level(
     geo_res: str = None,
