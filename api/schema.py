@@ -7,7 +7,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -36,10 +36,6 @@ def cached(func):
 
         key = str(kwargs)
         if key in cache:
-            print('key')
-            print(key)
-            print('kwargs')
-            print(kwargs)
             return cache[key]
 
         results = func(*func_args, **kwargs)
@@ -92,7 +88,7 @@ def export(filters: dict = None):
 
 
 @db_session
-@cached
+# @cached
 def get_metadata(fields: list):
     """Returns Metadata instance fields for the fields specified.
 
@@ -303,8 +299,8 @@ def get_policy(
         return res
 
 
-@db_session
 # @cached
+@db_session
 def get_policy_status(
     is_lockdown_level: bool = None,
     geo_res: str = None,
@@ -339,6 +335,8 @@ def get_policy_status(
             start = datetime.strptime(start, '%Y-%m-%d').date()
             end = datetime.strptime(end, '%Y-%m-%d').date()
 
+        # If a date range is provided and the dates aren't the same, return
+        # a not implemented message
         if start is not None and end is not None and start != end:
             return PolicyStatusList(
                 data=list(),
@@ -346,37 +344,55 @@ def get_policy_status(
                 message=f'''Start and end dates must be identical.'''
             )
         else:
-
-            # start is None and end is None:
+            # if date is not provided, return it in the response
             specify_date = start is None and end is None
-
-            # get all observations for the current date and convert them into
-            # policy statuses
-            observations = select(
-                i for i in db.Observation
-                if i.metric == 0
-                and (start is None or i.date == start)
-            ).order_by(db.Observation.date)
-
-            if name is not None:
-                observations = observations.filter(
-                    lambda x: x.place.area1 == name)
 
             # collate list of lockdown level statuses based on state / province
             data = list()
-            for d in observations:
-                datum = {
-                    'value': d.value,
-                }
-                if specify_date:
-                    datum['datestamp'] = d.date
-                if name is None:
-                    datum['place_name'] = d.place.area1
-                data.append(
-                    PolicyStatus(
-                        **datum
+
+            # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+            if name is None:
+                q = db.Observation.select_by_sql(
+                    f'''
+                            select distinct on (place) *
+                            from observation o
+                            where date <= '{str(start)}'
+                            order by place, date desc
+                    ''')
+                data = [
+                    {
+                        'place_name': i.place.area1,
+                        'value': i.value,
+                        'datestamp': i.date,
+                    } for i in q
+                ]
+            else:
+
+                # get all observations for the current date and convert them into
+                # policy statuses
+                observations = select(
+                    i for i in db.Observation
+                    if i.metric == 0
+                    and (start is None or i.date == start)
+                ).order_by(db.Observation.date)
+
+                if name is not None:
+                    observations = observations.filter(
+                        lambda x: x.place.area1 == name)
+
+                for d in observations:
+                    datum = {
+                        'value': d.value,
+                    }
+                    if specify_date:
+                        datum['datestamp'] = d.date
+                    if name is None:
+                        datum['place_name'] = d.place.area1
+                    data.append(
+                        PolicyStatus(
+                            **datum
+                        )
                     )
-                )
     else:
 
         # Case B: Any other category
@@ -402,43 +418,6 @@ def get_policy_status(
         message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
     )
     return res
-
-    # return query object if arguments requested it
-    if return_db_instances:
-        return q
-
-    # otherwise prepare list of dictionaries to return
-    else:
-
-        return_fields_by_entity = defaultdict(list)
-        if fields is not None:
-            return_fields_by_entity['policy'] = fields
-
-        # TODO dynamically set fields returned for Place and other
-        # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc']
-
-        # define list of instances to return
-        data = []
-
-        # for each policy
-        for d in q:
-
-            # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
-
-            # add it to the output list
-            data.append(d_dict)
-
-        # create response from output list
-        res = PolicyList(
-            data=data,
-            success=True,
-            message=f'''{len(q)} policies found'''
-        )
-        return res
 
 
 @db_session
@@ -630,6 +609,7 @@ def get_label_from_value(field, value):
         return value
 
 
+@db_session
 def apply_policy_filters(q, filters: dict = dict()):
     """Given the PonyORM query for policies and relevant filters, applies
     filters with AND logic.

@@ -51,7 +51,7 @@ async def get_metadata(fields: List[str] = Query(None)):
 
 
 @app.get("/get/file/redirect")
-async def get_file(id: int):
+async def get_file_redirect(id: int):
     """Return file from S3 with the matching ID using the provided title.
 
     Parameters
@@ -168,6 +168,7 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
         Policy response dictionary.
 
     """
+
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
