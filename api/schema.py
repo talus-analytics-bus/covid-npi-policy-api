@@ -437,9 +437,12 @@ def get_lockdown_level(
     data = list()
 
     # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+    distinct_clause = \
+        'distinct on (place)' if end_date is None else \
+        'distinct on (place, date)'
     q = db.Observation.select_by_sql(
         f'''
-                select {'distinct on (place)' if end_date is None else 'distinct on (place, date)'} *
+                select {distinct_clause} *
                 from observation o
                 where date <= '{date if end_date is None else end_date}'
                 order by place, date desc
