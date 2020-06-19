@@ -150,7 +150,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
         List of possible optionset values for each field.
 
     """
-    return schema.get_optionset(fields)
+    return schema.get_optionset(fields=fields)
 
 
 ##
