@@ -303,11 +303,6 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='Appendix: glossary') \
             .as_dataframe(view='API ingest')
 
-        # observations
-        self.observations = self.client \
-            .worksheet(name='Appendix: glossary') \
-            .as_dataframe(view='API ingest')
-
         return self
 
     @db_session
@@ -316,6 +311,7 @@ class CovidPolicyPlugin(IngestPlugin):
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+
         # airtable_all = self.client.worksheet(
         #     name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
@@ -407,8 +403,11 @@ class CovidPolicyPlugin(IngestPlugin):
         print(self.data)
         self.data.sort_values('Unique ID')
 
-        # remove records without a unique ID
+        # remove records without a unique ID and other features
         self.data = self.data.loc[self.data['Unique ID'] != '', :]
+        self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
+        self.data = self.data.loc[self.data['Policy description'] != '', :]
+        self.data = self.data.loc[self.data['Effective start date'] != '', :]
 
         # analyze for QA/QC and quit if errors detected
         valid = self.check(self.data)
@@ -470,9 +469,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
-
-        # add table of lockdown level by location by date
-        self.create_observations(db)
 
         print('\nData ingest completed.')
         return self
@@ -742,33 +738,6 @@ class CovidPolicyPlugin(IngestPlugin):
         # print('Inserted: ' + str(n_inserted_auth_entity))
         # print('Updated: ' + str(n_updated_auth_entity))
         print('Deleted: ' + str(n_deleted_auth_entity))
-
-    @db_session
-    def create_observations(self, db):
-        """Create observations, e.g., lockdown status, for places on dates.
-
-        Parameters
-        ----------
-        db : type
-            PonyORM database instance
-
-        Returns
-        -------
-        self
-
-        """
-
-        # Main #################################################################
-        print('\n\n[X] Adding observations...')
-        for i, d in self.observations.iterrows():
-            print(d)
-
-        ## Delete unused instances #############################################
-        # delete auth_entities that are not used
-        # print('Total in database: ' + str(len(db.Place.select())))
-        # # print('Inserted: ' + str(n_inserted))
-        # # print('Updated: ' + str(n_updated))
-        # print('Deleted: ' + str(n_deleted))
 
     @db_session
     def create_policies(self, db):
