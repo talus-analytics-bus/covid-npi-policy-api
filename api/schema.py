@@ -2,7 +2,7 @@
 # standard modules
 import functools
 from io import BytesIO
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 # 3rd party modules
@@ -299,7 +299,7 @@ def get_policy(
         return res
 
 
-# @cached
+@cached
 @db_session
 def get_policy_status(
     is_lockdown_level: bool = None,
@@ -410,6 +410,75 @@ def get_policy_status(
                     value="policy in place"
                 )
         data = list(data_tmp.values())
+
+    # create response from output list
+    res = PolicyStatusList(
+        data=data,
+        success=True,
+        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+    )
+    return res
+
+
+# @cached
+@db_session
+def get_lockdown_level(
+    geo_res: str = None,
+    name: str = None,
+    date: str = None,
+    end_date: str = None,
+):
+    """TODO"""
+
+    # if date is not provided, return it in the response
+    specify_date = date is None
+
+    # collate list of lockdown level statuses based on state / province
+    data = list()
+
+    # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+    q = db.Observation.select_by_sql(
+        f'''
+                select {'distinct on (place)' if end_date is None else 'distinct on (place, date)'} *
+                from observation o
+                where date <= '{date if end_date is None else end_date}'
+                order by place, date desc
+        ''')
+
+    for i in q:
+        datum = {
+            'value': i.value,
+            'datestamp': i.date,
+        }
+        if name is None:
+            datum['place_name'] = i.place.area1
+        elif i.place.area1 != name:
+            continue
+        data.append(datum)
+
+    # if `end_date` is specified, keep adding data until it is reached
+    if end_date is not None and len(data) > 0:
+
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        pull_final_value_forward = data[0]['datestamp'] < end_date_dt
+        if pull_final_value_forward:
+            last_datum = data[len(data) - 1]
+            prv_date = last_datum['datestamp']
+            cur_date = prv_date + timedelta(days=1)
+            while prv_date < end_date_dt:
+                datum = {
+                    'value': last_datum['value'],
+                    'datestamp': str(cur_date),
+                }
+                if 'place_name' in last_datum:
+                    datum['place_name'] = last_datum['place_name']
+
+                data.insert(
+                    0,
+                    datum
+                )
+                prv_date = cur_date
+                cur_date = cur_date + timedelta(days=1)
 
     # create response from output list
     res = PolicyStatusList(

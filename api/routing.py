@@ -1,8 +1,11 @@
 """Define API endpoints"""
+# standard modules
+from datetime import date
+
 # 3rd party modules
 from fastapi import Query
 from starlette.responses import RedirectResponse
-from typing import List
+from typing import List, Optional
 
 # local modules
 from . import schema
@@ -127,30 +130,20 @@ async def get_policy_status(geo_res=str):
     return schema.get_policy_status(geo_res=geo_res)
 
 
-@app.get("/get/lockdown_level/{iso3}/{geo_res}/{name}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_lockdown_level(iso3=str('USA'), geo_res=str('state'), name=str):
+@app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level(iso3=str, geo_res=str, end_date=str, name=str):
     """Get lockdown level of a location by date.
 
-    Parameters
-    ----------
-    iso3 : str
-        Three-character ISO code of a country, e.g., 'USA'.
+    """
+    return schema.get_lockdown_level(geo_res=geo_res, name=name, end_date=end_date)
 
-    geo_res : str
-        Spatial resolution of the data needed, e.g., 'state'.
-        NOTE: Only 'state' is currently supported.
 
-    name : str
-        Name of the area, e.g., 'Alabama'.
-
-    Returns
-    -------
-    list
-        List of lockdown levels the location defined by `name`, by date. All
-        dates for which data are available are returned.
+@app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level(iso3=str, geo_res=str, date=date):
+    """Get lockdown level of a location by date.
 
     """
-    return schema.get_policy_status(is_lockdown_level=True, geo_res=geo_res, name=name)
+    return schema.get_lockdown_level(geo_res=geo_res, date=date)
 
 
 @app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
