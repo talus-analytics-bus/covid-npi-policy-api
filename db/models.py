@@ -59,6 +59,14 @@ def custom_delete(entity_class, records):
     return len(to_delete)
 
 
+class Version(db.Entity):
+    _table_ = "version"
+    id = PrimaryKey(int, auto=True)
+    name = Optional(str, nullable=True)
+    date = Required(date)
+    type = Required(str)
+
+
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"

@@ -131,7 +131,7 @@ class CovidCaseloadPlugin(IngestPlugin):
         return None
 
     @db_session
-    def upsert_data(self, db):
+    def upsert_data(self, db, db_amp):
         print('Fetching data from New York Times server...')
         download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
         data = us_caseload_csv_to_dict(download_url)
@@ -244,6 +244,18 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 'updated_at': updated_at,
                             }
                         )
+
+        # update version
+        action, version = upsert(
+            db_amp.Version,
+            {
+                'type': 'COVID-19 caseload data',
+            },
+            {
+                'date': date.today(),
+            }
+        )
+
         print('Done.')
 
 
@@ -438,8 +450,6 @@ class CovidPolicyPlugin(IngestPlugin):
         self.data = self.data.rename(columns=columns)
 
         # format certain values
-        print('self.data')
-        print(self.data)
         for col in ('auth_entity.level', 'place.level'):
             for to_replace, value in (
                 ('State/Province (Intermediate area)', 'State / Province'),
@@ -462,6 +472,17 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
+
+        # update version
+        action, version = upsert(
+            db.Version,
+            {
+                'type': 'Policy data',
+            },
+            {
+                'date': date.today(),
+            }
+        )
 
         print('\nData ingest completed.')
         return self

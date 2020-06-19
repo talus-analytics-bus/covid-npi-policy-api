@@ -88,6 +88,25 @@ def export(filters: dict = None):
 
 
 @db_session
+def get_version():
+    # q = select(i for i in db.Version)
+    # data = [i.to_dict(only=['type', 'date']) for i in q]
+    data_tmp = db.Version.select_by_sql(f'''
+        SELECT distinct on ("type") * FROM "version"
+        ORDER BY "type", "date" desc
+                                    ''')
+    data = [i.to_dict(only=['type', 'date'])
+            for i in data_tmp]
+    data.sort(key=lambda x: x['type'], reverse=True)
+    data.sort(key=lambda x: x['date'], reverse=True)
+    return {
+        'success': True,
+        'data': data,
+        'message': 'Success'
+    }
+
+
+@db_session
 # @cached
 def get_metadata(fields: list):
     """Returns Metadata instance fields for the fields specified.
@@ -586,7 +605,8 @@ def get_optionset(fields: list = list()):
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
-                        options_with_groups.append([option, parent.iso3])
+                        options_with_groups.append(
+                            [option, parent.country_name])
                     else:
                         # TODO figure out best way to handle "Other" cases
                         options_with_groups.append([option, 'Other'])

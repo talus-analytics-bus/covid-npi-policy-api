@@ -34,6 +34,11 @@ async def export(body: PolicyFilters):
     return schema.export(filters=filters)
 
 
+@app.get("/get/version")
+async def get_version():
+    return schema.get_version()
+
+
 @app.get("/get/metadata", response_model=MetadataList)
 async def get_metadata(fields: List[str] = Query(None)):
     """Returns Metadata instance fields for the fields specified.
