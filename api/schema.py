@@ -83,7 +83,7 @@ def export(filters: dict = None):
 
 
 @db_session
-@cached
+# @cached
 def get_metadata(fields: list):
     """Returns Metadata instance fields for the fields specified.
 
