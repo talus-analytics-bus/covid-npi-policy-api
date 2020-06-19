@@ -7,25 +7,28 @@ from api import schema
 from db import db
 from ingest import CovidPolicyPlugin
 
-# generate database mapping and ingest data for the COVID-AMP project
-db.generate_mapping(create_tables=True)
-plugin = CovidPolicyPlugin()
+if __name__ == "__main__":
+    # generate database mapping and ingest data for the COVID-AMP project
+    ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
+    db.generate_mapping(create_tables=True)
+    plugin = CovidPolicyPlugin()
 
-# update core policy data
-plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
+    # update core policy data
+    plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
 
-# Update observations of lockdown level
-plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+    # Update observations of lockdown level
+    if ingest_lockdown_levels:
+        plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
 
-# # Update caseload data
-# plugin_caseload = CovidCaseloadPlugin()
-# plugin_caseload.upsert_data()
-sys.exit(0)
+    # # Update caseload data
+    # plugin_caseload = CovidCaseloadPlugin()
+    # plugin_caseload.upsert_data()
+    sys.exit(0)
 
-# # Drop all data/tables before ingesting
-# db.generate_mapping(check_tables=False, create_tables=False)
-# db.drop_all_tables(with_all_data=True)
-# db.create_tables()
-# plugin = CovidPolicyPlugin()
-# plugin.load_client().load_data().process_data(db)
-# sys.exit(0)
+    # # Drop all data/tables before ingesting
+    # db.generate_mapping(check_tables=False, create_tables=False)
+    # db.drop_all_tables(with_all_data=True)
+    # db.create_tables()
+    # plugin = CovidPolicyPlugin()
+    # plugin.load_client().load_data().process_data(db)
+    # sys.exit(0)

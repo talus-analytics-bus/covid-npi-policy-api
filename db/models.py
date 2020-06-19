@@ -233,6 +233,7 @@ class Place(db.Entity):
     id = PrimaryKey(int, auto=True)
     level = Optional(str)
     iso3 = Optional(str)
+    country_name = Optional(str, nullable=True)
     area1 = Optional(str)
     area2 = Optional(str)
     loc = Optional(str)

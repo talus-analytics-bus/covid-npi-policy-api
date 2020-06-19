@@ -543,7 +543,7 @@ def get_optionset(fields: list = list()):
         # TODO handle other special values like "Unspecified" as needed
         options = select(
             getattr(i, field) for i in entity_class
-        )[:][:]
+        ).filter(lambda x: x is not None)[:][:]
         options.sort()
         options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in('Unspecified', 'Local'))
@@ -753,7 +753,8 @@ def apply_policy_filters(q, filters: dict = dict()):
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_policy_filters`
-        join = field in ('level', 'loc', 'area1', 'iso3', 'area2')
+        join = field in ('level', 'loc', 'area1',
+                         'iso3', 'country_name', 'area2')
 
         # if the filter is not a join, i.e., is on policy native fields
         if not join:

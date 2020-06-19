@@ -348,10 +348,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 ).first()
 
                 if place is None:
+                    # TODO generalize to all countries
                     action, place = upsert(
                         db.Place,
                         {
                             'iso3': 'USA',
+                            'country_name': 'United States of America (USA)',
                             'area1': d['Name'],
                             'area2': 'Unspecified',
                             'level': 'State / Province'
@@ -436,6 +438,8 @@ class CovidPolicyPlugin(IngestPlugin):
         self.data = self.data.rename(columns=columns)
 
         # format certain values
+        print('self.data')
+        print(self.data)
         for col in ('auth_entity.level', 'place.level'):
             for to_replace, value in (
                 ('State/Province (Intermediate area)', 'State / Province'),
@@ -447,17 +451,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     to_replace=to_replace,
                     value=value
                 )
-
-        # # replace USA with United States (temp)
-        # # TODO dynamically get country name from ISO
-        # for col in ('place.iso3', 'place.area1', 'place.area2'):
-        #     for to_replace, value in (
-        #         ('N/A', None),
-        #     ):
-        #         self.data[col] = self.data[col].replace(
-        #             to_replace=to_replace,
-        #             value=value
-        #         )
 
         # create Policy instances
         self.create_policies(db)
@@ -509,11 +502,11 @@ class CovidPolicyPlugin(IngestPlugin):
 
             """
             if i.area2.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area2}, {i.area1}, {i.iso3}'''
+                return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area1}, {i.iso3}'''
+                return f'''{i.area1}, {i.country_name}'''
             else:
-                return i.iso3
+                return i.country_name
 
         def get_auth_entities_from_raw_data(d):
             """Given a datum `d` from raw data, create a list of authorizing
@@ -571,21 +564,50 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 return d[key]
 
+        # load data to get country names from ISO3 codes
+        country_data = pd.read_json('./ingest/data/country.json') \
+            .to_dict(orient='records')
+
+        def get_name_from_iso3(iso3: str):
+            """Given the 3-character ISO code of a country, returns its name
+            plus the code in parentheses, or `None` if no match.
+
+            Parameters
+            ----------
+            iso3 : str
+                3-char iso code
+
+            Returns
+            -------
+            type
+                Name or `None`
+
+            """
+            try:
+                country = next(d for d in country_data if d['alpha-3'] == iso3)
+                return country['name'] + ' (' + iso3 + ')'
+            except:
+                print('Found no country match for: ' + str(iso3))
+                return None
+
         # Main #################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
         # Auth_Entity.Place data fields.
         place_keys = select(
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Place'
+            and i.ingest_field != ''
             and i.export == True)[:][:]
 
         auth_entity_keys = select(
             i.ingest_field for i in db.Metadata if
-            i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
+            i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
 
         auth_entity_place_keys = select(
             i.ingest_field for i in db.Metadata if
-            i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
+            i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
 
         # track upserted records
         n_inserted = 0
@@ -626,8 +648,11 @@ class CovidPolicyPlugin(IngestPlugin):
                     key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
                 # perform upsert using get and set data fields
+                place_affected_instance_data['country_name'] = \
+                    get_name_from_iso3(place_affected_instance_data['iso3'])
                 place_affected_get_keys = ['level', 'iso3', 'area1', 'area2']
-                place_affected_set_keys = ['dillons_rule', 'home_rule']
+                place_affected_set_keys = [
+                    'dillons_rule', 'home_rule', 'country_name']
                 place_affected_get = {k: place_affected_instance_data[k]
                                       for k in place_affected_get_keys}
                 place_affected_set = {k: place_affected_instance_data[k]
@@ -650,8 +675,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 ['home_rule', 'dillons_rule']}
 
             # perform upsert using get and set data fields
+            # place_affected_instance_data['country_name'] = \
+            auth_entity_place_instance_data['country_name'] = \
+                get_name_from_iso3(auth_entity_place_instance_data['iso3'])
             get_keys = ['level', 'iso3', 'area1', 'area2']
-            set_keys = ['dillons_rule', 'home_rule']
+            set_keys = ['dillons_rule', 'home_rule', 'country_name']
             place_auth_get = {k: auth_entity_place_instance_data[k]
                               for k in get_keys}
             place_auth_set = {k: auth_entity_place_instance_data[k]
