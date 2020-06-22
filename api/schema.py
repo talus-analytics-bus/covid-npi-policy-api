@@ -564,6 +564,7 @@ def get_optionset(fields: list = list()):
             getattr(i, field) for i in entity_class
         ).filter(lambda x: x is not None)[:][:]
         options.sort()
+        options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in('Unspecified', 'Local'))
 
