@@ -387,7 +387,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     {
                         'date': d['Date'],
                         'metric': 0,
-                        'value': 'Unclear lockdown level'
+                        'value': 'Mixed distancing levels'
                         if d['Status'] == 'Safer at home default'
                         else d['Status'],
                         'place': place,

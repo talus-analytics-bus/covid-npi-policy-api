@@ -113,7 +113,7 @@ class Glossary(db.Entity):
 
 class PolicyPlan(db.Entity):
     id = PrimaryKey(int, auto=False)
-    source_id = Required(str, unique=True)
+    source_id = Required(str)
 
     # descriptive information
     policy_name = Optional(str)
