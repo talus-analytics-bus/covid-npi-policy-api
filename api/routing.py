@@ -136,7 +136,7 @@ async def get_policy_status(geo_res=str):
 
 
 @app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_lockdown_level(iso3=str, geo_res=str, end_date=str, name=str):
+async def get_lockdown_level_model(iso3=str, geo_res=str, end_date=str, name=str):
     """Get lockdown level of a location by date.
 
     """
@@ -144,7 +144,7 @@ async def get_lockdown_level(iso3=str, geo_res=str, end_date=str, name=str):
 
 
 @app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_lockdown_level(iso3=str, geo_res=str, date=date):
+async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     """Get lockdown level of a location by date.
 
     """

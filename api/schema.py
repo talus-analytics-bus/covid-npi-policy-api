@@ -481,10 +481,12 @@ def get_lockdown_level(
     # if `end_date` is specified, keep adding data until it is reached
     if end_date is not None and len(data) > 0:
 
+        # enddate date instance
         end_date_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+
         pull_final_value_forward = data[0]['datestamp'] < end_date_dt
         if pull_final_value_forward:
-            last_datum = data[len(data) - 1]
+            last_datum = data[0]
             prv_date = last_datum['datestamp']
             cur_date = prv_date + timedelta(days=1)
             while prv_date < end_date_dt:
