@@ -170,7 +170,7 @@ class SheetSettings():
                     colname,
                     self.formats.colname(bg_color)
                 )
-                if self.type == 'legend' and colname in ('Policy subtarget', 'Policy relaxing or restricting'):
+                if self.type == 'legend' and colname in ('Policy relaxing or restricting'):
                     worksheet.set_column(icol, icol, 100)
                 else:
                     worksheet.set_column(icol, icol, 50)
