@@ -426,7 +426,7 @@ def get_policy_status(
             if i not in data_tmp:
                 data_tmp[i] = PolicyStatus(
                     place_name=i,
-                    value="policy in place"
+                    value="t"
                 )
         data = list(data_tmp.values())
 
