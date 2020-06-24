@@ -300,6 +300,11 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[0] Connecting to Airtable and fetching tables...')
         self.client.connect()
 
+        # # local area database
+        # self.local_areas = self.client \
+        #     .worksheet(name='Local Area Database') \
+        #     .as_dataframe()
+
         # core data
         self.data = self.client \
             .worksheet(name='Policy Database') \
@@ -413,8 +418,12 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
+        # create local area places from local area database
+        # TODO
+        # print(self.local_areas)
+        # input('Press enter to continue.')
+
         # sort by policy ID
-        print(self.data)
         self.data.sort_values('Unique ID')
 
         # remove records without a unique ID and other features
