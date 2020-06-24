@@ -30,6 +30,15 @@ pp = pprint.PrettyPrinter(indent=4)
 __all__ = ['CovidPolicyPlugin', 'CovidCaseloadPlugin']
 
 
+def iterable(obj):
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
+
+
 def get_s3_bucket_keys(s3_bucket_name: str):
     """For the given S3 bucket, return all file keys, i.e., filenames.
 
@@ -831,6 +840,11 @@ class CovidPolicyPlugin(IngestPlugin):
                     return None
                 else:
                     return d[key]
+            elif key == 'policy_number':
+                if d[key] == '':
+                    return None
+                else:
+                    return int(d[key])
             elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
                 if key in ('prior_policy'):
                     return set()
@@ -841,6 +855,8 @@ class CovidPolicyPlugin(IngestPlugin):
             elif key in ('prior_policy'):
                 post_creation_attrs[d['id']]['prior_policy'] = set(d[key])
                 return set()
+            elif type(d[key]) != str and iterable(d[key]):
+                return "; ".join(d[key])
             return d[key]
 
         # track upserted records

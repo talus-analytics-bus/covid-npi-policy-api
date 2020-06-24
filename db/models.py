@@ -125,6 +125,8 @@ class PolicyPlan(db.Entity):
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
+    subtarget = Optional(str)  # multiselect, concat
+    policy_number = Optional(int, nullable=True)  # policy only
     # enum_test = Optional(State, column='enum_test_str')
 
     # key dates
@@ -154,6 +156,9 @@ class Policy(PolicyPlan):
     authority_name = Optional(str)
     auth_entity_authority_data_source = Optional(str)
     relaxing_or_restricting = Optional(str)
+    # policy_number = Optional(int)
+    # legal_challenge = Optional(bool)
+    # case_name = Optional(str)
 
     def delete_2(records):
         """Custom delete function for Policy class.

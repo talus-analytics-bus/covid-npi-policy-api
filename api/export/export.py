@@ -170,7 +170,11 @@ class SheetSettings():
                     colname,
                     self.formats.colname(bg_color)
                 )
-                worksheet.set_column(icol, icol, 50)
+                if self.type == 'legend' and colname in ('Policy subtarget', 'Policy relaxing or restricting'):
+                    worksheet.set_column(icol, icol, 100)
+                else:
+                    worksheet.set_column(icol, icol, 50)
+
                 icol = icol + 1
                 self.num_cols = self.num_cols + 1
 
@@ -232,7 +236,7 @@ class SheetSettings():
         ]
         for irow, text, cell_format in rows:
             worksheet.write(irow, 0, text, cell_format)
-        worksheet.set_row(init_irow + 2, 150)
+        worksheet.set_row(init_irow + 2, 360)
 
     def write_header(self, worksheet, logo_fn, logo_offset, title, intro_text):
         """Write the sheet header, including title, subtitle, logo, etc.
