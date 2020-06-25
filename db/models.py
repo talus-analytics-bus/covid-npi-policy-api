@@ -1,5 +1,6 @@
 """Define database models."""
 # standard modules
+import datetime
 from datetime import date
 
 # 3rd party modules
@@ -64,6 +65,7 @@ class Version(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str, nullable=True)
     date = Required(date)
+    last_datum_date = Required(datetime.date)
     type = Required(str)
 
 

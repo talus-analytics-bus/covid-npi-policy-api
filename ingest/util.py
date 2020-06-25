@@ -29,6 +29,9 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
+special_fields = ('home_rule', 'dillons_rule')
+
+
 @db_session
 def upsert(cls, get: dict, set: dict = None, skip: list = []):
     """Insert or update record into specified class based on checking for
@@ -79,7 +82,13 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
                 # print('--changed to ' + str(key) + ' = ' + str(value))
                 # print(cls)
                 # print(get['field'])
+            # special cases
+            if key in special_fields:
+                cur_val = getattr(obj, key)
+                if cur_val != '' and cur_val is not None:
+                    continue
             obj.__setattr__(key, value)
+
         commit()
         return (action, obj)
 

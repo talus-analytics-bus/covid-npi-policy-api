@@ -29,6 +29,15 @@ pp = pprint.PrettyPrinter(indent=4)
 # define exported classes
 __all__ = ['CovidPolicyPlugin', 'CovidCaseloadPlugin']
 
+# show "In progress" if we find blanks in these fields
+show_in_progress = (
+    "auth_entity_has_authority",
+    "authority_name",
+    "auth_entity_authority_data_source",
+    # "home_rule",
+    # "dillons_rule"
+)
+
 
 def iterable(obj):
     try:
@@ -219,8 +228,8 @@ class CovidCaseloadPlugin(IngestPlugin):
 
         print('\nUpserting observations...')
         updated_at = datetime.now()
+        last_datum_date = None
         for name in data:
-            print('\n')
             print(name)
             place = db.Place.select().filter(name=name).first()
             if place is None:
@@ -240,6 +249,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                         print('error: missing dt')
                         continue
                     else:
+                        last_datum_date = d['date']
                         action, obs_affected = upsert(
                             db.Observation,
                             {
@@ -262,6 +272,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             },
             {
                 'date': date.today(),
+                'last_datum_date': last_datum_date,
             }
         )
 
@@ -598,8 +609,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 Formattedalue of data field for the record.
 
             """
-            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
-                return 'Unspecified'
+            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None or d[key] == '':
+                if key in show_in_progress:
+                    return 'In progress'
+                else:
+                    return 'Unspecified'
             else:
                 return d[key]
 
@@ -832,31 +846,35 @@ class CovidPolicyPlugin(IngestPlugin):
         post_creation_attrs = defaultdict(dict)
 
         def formatter(key, d):
+            unspec_val = 'In progress' if key in show_in_progress else 'Unspecified'
             if key.startswith('date_'):
                 if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
                     return None
                 elif len(d[key].split('/')) == 2:
                     print(f'''Unexpected format for `{key}`: {d[key]}\n''')
-                    return None
+                    return unspec_val
                 else:
                     return d[key]
             elif key == 'policy_number':
-                if d[key] == '':
-                    return None
-                else:
+                if d[key] != '':
                     return int(d[key])
+                else:
+                    return None
             elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
                 if key in ('prior_policy'):
                     return set()
                 else:
-                    return 'Unspecified'
+                    return unspec_val
             elif key == 'id':
                 return int(d[key])
             elif key in ('prior_policy'):
                 post_creation_attrs[d['id']]['prior_policy'] = set(d[key])
                 return set()
             elif type(d[key]) != str and iterable(d[key]):
-                return "; ".join(d[key])
+                if len(d[key]) > 0:
+                    return "; ".join(d[key])
+                else:
+                    return unspec_val
             return d[key]
 
         # track upserted records

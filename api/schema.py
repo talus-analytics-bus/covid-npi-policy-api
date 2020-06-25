@@ -95,7 +95,7 @@ def get_version():
         SELECT distinct on ("type") * FROM "version"
         ORDER BY "type", "date" desc
                                     ''')
-    data = [i.to_dict(only=['type', 'date'])
+    data = [i.to_dict(only=['type', 'date', 'last_datum_date'])
             for i in data_tmp]
     data.sort(key=lambda x: x['type'], reverse=True)
     data.sort(key=lambda x: x['date'], reverse=True)

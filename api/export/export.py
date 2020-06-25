@@ -129,6 +129,9 @@ class SheetSettings():
             for colgroup in row:
                 for colname in row[colgroup]:
                     value = row[colgroup][colname]
+                    # special formatting
+                    if colname.endswith('date') and value is None:
+                        value = 'Unspecified'
                     worksheet.write(irow, icol, value, self.formats.cell())
                     icol = icol + 1
             worksheet.set_row(irow, 75)
