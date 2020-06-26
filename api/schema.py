@@ -2,20 +2,25 @@
 # standard modules
 import functools
 from io import BytesIO
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql
 from fastapi.responses import FileResponse, Response
 
 # local modules
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, Auth_Entity, Place, File
+from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
+    Auth_Entity, Place, File
 from .util import str_to_date
 from db import db
 
+# # Code optimization profiling
+# import cProfile
+# import pstats
+# p = cProfile.Profile()
 
 # constants
 s3 = boto3.client('s3')
@@ -80,6 +85,25 @@ def export(filters: dict = None):
         content=content,
         media_type=media_type
     )
+
+
+@db_session
+def get_version():
+    # q = select(i for i in db.Version)
+    # data = [i.to_dict(only=['type', 'date']) for i in q]
+    data_tmp = db.Version.select_by_sql(f'''
+        SELECT distinct on ("type") * FROM "version"
+        ORDER BY "type", "date" desc
+                                    ''')
+    data = [i.to_dict(only=['type', 'date', 'last_datum_date'])
+            for i in data_tmp]
+    data.sort(key=lambda x: x['type'], reverse=True)
+    data.sort(key=lambda x: x['date'], reverse=True)
+    return {
+        'success': True,
+        'data': data,
+        'message': 'Success'
+    }
 
 
 @db_session
@@ -205,6 +229,7 @@ def get_policy(
     fields: list = None,
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
+    by_category: str = None,
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -236,7 +261,7 @@ def get_policy(
 
     # get ordered policies from database
     q = select(i for i in db.Policy).order_by(
-        getattr(db.Policy, order_by_field))
+        desc(getattr(db.Policy, order_by_field)))
 
     # apply filters if any
     if filters is not None:
@@ -271,13 +296,221 @@ def get_policy(
             # add it to the output list
             data.append(d_dict)
 
-        # create response from output list
-        res = PolicyList(
-            data=data,
-            success=True,
-            message=f'''{len(q)} policies found'''
-        )
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Policy
+        if by_category is not None:
+            data_by_category = defaultdict(list)
+            for i in data:
+                data_by_category[i[by_category]].append(i)
+
+            res = PolicyDict(
+                data=data_by_category,
+                success=True,
+                message=f'''{len(q)} policies found'''
+            )
+        else:
+            # create response from output list
+            res = PolicyList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} policies found'''
+            )
         return res
+
+
+@cached
+@db_session
+def get_policy_status(
+    is_lockdown_level: bool = None,
+    geo_res: str = None,
+    name: str = None,
+    filters: dict = dict()
+):
+    """TODO"""
+
+    # DEBUG filter by USA only
+    filters['iso3'] = ['USA']
+
+    # get ordered policies from database
+    q = select(i for i in db.Policy if i.place.level ==
+               'State / Province')
+
+    # initialize output data
+    data = None
+
+    # Case A: Lockdown level
+    if is_lockdown_level is None:
+        is_lockdown_level = (
+            'lockdown_level' in filters and
+            filters['lockdown_level'][0] == 'lockdown_level'
+        )
+    if is_lockdown_level:
+
+        # get dates to check
+        start = None
+        end = None
+        if 'dates_in_effect' in filters:
+            start, end = filters['dates_in_effect']
+            start = datetime.strptime(start, '%Y-%m-%d').date()
+            end = datetime.strptime(end, '%Y-%m-%d').date()
+
+        # If a date range is provided and the dates aren't the same, return
+        # a not implemented message
+        if start is not None and end is not None and start != end:
+            return PolicyStatusList(
+                data=list(),
+                success=False,
+                message=f'''Start and end dates must be identical.'''
+            )
+        else:
+            # if date is not provided, return it in the response
+            specify_date = start is None and end is None
+
+            # collate list of lockdown level statuses based on state / province
+            data = list()
+
+            # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+            if name is None:
+                q = db.Observation.select_by_sql(
+                    f'''
+                            select distinct on (place) *
+                            from observation o
+                            where date <= '{str(start)}'
+                            order by place, date desc
+                    ''')
+                data = [
+                    {
+                        'place_name': i.place.area1,
+                        'value': i.value,
+                        'datestamp': i.date,
+                    } for i in q
+                ]
+            else:
+
+                # get all observations for the current date and convert them into
+                # policy statuses
+                observations = select(
+                    i for i in db.Observation
+                    if i.metric == 0
+                    and (start is None or i.date == start)
+                ).order_by(db.Observation.date)
+
+                if name is not None:
+                    observations = observations.filter(
+                        lambda x: x.place.area1 == name)
+
+                for d in observations:
+                    datum = {
+                        'value': d.value,
+                    }
+                    if specify_date:
+                        datum['datestamp'] = d.date
+                    if name is None:
+                        datum['place_name'] = d.place.area1
+                    data.append(
+                        PolicyStatus(
+                            **datum
+                        )
+                    )
+    else:
+
+        # Case B: Any other category
+        # apply filters if any
+        if filters is not None:
+            q = apply_policy_filters(q, filters)
+
+        q_area1 = select(i.place.area1 for i in q)
+
+        data_tmp = dict()
+        for i in q_area1:
+            if i not in data_tmp:
+                data_tmp[i] = PolicyStatus(
+                    place_name=i,
+                    value="t"
+                )
+        data = list(data_tmp.values())
+
+    # create response from output list
+    res = PolicyStatusList(
+        data=data,
+        success=True,
+        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+    )
+    return res
+
+
+@cached
+@db_session
+def get_lockdown_level(
+    geo_res: str = None,
+    name: str = None,
+    date: str = None,
+    end_date: str = None,
+):
+    """TODO"""
+
+    # if date is not provided, return it in the response
+    specify_date = date is None
+
+    # collate list of lockdown level statuses based on state / province
+    data = list()
+
+    # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+    distinct_clause = \
+        'distinct on (place)' if end_date is None else \
+        'distinct on (place, date)'
+    q = db.Observation.select_by_sql(
+        f'''
+                select {distinct_clause} *
+                from observation o
+                where date <= '{date if end_date is None else end_date}'
+                order by place, date desc
+        ''')
+
+    for i in q:
+        datum = {
+            'value': i.value,
+            'datestamp': i.date,
+        }
+        if name is None:
+            datum['place_name'] = i.place.area1
+        elif i.place.area1 != name:
+            continue
+        data.append(datum)
+
+    # if `end_date` is specified, keep adding data until it is reached
+    if end_date is not None and len(data) > 0:
+
+        # enddate date instance
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        pull_final_value_forward = data[0]['datestamp'] < end_date_dt
+        if pull_final_value_forward:
+            last_datum = data[0]
+            prv_date = last_datum['datestamp']
+            cur_date = prv_date + timedelta(days=1)
+            while prv_date < end_date_dt:
+                datum = {
+                    'value': last_datum['value'],
+                    'datestamp': str(cur_date),
+                }
+                if 'place_name' in last_datum:
+                    datum['place_name'] = last_datum['place_name']
+
+                data.insert(
+                    0,
+                    datum
+                )
+                prv_date = cur_date
+                cur_date = cur_date + timedelta(days=1)
+
+    # create response from output list
+    res = PolicyStatusList(
+        data=data,
+        success=True,
+        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+    )
+    return res
 
 
 @db_session
@@ -290,6 +523,8 @@ def get_optionset(fields: list = list()):
     used yet in the data
 
     TODO list unspecified last
+
+    TODO remove bottleneck in AWS deployed version
 
     Parameters
     ----------
@@ -305,6 +540,9 @@ def get_optionset(fields: list = list()):
         response dictionary
 
     """
+
+    # # Enable profiling
+    # p.enable()
 
     # define which data fields use groups
     # TODO dynamically
@@ -326,8 +564,9 @@ def get_optionset(fields: list = list()):
         # TODO handle other special values like "Unspecified" as needed
         options = select(
             getattr(i, field) for i in entity_class
-        )[:][:]
+        ).filter(lambda x: x is not None)[:][:]
         options.sort()
+        options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in('Unspecified', 'Local'))
 
@@ -369,7 +608,8 @@ def get_optionset(fields: list = list()):
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
-                        options_with_groups.append([option, parent.iso3])
+                        options_with_groups.append(
+                            [option, parent.country_name])
                     else:
                         # TODO figure out best way to handle "Other" cases
                         options_with_groups.append([option, 'Other'])
@@ -418,6 +658,14 @@ def get_optionset(fields: list = list()):
             data[field].append(datum)
             id = id + 1
 
+    # # Disable profiling
+    # p.disable()
+    #
+    # # Dump the stats to a file
+    # p.dump_stats("res_focus.prof")
+    # p2 = pstats.Stats('res_focus.prof')
+    # p2.sort_stats('cumulative').print_stats(10)
+
     # return all optionset values
     return {
         'data': data,
@@ -456,6 +704,7 @@ def get_label_from_value(field, value):
         return value
 
 
+@db_session
 def apply_policy_filters(q, filters: dict = dict()):
     """Given the PonyORM query for policies and relevant filters, applies
     filters with AND logic.
@@ -497,40 +746,38 @@ def apply_policy_filters(q, filters: dict = dict()):
             if field == 'dates_in_effect':
                 start = allowed_values[0]
                 end = allowed_values[1]
+
                 q = select(
-                    i
-                    for i in q
-                    if
-                    not (
-                        (
-                            i.date_start_effective > end and
-                            i.date_end_actual > end
-                        ) or
-                        (
-                            i.date_start_effective < start and
-                            i.date_end_actual < start
-                        ) or
-                        i.date_start_effective is None
-                    ) or
-                    (i.date_end_actual is None and i.date_end_anticipated is not None and
-                     not (
-                         (
-                             i.date_start_effective > end and
-                             i.date_end_anticipated > end
-                         ) or
-                         (
-                             i.date_start_effective < start and
-                             i.date_end_anticipated < start
-                         ) or
-                         i.date_start_effective is None
-                     ))
+                    i for i in q
+                    # starts before or during `start` when end date unknown
+                    if (
+                        i.date_end_actual is None and i.date_end_anticipated \
+                        is None and i.date_start_effective <= start
+                    )
+                    # starts before AND ends after
+                    or (
+                        i.date_start_effective < start and (i.date_end_actual > end or (
+                            i.date_end_actual is None and i.date_end_anticipated > end))
+                    )
+
+                    # starts during OR ends during
+                    or (
+                        (i.date_start_effective >= start and i.date_start_effective <= end) or (
+                            (i.date_end_actual >= start and i.date_end_actual <= end) or (
+                                i.date_end_actual is None and (
+                                    i.date_end_anticipated >= start and i.date_end_anticipated <= end)
+                            )
+                        )
+                    )
+
                 )
                 continue
 
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_policy_filters`
-        join = field in ('level', 'loc', 'area1', 'iso3', 'area2')
+        join = field in ('level', 'loc', 'area1',
+                         'iso3', 'country_name', 'area2')
 
         # if the filter is not a join, i.e., is on policy native fields
         if not join:

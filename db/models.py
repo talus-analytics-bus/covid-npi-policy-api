@@ -1,5 +1,6 @@
 """Define database models."""
 # standard modules
+import datetime
 from datetime import date
 
 # 3rd party modules
@@ -59,6 +60,15 @@ def custom_delete(entity_class, records):
     return len(to_delete)
 
 
+class Version(db.Entity):
+    _table_ = "version"
+    id = PrimaryKey(int, auto=True)
+    name = Optional(str, nullable=True)
+    date = Required(date)
+    last_datum_date = Required(datetime.date)
+    type = Required(str)
+
+
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
@@ -105,7 +115,7 @@ class Glossary(db.Entity):
 
 class PolicyPlan(db.Entity):
     id = PrimaryKey(int, auto=False)
-    source_id = Required(str, unique=True)
+    source_id = Required(str)
 
     # descriptive information
     policy_name = Optional(str)
@@ -117,6 +127,8 @@ class PolicyPlan(db.Entity):
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
+    subtarget = Optional(str)  # multiselect, concat
+    policy_number = Optional(int, nullable=True)  # policy only
     # enum_test = Optional(State, column='enum_test_str')
 
     # key dates
@@ -146,6 +158,9 @@ class Policy(PolicyPlan):
     authority_name = Optional(str)
     auth_entity_authority_data_source = Optional(str)
     relaxing_or_restricting = Optional(str)
+    # policy_number = Optional(int)
+    # legal_challenge = Optional(bool)
+    # case_name = Optional(str)
 
     def delete_2(records):
         """Custom delete function for Policy class.
@@ -238,6 +253,7 @@ class Place(db.Entity):
     id = PrimaryKey(int, auto=True)
     level = Optional(str)
     iso3 = Optional(str)
+    country_name = Optional(str, nullable=True)
     area1 = Optional(str)
     area2 = Optional(str)
     loc = Optional(str)
@@ -247,6 +263,20 @@ class Place(db.Entity):
     # relationships
     policies = Set('PolicyPlan')
     auth_entities = Set('Auth_Entity')
+    observations = Set('Observation')
+
+
+class Observation(db.Entity):
+    """Observations made on places at dates."""
+    _table_ = "observation"
+    id = PrimaryKey(int, auto=True)
+    date = Required(date)
+    metric = Required(int)
+    value = Required(str)
+    source_id = Required(str)
+
+    # relationships
+    place = Required('Place')
 
 
 class Auth_Entity(db.Entity):

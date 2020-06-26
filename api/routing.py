@@ -1,13 +1,16 @@
 """Define API endpoints"""
+# standard modules
+from datetime import date
+
 # 3rd party modules
 from fastapi import Query
 from starlette.responses import RedirectResponse
-from typing import List
+from typing import List, Optional
 
 # local modules
 from . import schema
 from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, \
-    ListResponse
+    ListResponse, PolicyStatusList
 from .app import app
 from db import db
 
@@ -31,6 +34,11 @@ async def export(body: PolicyFilters):
     return schema.export(filters=filters)
 
 
+@app.get("/get/version")
+async def get_version():
+    return schema.get_version()
+
+
 @app.get("/get/metadata", response_model=MetadataList)
 async def get_metadata(fields: List[str] = Query(None)):
     """Returns Metadata instance fields for the fields specified.
@@ -51,7 +59,7 @@ async def get_metadata(fields: List[str] = Query(None)):
 
 
 @app.get("/get/file/redirect")
-async def get_file(id: int):
+async def get_file_redirect(id: int):
     """Return file from S3 with the matching ID using the provided title.
 
     Parameters
@@ -109,8 +117,65 @@ async def get_policy(fields: List[str] = Query(None)):
     return schema.get_policy(fields=fields)
 
 
-@app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
-async def post_policy(body: PolicyFilters, fields: List[str] = Query(None)):
+@app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_policy_status(geo_res=str):
+    """Return Policy data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
+    return schema.get_policy_status(geo_res=geo_res)
+
+
+@app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level_model(iso3=str, geo_res=str, end_date=str, name=str):
+    """Get lockdown level of a location by date.
+
+    """
+    return schema.get_lockdown_level(geo_res=geo_res, name=name, end_date=end_date)
+
+
+@app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
+    """Get lockdown level of a location by date.
+
+    """
+    return schema.get_lockdown_level(geo_res=geo_res, date=date)
+
+
+@app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def post_policy_status(body: PolicyFilters, geo_res=str):
+    """Return Policy data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
+
+    return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
+
+
+@app.post("/post/policy", response_model_exclude_unset=True)
+async def post_policy(
+    body: PolicyFilters,
+    by_category: str = None,
+    fields: List[str] = Query(None),
+):
     """Return Policy data with filters applied.
 
     Parameters
@@ -126,7 +191,9 @@ async def post_policy(body: PolicyFilters, fields: List[str] = Query(None)):
         Policy response dictionary
 
     """
-    return schema.get_policy(filters=body.filters, fields=fields)
+    return schema.get_policy(
+        filters=body.filters, fields=fields, by_category=by_category
+    )
 
 
 @app.get("/get/optionset", response_model=OptionSetList)

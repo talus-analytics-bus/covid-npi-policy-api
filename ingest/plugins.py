@@ -1,19 +1,20 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
 import os
+import pytz
 from os import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, commit, get, select
+from pony.orm import db_session, commit, get, select, delete
 from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
-from .util import upsert, download_file, bcolors
+from .util import upsert, download_file, bcolors, us_caseload_csv_to_dict
 import pandas as pd
 
 # constants
@@ -26,7 +27,25 @@ S3_BUCKET_NAME = 'covid-npi-policy-storage'
 pp = pprint.PrettyPrinter(indent=4)
 
 # define exported classes
-__all__ = ['CovidPolicyPlugin']
+__all__ = ['CovidPolicyPlugin', 'CovidCaseloadPlugin']
+
+# show "In progress" if we find blanks in these fields
+show_in_progress = (
+    "auth_entity_has_authority",
+    "authority_name",
+    "auth_entity_authority_data_source",
+    # "home_rule",
+    # "dillons_rule"
+)
+
+
+def iterable(obj):
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
 
 
 def get_s3_bucket_keys(s3_bucket_name: str):
@@ -119,6 +138,147 @@ def reject(x):
     return x['desc'] == ''
 
 
+class CovidCaseloadPlugin(IngestPlugin):
+    """Ingest COVID caseload data and upload to metric database
+
+    TODO convert this to AWS Lambda
+
+    """
+
+    def __init__(self):
+        return None
+
+    @db_session
+    def upsert_data(self, db, db_amp):
+        print('Fetching data from New York Times server...')
+        download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+        data = us_caseload_csv_to_dict(download_url)
+        print('Done.')
+
+        print('\nUpserting relevant metric...')
+
+        # upsert metric for daily US caseload
+        action, covid_total_cases_provinces = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_total_cases_provinces',
+                'metric_id': 72
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The total cumulative number of COVID-19 cases by date and state / province'
+            }
+        )
+        commit()
+
+        # upsert metric for daily US NEW caseload
+        action, covid_new_cases_provinces = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_new_cases_provinces',
+                'metric_id': 73
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The number of new COVID-19 cases by date and state / province',
+                'is_view': True,
+                'view_name': 'metric_73'
+            }
+        )
+        commit()
+
+        # upsert metric for 7-day US NEW caseload
+        action, covid_new_cases_provinces_7d = upsert(
+            db.Metric,
+            {
+                'metric_name': 'covid_new_cases_provinces_7d',
+                'metric_id': 74
+            },
+            {
+                'temporal_resolution': 'daily',
+                'spatial_resolution': 'state',
+                'spatial_extent': 'country',
+                'min_time': '2020-01-01',
+                'max_time': '2025-01-01',
+                'unit_type': 'count',
+                'unit': 'cases',
+                'num_type': 'int',
+                'metric_definition': 'The number of new COVID-19 cases in the last 7 days by date and state / province',
+                'is_view': True,
+                'view_name': 'metric_74'
+            }
+        )
+        commit()
+
+        print('Done.')
+
+        print('\nUpserting observations...')
+        updated_at = datetime.now()
+        last_datum_date = None
+        for name in data:
+            print(name)
+            place = db.Place.select().filter(name=name).first()
+            if place is None:
+                continue
+            else:
+                # i = 0
+                # max_i = str(len(data[name]))
+                for d in data[name]:
+                    # print('upserting ' + str(i) + ' of ' + max_i)
+                    # i = i + 1
+                    dt = select(
+                        i for i in db.DateTime
+                        if str((i.datetime + timedelta(hours=12)).date()) == d['date']
+                    ).first()
+
+                    if dt is None:
+                        print('error: missing dt')
+                        continue
+                    else:
+                        last_datum_date = d['date']
+                        action, obs_affected = upsert(
+                            db.Observation,
+                            {
+                                'metric': covid_total_cases_provinces,
+                                'date_time': dt,
+                                'place': place,
+                                'data_source': 'New York Times',  # TODO correct
+                            },
+                            {
+                                'value': d['cases'],
+                                'updated_at': updated_at,
+                            }
+                        )
+
+        # update version
+        action, version = upsert(
+            db_amp.Version,
+            {
+                'type': 'COVID-19 caseload data',
+            },
+            {
+                'date': date.today(),
+                'last_datum_date': last_datum_date,
+            }
+        )
+
+        print('Done.')
+
+
 class CovidPolicyPlugin(IngestPlugin):
     """Ingest COVID non-pharmaceutical interventions (NPI) policy data from an
     Airtable base.
@@ -128,7 +288,7 @@ class CovidPolicyPlugin(IngestPlugin):
     def __init__(self):
         return None
 
-    def load_client(self):
+    def load_client(self, base_key):
         """Load client to access Airtable. NOTE: You must set environment
         variable `AIRTABLE_API_KEY` to use this.
 
@@ -141,7 +301,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # get Airtable client for specified base
         client = AirtableSource(
             name='Airtable',
-            base_key='appOtKBVJRyuH83wf',
+            base_key=base_key,
             api_key=os.environ.get('AIRTABLE_API_KEY')
         )
         self.client = client
@@ -160,6 +320,11 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[0] Connecting to Airtable and fetching tables...')
         self.client.connect()
 
+        # # local area database
+        # self.local_areas = self.client \
+        #     .worksheet(name='Local Area Database') \
+        #     .as_dataframe()
+
         # core data
         self.data = self.client \
             .worksheet(name='Policy Database') \
@@ -167,13 +332,93 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # data dictionary
         self.data_dictionary = self.client \
-            .worksheet(name='Appendix: data dictionary') \
+            .worksheet(name='Appendix: Policy data dictionary') \
             .as_dataframe(view='API ingest')
 
         # glossary
         self.glossary = self.client \
             .worksheet(name='Appendix: glossary') \
             .as_dataframe(view='API ingest')
+
+        return self
+
+    @db_session
+    def load_observations(self, db):
+        print(
+            '\n\n[X] Connecting to Airtable for observations and fetching tables...')
+        airtable_iter = self.client.worksheet(
+            name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+
+        # airtable_all = self.client.worksheet(
+        #     name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+
+        # print('airtable_all')
+        # print(airtable_all)
+
+        # clear existing
+        delete(i for i in db.Observation if i.metric == 0)
+
+        # add new observations
+        skipped = 0
+        for page in airtable_iter:
+            for record in page:
+                # TODO add observations
+                d = record['fields']
+                if 'Name' not in d:
+                    skipped += 1
+                    continue
+                if not d['Date'].startswith('2020'):
+                    skipped += 1
+                    continue
+                print('\n')
+                print(d)
+
+                # get place
+                # place = db.Place.get(
+                #     iso3='USA', area1=d['Name'], area2='Unspecified', level='State / Province')
+                place = select(
+                    i for i in db.Place
+                    if i.iso3 == 'USA'
+                    and i.area1 == d['Name']
+                    and (i.area2 == 'Unspecified' or i.area2 == '')
+                    and i.level == 'State / Province'
+                ).first()
+
+                if place is None:
+                    # TODO generalize to all countries
+                    action, place = upsert(
+                        db.Place,
+                        {
+                            'iso3': 'USA',
+                            'country_name': 'United States of America (USA)',
+                            'area1': d['Name'],
+                            'area2': 'Unspecified',
+                            'level': 'State / Province'
+                        },
+                        {
+                            'loc': f'''{d['Name']}, USA'''
+                        }
+                    )
+                    print('\naction')
+                    print(action)
+
+                if place is None:
+                    print('[FATAL ERROR] Missing place')
+                    sys.exit(0)
+
+                action, d = upsert(
+                    db.Observation,
+                    {'source_id': record['id']},
+                    {
+                        'date': d['Date'],
+                        'metric': 0,
+                        'value': 'Mixed distancing levels'
+                        if d['Status'] == 'Safer at home default'
+                        else d['Status'],
+                        'place': place,
+                    }
+                )
+                commit()
 
         return self
 
@@ -193,12 +438,19 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
+        # create local area places from local area database
+        # TODO
+        # print(self.local_areas)
+        # input('Press enter to continue.')
+
         # sort by policy ID
-        print(self.data)
         self.data.sort_values('Unique ID')
 
-        # remove records without a unique ID
+        # remove records without a unique ID and other features
         self.data = self.data.loc[self.data['Unique ID'] != '', :]
+        self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
+        self.data = self.data.loc[self.data['Policy description'] != '', :]
+        self.data = self.data.loc[self.data['Effective start date'] != '', :]
 
         # analyze for QA/QC and quit if errors detected
         valid = self.check(self.data)
@@ -239,17 +491,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     value=value
                 )
 
-        # replace USA with United States (temp)
-        # TODO dynamically get country name from ISO
-        for col in ('auth_entity.iso3', 'place.iso3'):
-            for to_replace, value in (
-                ('USA', 'United States'),
-            ):
-                self.data[col] = self.data[col].replace(
-                    to_replace=to_replace,
-                    value=value
-                )
-
         # create Policy instances
         self.create_policies(db)
 
@@ -261,8 +502,24 @@ class CovidPolicyPlugin(IngestPlugin):
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
 
+        # update version
+        action, version = upsert(
+            db.Version,
+            {
+                'type': 'Policy data',
+            },
+            {
+                'date': date.today(),
+            }
+        )
+
         print('\nData ingest completed.')
         return self
+
+    @db_session
+    def process_observations(self, db):
+        print('self.observations')
+        print(self.observations)
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -295,11 +552,11 @@ class CovidPolicyPlugin(IngestPlugin):
 
             """
             if i.area2.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area2}, {i.area1}, {i.iso3}'''
+                return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area1}, {i.iso3}'''
+                return f'''{i.area1}, {i.country_name}'''
             else:
-                return i.iso3
+                return i.country_name
 
         def get_auth_entities_from_raw_data(d):
             """Given a datum `d` from raw data, create a list of authorizing
@@ -352,10 +609,39 @@ class CovidPolicyPlugin(IngestPlugin):
                 Formattedalue of data field for the record.
 
             """
-            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None:
-                return 'Unspecified'
+            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None or d[key] == '':
+                if key in show_in_progress:
+                    return 'In progress'
+                else:
+                    return 'Unspecified'
             else:
                 return d[key]
+
+        # load data to get country names from ISO3 codes
+        country_data = pd.read_json('./ingest/data/country.json') \
+            .to_dict(orient='records')
+
+        def get_name_from_iso3(iso3: str):
+            """Given the 3-character ISO code of a country, returns its name
+            plus the code in parentheses, or `None` if no match.
+
+            Parameters
+            ----------
+            iso3 : str
+                3-char iso code
+
+            Returns
+            -------
+            type
+                Name or `None`
+
+            """
+            try:
+                country = next(d for d in country_data if d['alpha-3'] == iso3)
+                return country['name'] + ' (' + iso3 + ')'
+            except:
+                print('Found no country match for: ' + str(iso3))
+                return None
 
         # Main #################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
@@ -363,15 +649,18 @@ class CovidPolicyPlugin(IngestPlugin):
         place_keys = select(
             i.ingest_field for i in db.Metadata if
             i.entity_name == 'Place'
+            and i.ingest_field != ''
             and i.export == True)[:][:]
 
         auth_entity_keys = select(
             i.ingest_field for i in db.Metadata if
-            i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
+            i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity' and i.export == True)[:][:]
 
         auth_entity_place_keys = select(
             i.ingest_field for i in db.Metadata if
-            i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
+            i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity.Place' and i.export == True)[:][:]
 
         # track upserted records
         n_inserted = 0
@@ -402,7 +691,8 @@ class CovidPolicyPlugin(IngestPlugin):
             # the affected place is different from the auth entity's place if it
             # exists (is defined in the record) and is different
             affected_diff_from_auth = d['place.level'] != None and \
-                d['place.level'] != ''
+                d['place.level'] != '' and d['place.iso3'] != None and \
+                d['place.iso3'] != ''
 
             # get or create the place affected
             place_affected = None
@@ -411,8 +701,11 @@ class CovidPolicyPlugin(IngestPlugin):
                     key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
                 # perform upsert using get and set data fields
+                place_affected_instance_data['country_name'] = \
+                    get_name_from_iso3(place_affected_instance_data['iso3'])
                 place_affected_get_keys = ['level', 'iso3', 'area1', 'area2']
-                place_affected_set_keys = ['dillons_rule', 'home_rule']
+                place_affected_set_keys = [
+                    'dillons_rule', 'home_rule', 'country_name']
                 place_affected_get = {k: place_affected_instance_data[k]
                                       for k in place_affected_get_keys}
                 place_affected_set = {k: place_affected_instance_data[k]
@@ -435,8 +728,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 ['home_rule', 'dillons_rule']}
 
             # perform upsert using get and set data fields
+            # place_affected_instance_data['country_name'] = \
+            auth_entity_place_instance_data['country_name'] = \
+                get_name_from_iso3(auth_entity_place_instance_data['iso3'])
             get_keys = ['level', 'iso3', 'area1', 'area2']
-            set_keys = ['dillons_rule', 'home_rule']
+            set_keys = ['dillons_rule', 'home_rule', 'country_name']
             place_auth_get = {k: auth_entity_place_instance_data[k]
                               for k in get_keys}
             place_auth_set = {k: auth_entity_place_instance_data[k]
@@ -550,25 +846,35 @@ class CovidPolicyPlugin(IngestPlugin):
         post_creation_attrs = defaultdict(dict)
 
         def formatter(key, d):
+            unspec_val = 'In progress' if key in show_in_progress else 'Unspecified'
             if key.startswith('date_'):
                 if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
                     return None
                 elif len(d[key].split('/')) == 2:
                     print(f'''Unexpected format for `{key}`: {d[key]}\n''')
-                    return None
+                    return unspec_val
                 else:
                     return d[key]
+            elif key == 'policy_number':
+                if d[key] != '':
+                    return int(d[key])
+                else:
+                    return None
             elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
                 if key in ('prior_policy'):
                     return set()
                 else:
-                    return 'Unspecified'
+                    return unspec_val
             elif key == 'id':
                 return int(d[key])
             elif key in ('prior_policy'):
-                post_creation_attrs[d['id']]['prior_policy'] = \
-                    set(d[key])
+                post_creation_attrs[d['id']]['prior_policy'] = set(d[key])
                 return set()
+            elif type(d[key]) != str and iterable(d[key]):
+                if len(d[key]) > 0:
+                    return "; ".join(d[key])
+                else:
+                    return unspec_val
             return d[key]
 
         # track upserted records
@@ -758,6 +1064,8 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
         for i, d in self.glossary.iterrows():
+            if d['Key Term'] is None or d['Key Term'].strip() == '':
+                continue
             attributes = {
                 'definition': d['Definition'],
                 'reference': d['Reference'],

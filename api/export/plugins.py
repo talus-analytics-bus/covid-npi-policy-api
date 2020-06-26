@@ -220,7 +220,6 @@ class CovidPolicyExportPlugin(ExcelExport):
                             'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
                     row[dd.colgroup]['Permalink for policy PDF(s)'] = "\n".join(
                         permalinks)
-                    print(row[dd.colgroup]['Permalink for policy PDF(s)'])
                     continue
 
                 # check whether it is a policy or a joined entity

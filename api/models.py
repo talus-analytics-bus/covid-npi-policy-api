@@ -59,6 +59,8 @@ class Policy(BaseModel):
     primary_ph_measure: str = None
     ph_measure_details: str = None
     policy_type: str = None
+    policy_name: str = None
+    authority_name: str = None
 
     # key dates
     date_issued: date = None
@@ -73,12 +75,26 @@ class Policy(BaseModel):
     file: List = None
 
 
+class PolicyStatus(BaseModel):
+    place_name: str = None
+    value: str
+    datestamp: date = None
+
+
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
 
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class PolicyDict(Response):
+    data: Dict[str, List[Policy]]
+
+
+class PolicyStatusList(Response):
+    data: List[PolicyStatus]
 
 
 class OptionSetList(Response):
