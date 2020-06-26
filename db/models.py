@@ -186,8 +186,13 @@ class Policy(PolicyPlan):
         # convert the policy instance to a dictionary, which may contain
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
-        instance_dict = Policy.to_dict(
-            self, only=return_fields_by_entity['policy'], **kwargs)
+        instance_dict = None
+        if 'policy' in return_fields_by_entity and \
+                len(return_fields_by_entity['policy']) > 0:
+            instance_dict = Policy.to_dict(
+                self, only=return_fields_by_entity['policy'], **kwargs)
+        else:
+            instance_dict = Policy.to_dict(self, **kwargs)
 
         # iterate over the items in the Policy instance's dictionary in search
         # for other entity types for which we have unique IDs but need full
