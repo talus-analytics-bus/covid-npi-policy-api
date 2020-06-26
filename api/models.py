@@ -59,6 +59,8 @@ class Policy(BaseModel):
     primary_ph_measure: str = None
     ph_measure_details: str = None
     policy_type: str = None
+    policy_name: str = None
+    authority_name: str = None
 
     # key dates
     date_issued: date = None
