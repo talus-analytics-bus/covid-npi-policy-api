@@ -643,7 +643,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         'date': d['Date'],
                         'metric': 0,
                         'value': 'Mixed distancing levels'
-                        if d['Status'] == 'Safer at home default'
+                        if d['Status'] == 'Mixed'
                         else d['Status'],
                         'place': place,
                     }
