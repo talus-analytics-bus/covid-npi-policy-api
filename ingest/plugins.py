@@ -150,133 +150,169 @@ class CovidCaseloadPlugin(IngestPlugin):
 
     @db_session
     def upsert_data(self, db, db_amp):
-        print('Fetching data from New York Times server...')
-        download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
-        data = us_caseload_csv_to_dict(download_url)
-        print('Done.')
+        """Upsert caseload data from different sources.
 
-        print('\nUpserting relevant metric...')
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+        db_amp : type
+            Description of parameter `db_amp`.
 
-        # upsert metric for daily US caseload
-        action, covid_total_cases_provinces = upsert(
-            db.Metric,
-            {
-                'metric_name': 'covid_total_cases_provinces',
-                'metric_id': 72
-            },
-            {
-                'temporal_resolution': 'daily',
-                'spatial_resolution': 'state',
-                'spatial_extent': 'country',
-                'min_time': '2020-01-01',
-                'max_time': '2025-01-01',
-                'unit_type': 'count',
-                'unit': 'cases',
-                'num_type': 'int',
-                'metric_definition': 'The total cumulative number of COVID-19 cases by date and state / province'
-            }
-        )
-        commit()
+        Returns
+        -------
+        type
+            Description of returned object.
 
-        # upsert metric for daily US NEW caseload
-        action, covid_new_cases_provinces = upsert(
-            db.Metric,
-            {
-                'metric_name': 'covid_new_cases_provinces',
-                'metric_id': 73
-            },
-            {
-                'temporal_resolution': 'daily',
-                'spatial_resolution': 'state',
-                'spatial_extent': 'country',
-                'min_time': '2020-01-01',
-                'max_time': '2025-01-01',
-                'unit_type': 'count',
-                'unit': 'cases',
-                'num_type': 'int',
-                'metric_definition': 'The number of new COVID-19 cases by date and state / province',
-                'is_view': True,
-                'view_name': 'metric_73'
-            }
-        )
-        commit()
+        """
 
-        # upsert metric for 7-day US NEW caseload
-        action, covid_new_cases_provinces_7d = upsert(
-            db.Metric,
-            {
-                'metric_name': 'covid_new_cases_provinces_7d',
-                'metric_id': 74
-            },
-            {
-                'temporal_resolution': 'daily',
-                'spatial_resolution': 'state',
-                'spatial_extent': 'country',
-                'min_time': '2020-01-01',
-                'max_time': '2025-01-01',
-                'unit_type': 'count',
-                'unit': 'cases',
-                'num_type': 'int',
-                'metric_definition': 'The number of new COVID-19 cases in the last 7 days by date and state / province',
-                'is_view': True,
-                'view_name': 'metric_74'
-            }
-        )
-        commit()
+        def upsert_nyt_caseload(db, db_amp):
+            """Upsert NYT state-level caseload data and derived metrics for
+            the USA.
 
-        print('Done.')
+            Parameters
+            ----------
+            db : type
+                Description of parameter `db`.
+            db_amp : type
+                Description of parameter `db_amp`.
 
-        print('\nUpserting observations...')
-        updated_at = datetime.now()
-        last_datum_date = None
-        for name in data:
-            print(name)
-            place = db.Place.select().filter(name=name).first()
-            if place is None:
-                continue
-            else:
-                # i = 0
-                # max_i = str(len(data[name]))
-                for d in data[name]:
-                    # print('upserting ' + str(i) + ' of ' + max_i)
-                    # i = i + 1
-                    dt = select(
-                        i for i in db.DateTime
-                        if str((i.datetime + timedelta(hours=12)).date()) == d['date']
-                    ).first()
+            Returns
+            -------
+            type
+                Description of returned object.
 
-                    if dt is None:
-                        print('error: missing dt')
-                        continue
-                    else:
-                        last_datum_date = d['date']
-                        action, obs_affected = upsert(
-                            db.Observation,
-                            {
-                                'metric': covid_total_cases_provinces,
-                                'date_time': dt,
-                                'place': place,
-                                'data_source': 'New York Times',  # TODO correct
-                            },
-                            {
-                                'value': d['cases'],
-                                'updated_at': updated_at,
-                            }
-                        )
+            """
+            print('Fetching data from New York Times server...')
+            download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
+            data = us_caseload_csv_to_dict(download_url)
+            print('Done.')
 
-        # update version
-        action, version = upsert(
-            db_amp.Version,
-            {
-                'type': 'COVID-19 caseload data',
-            },
-            {
-                'date': date.today(),
-                'last_datum_date': last_datum_date,
-            }
-        )
+            print('\nUpserting relevant metric...')
 
-        print('Done.')
+            # upsert metric for daily US caseload
+            action, covid_total_cases_provinces = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_total_cases_provinces',
+                    'metric_id': 72
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'cases',
+                    'num_type': 'int',
+                    'metric_definition': 'The total cumulative number of COVID-19 cases by date and state / province'
+                }
+            )
+            commit()
+
+            # upsert metric for daily US NEW caseload
+            action, covid_new_cases_provinces = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_new_cases_provinces',
+                    'metric_id': 73
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'cases',
+                    'num_type': 'int',
+                    'metric_definition': 'The number of new COVID-19 cases by date and state / province',
+                    'is_view': True,
+                    'view_name': 'metric_73'
+                }
+            )
+            commit()
+
+            # upsert metric for 7-day US NEW caseload
+            action, covid_new_cases_provinces_7d = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_new_cases_provinces_7d',
+                    'metric_id': 74
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'cases',
+                    'num_type': 'int',
+                    'metric_definition': 'The number of new COVID-19 cases in the last 7 days by date and state / province',
+                    'is_view': True,
+                    'view_name': 'metric_74'
+                }
+            )
+            commit()
+
+            print('Done.')
+
+            print('\nUpserting observations...')
+            updated_at = datetime.now()
+            last_datum_date = None
+            for name in data:
+                print(name)
+                place = db.Place.select().filter(name=name).first()
+                if place is None:
+                    continue
+                else:
+                    # i = 0
+                    # max_i = str(len(data[name]))
+                    for d in data[name]:
+                        # print('upserting ' + str(i) + ' of ' + max_i)
+                        # i = i + 1
+                        dt = select(
+                            i for i in db.DateTime
+                            if str((i.datetime + timedelta(hours=12)).date()) == d['date']
+                        ).first()
+
+                        if dt is None:
+                            print('error: missing dt')
+                            continue
+                        else:
+                            last_datum_date = d['date']
+                            action, obs_affected = upsert(
+                                db.Observation,
+                                {
+                                    'metric': covid_total_cases_provinces,
+                                    'date_time': dt,
+                                    'place': place,
+                                    'data_source': 'New York Times',  # TODO correct
+                                },
+                                {
+                                    'value': d['cases'],
+                                    'updated_at': updated_at,
+                                }
+                            )
+
+            # update version
+            action, version = upsert(
+                db_amp.Version,
+                {
+                    'type': 'COVID-19 caseload data',
+                },
+                {
+                    'date': date.today(),
+                    'last_datum_date': last_datum_date,
+                }
+            )
+
+            print('Done.')
+
+        # perform all upserts defined above
+        upsert_nyt_caseload(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
