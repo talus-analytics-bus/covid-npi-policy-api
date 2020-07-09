@@ -384,10 +384,10 @@ def get_policy_status(
                     ''')
                 data = [
                     {
-                        'place_name': i.place.area1,
+                        'place_name': i.place.area1 if geo_res == 'state' else i.place.iso3,
                         'value': i.value,
                         'datestamp': i.date,
-                    } for i in q
+                    } for i in q if i.place.level == level
                 ]
             else:
 
