@@ -458,8 +458,8 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
         # perform all upserts defined above
-        upsert_jhu_caseload(db, db_amp)
-        # upsert_nyt_caseload(db, db_amp)
+        # upsert_jhu_caseload(db, db_amp)
+        upsert_nyt_caseload(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
