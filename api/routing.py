@@ -148,7 +148,7 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(geo_res=geo_res, date=date)
+    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
 @app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)

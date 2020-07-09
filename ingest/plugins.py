@@ -537,6 +537,32 @@ class CovidPolicyPlugin(IngestPlugin):
         # clear existing
         delete(i for i in db.Observation if i.metric == 0)
 
+        # load data to get country names from ISO3 codes
+        country_data = pd.read_json('./ingest/data/country.json') \
+            .to_dict(orient='records')
+
+        def get_name_from_iso3(iso3: str):
+            """Given the 3-character ISO code of a country, returns its name
+            plus the code in parentheses, or `None` if no match.
+
+            Parameters
+            ----------
+            iso3 : str
+                3-char iso code
+
+            Returns
+            -------
+            type
+                Name or `None`
+
+            """
+            try:
+                country = next(d for d in country_data if d['alpha-3'] == iso3)
+                return country['name'] + ' (' + iso3 + ')'
+            except:
+                print('Found no country match for: ' + str(iso3))
+                return None
+
         # add new observations
         skipped = 0
         for page in airtable_iter:
@@ -552,34 +578,59 @@ class CovidPolicyPlugin(IngestPlugin):
                 print('\n')
                 print(d)
 
-                # get place
-                # place = db.Place.get(
-                #     iso3='USA', area1=d['Name'], area2='Unspecified', level='State / Province')
-                place = select(
-                    i for i in db.Place
-                    if i.iso3 == 'USA'
-                    and i.area1 == d['Name']
-                    and (i.area2 == 'Unspecified' or i.area2 == '')
-                    and i.level == 'State / Province'
-                ).first()
+                place = None
+                if d['Location type'] == 'State':
+                    place = select(
+                        i for i in db.Place
+                        if i.iso3 == 'USA'
+                        and i.area1 == d['Name']
+                        and (i.area2 == 'Unspecified' or i.area2 == '')
+                        and i.level == 'State / Province'
+                    ).first()
 
-                if place is None:
-                    # TODO generalize to all countries
-                    action, place = upsert(
-                        db.Place,
-                        {
-                            'iso3': 'USA',
-                            'country_name': 'United States of America (USA)',
-                            'area1': d['Name'],
-                            'area2': 'Unspecified',
-                            'level': 'State / Province'
-                        },
-                        {
-                            'loc': f'''{d['Name']}, USA'''
-                        }
-                    )
-                    print('\naction')
-                    print(action)
+                    if place is None:
+                        # TODO generalize to all countries
+                        action, place = upsert(
+                            db.Place,
+                            {
+                                'iso3': 'USA',
+                                'country_name': 'United States of America (USA)',
+                                'area1': d['Name'],
+                                'area2': 'Unspecified',
+                                'level': 'State / Province'
+                            },
+                            {
+                                'loc': f'''{d['Name']}, USA'''
+                            }
+                        )
+                        print('\naction')
+                        print(action)
+
+                else:
+                    # TODO
+                    place = select(
+                        i for i in db.Place
+                        if i.iso3 == d['Name']
+                        and i.level == 'Country'
+                    ).first()
+
+                    if place is None:
+                        # TODO generalize to all countries
+                        action, place = upsert(
+                            db.Place,
+                            {
+                                'iso3': d['Name'],
+                                'country_name': get_name_from_iso3(d['Name']) + f''' ({d['Name']})''',
+                                'area1': 'Unspecified',
+                                'area2': 'Unspecified',
+                                'level': 'Country'
+                            },
+                            {
+                                'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
+                            }
+                        )
+                        print('\naction')
+                        print(action)
 
                 if place is None:
                     print('[FATAL ERROR] Missing place')

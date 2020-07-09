@@ -13,16 +13,13 @@ if __name__ == "__main__":
     db.generate_mapping(create_tables=True)
     plugin = CovidPolicyPlugin()
 
-    # update core policy data
-    plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
+    # # update core policy data
+    # plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
 
     # Update observations of lockdown level
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
 
-    # # Update caseload data
-    # plugin_caseload = CovidCaseloadPlugin()
-    # plugin_caseload.upsert_data()
     sys.exit(0)
 
     # # Drop all data/tables before ingesting

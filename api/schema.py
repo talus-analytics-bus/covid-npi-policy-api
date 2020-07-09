@@ -451,6 +451,7 @@ def get_policy_status(
 @db_session
 def get_lockdown_level(
     geo_res: str = None,
+    iso3: str = None,
     name: str = None,
     date: str = None,
     end_date: str = None,
@@ -475,15 +476,25 @@ def get_lockdown_level(
                 order by place, date desc
         ''')
 
+    country_only = geo_res == 'country'
     for i in q:
-        datum = {
-            'value': i.value,
-            'datestamp': i.date,
-        }
-        if name is None:
-            datum['place_name'] = i.place.area1
-        elif i.place.area1 != name:
+        if country_only and i.place.level != 'Country':
             continue
+        else:
+            datum = {
+                'value': i.value,
+                'datestamp': i.date,
+            }
+            if country_only:
+                if iso3 == 'all':
+                    datum['place_name'] = i.place.iso3
+                elif i.place.iso3 != iso3:
+                    continue
+            else:
+                if name is None:
+                    datum['place_name'] = i.place.area1
+                elif i.place.area1 != name:
+                    continue
         data.append(datum)
 
     # if `end_date` is specified, keep adding data until it is reached
