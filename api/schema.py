@@ -329,11 +329,15 @@ def get_policy_status(
     """TODO"""
 
     # DEBUG filter by USA only
-    filters['iso3'] = ['USA']
+    filters['iso3'] = ['USA'] if geo_res == 'state' else []
 
     # get ordered policies from database
-    q = select(i for i in db.Policy if i.place.level ==
-               'State / Province')
+    level = 'State / Province'
+    if geo_res == 'country':
+        level = 'Country'
+
+    q = select(i for i in db.Policy)
+    # q = select(i for i in db.Policy if i.place.level == level)
 
     # initialize output data
     data = None
@@ -419,10 +423,14 @@ def get_policy_status(
         if filters is not None:
             q = apply_policy_filters(q, filters)
 
-        q_area1 = select(i.place.area1 for i in q)
+        loc_field = 'area1'
+        if geo_res == 'country':
+            loc_field = 'iso3'
+
+        q_loc = select(getattr(i.place, loc_field) for i in q)
 
         data_tmp = dict()
-        for i in q_area1:
+        for i in q_loc:
             if i not in data_tmp:
                 data_tmp[i] = PolicyStatus(
                     place_name=i,

@@ -136,7 +136,7 @@ def download_file(
         return False
 
 
-def us_caseload_csv_to_dict(download_url: str):
+def nyt_caseload_csv_to_dict(download_url: str):
 
     output = defaultdict(list)
 
@@ -162,3 +162,53 @@ def us_caseload_csv_to_dict(download_url: str):
                 'deaths':  day[4],
             })
     return output
+
+
+def jhu_caseload_csv_to_dict(download_url: str):
+
+    output = defaultdict(list)
+
+    r = requests.get(download_url, allow_redirects=True)
+    file_dict = defaultdict(list)
+    rows = r.iter_lines(decode_unicode=True)
+
+    # remove the header row from the generator
+    dates_raw = next(rows).split(',')[4:]
+    dates = list()
+    print('\nDATES:')
+    print(dates_raw)
+    for d in dates_raw:
+        date_parts = d.split('/')
+        mm = date_parts[0] if len(date_parts[0]) == 2 else \
+            '0' + date_parts[0]
+        dd = date_parts[1] if len(date_parts[1]) == 2 else \
+            '0' + date_parts[1]
+        yyyy = date_parts[2] if len(date_parts[2]) == 4 else \
+            '20' + date_parts[2]
+        date_str = yyyy + '-' + mm + '-' + dd
+        dates.append(date_str)
+
+    print('\nROWS:')
+    for row in rows:
+        row_list = row.split(',')
+
+        file_dict[row_list[1]].append(row_list)
+        print('row_list')
+        print(row_list)
+        input('Press enter to continue.')
+
+    print('\nITEMS:')
+    for loc, data in file_dict.items():
+        print('data')
+        print(data)
+        # for day in data:
+        #     output[day[1]].append({
+        #         'date':  day[0],
+        #         'state':  day[1],
+        #         'fips':  day[2],
+        #         'cases':  day[3],
+        #         'deaths':  day[4],
+        #     })
+    input('Press enter to continue.')
+    return []
+    # return output
