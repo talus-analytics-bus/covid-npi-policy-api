@@ -817,7 +817,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # FILES DATA # -------------------------------------------------------#
         # create and validate File instances (syncs the file objects to S3)
-        self.create_files_from_attachments(db)
+        self.create_files_from_attachments(db, 'Policy')
+        self.create_files_from_attachments(db, 'Plan')
         self.create_files_from_urls(db)
         self.validate_docs(db)
 
@@ -1998,7 +1999,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
     # Airtable attachment parsing for documents
     @db_session
-    def create_files_from_attachments(self, db):
+    def create_files_from_attachments(self, db, entity_class_name):
         """Create docs instances based Airtable attachments.
 
         Parameters
@@ -2012,7 +2013,11 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print('\n\n[4] Ingesting files from Airtable attachments...')
+        print(
+            f'''\n\n[4] Ingesting files from Airtable attachments for {entity_class_name}...''')
+
+        # get entity class to use
+        entity_class = getattr(db, entity_class_name)
 
         # TODO ensure correct set of keys used based on data being parsed
         # keys for policy document PDFs
@@ -2050,9 +2055,16 @@ class CovidPolicyPlugin(IngestPlugin):
         n_updated = 0
         n_deleted = 0
 
+        # get data to use
+        data = self.data if entity_class == db.Policy else self.data_plans
+
+        # get set of keys to use
+        doc_keys = policy_doc_keys if entity_class == db.Policy \
+            else plan_doc_keys
+
         # for each record in the raw data, potentially create file(s)
         # TODO replace `self.data` with an argument-specified dataset
-        for i, d in self.data.iterrows():
+        for i, d in data.iterrows():
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest
@@ -2064,11 +2076,11 @@ class CovidPolicyPlugin(IngestPlugin):
             if reject(d):
                 continue
 
-            for key in policy_doc_keys:
+            for key in doc_keys:
                 if d[key] is not None and len(d[key]) > 0:
                     # remove all non-airtable attachments of this type
-                    type = policy_doc_keys[key]['type']
-                    policy = db.Policy[d['id']]
+                    type = doc_keys[key]['type']
+                    policy = entity_class[d['id']]
                     to_delete = select(
                         i for i in policy.file
                         if i.type == type
@@ -2088,7 +2100,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         set_data = {
                             'name': dd['filename'],
                             'type': type,
-                            'data_source': d[policy_doc_keys[key]['data_source']],
+                            'data_source': d[doc_keys[key]['data_source']],
                             'permalink': dd['url'],
                             'airtable_attachment': True,
                         }
@@ -2102,7 +2114,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         upserted.add(file)
 
                         # link file to policy
-                        db.Policy[d['id']].file.add(file)
+                        entity_class[d['id']].file.add(file)
 
         # delete any files that were not upserted from the database
         to_delete = select(
