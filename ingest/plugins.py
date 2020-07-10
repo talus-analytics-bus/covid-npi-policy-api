@@ -504,14 +504,24 @@ class CovidPolicyPlugin(IngestPlugin):
         #     .worksheet(name='Local Area Database') \
         #     .as_dataframe()
 
-        # core data
+        # policy data
         self.data = self.client \
             .worksheet(name='Policy Database') \
             .as_dataframe()
 
-        # data dictionary
+        # policy data dictionary
         self.data_dictionary = self.client \
             .worksheet(name='Appendix: Policy data dictionary') \
+            .as_dataframe(view='API ingest')
+
+        # plan data
+        self.data = self.client \
+            .worksheet(name='Plan database') \
+            .as_dataframe()
+
+        # plan data dictionary
+        self.data_dictionary_plans = self.client \
+            .worksheet(name='Appendix: Plan data dictionary') \
             .as_dataframe(view='API ingest')
 
         # glossary
@@ -745,11 +755,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         print('\nData ingest completed.')
         return self
-
-    @db_session
-    def process_observations(self, db):
-        print('self.observations')
-        print(self.observations)
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -1171,6 +1176,125 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Deleted: ' + str(n_deleted))
 
     @db_session
+    def create_plans(self, db):
+        """Create plan instances.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        print('\n\n[3b] Ingesting plan data...')
+
+        keys = select(i.field for i in db.Metadata if i.entity_name ==
+                      'Plan' and i.field != 'id' and
+                      i.ingest_field != '')[:]
+
+        # maintain dict of attributes to set post-creation
+        post_creation_attrs = defaultdict(dict)
+
+        def formatter(key, d):
+            unspec_val = 'In progress' if key in show_in_progress else 'Unspecified'
+            if key.startswith('date_'):
+                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
+                    return None
+                elif len(d[key].split('/')) == 2:
+                    print(f'''Unexpected format for `{key}`: {d[key]}\n''')
+                    return unspec_val
+                else:
+                    return d[key]
+            elif key == 'policy_number':
+                if d[key] != '':
+                    return int(d[key])
+                else:
+                    return None
+            elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
+                if key in ('prior_plan'):
+                    return set()
+                else:
+                    return unspec_val
+            elif key == 'id':
+                return int(d[key])
+            elif key in ('prior_plan'):
+                post_creation_attrs[d['id']]['prior_plan'] = set(d[key])
+                return set()
+            elif type(d[key]) != str and iterable(d[key]):
+                if len(d[key]) > 0:
+                    return "; ".join(d[key])
+                else:
+                    return unspec_val
+            return d[key]
+
+        # track upserted records
+        upserted = set()
+        n_inserted = 0
+        n_updated = 0
+
+        for i, d in self.data.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
+            if reject(d):
+                continue
+
+            # upsert policies
+            action, instance = upsert(
+                db.Policy,
+                {'id': d['id']},
+                {key: formatter(key, d) for key in keys},
+                skip=['prior_plan']
+            )
+            if action == 'update':
+                n_updated += 1
+            elif action == 'insert':
+                n_inserted += 1
+            upserted.add(instance)
+
+        for i, d in self.data.iterrows():
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
+            if reject(d):
+                continue
+
+            # upsert policies
+            # TODO consider how to count these updates, since they're done
+            # after new instances are created (if counting them at all)
+            if d['prior_plan'] != '':
+                prior_plans = list()
+                for source_id in d['prior_plan']:
+                    prior_plan_instance = db.Policy.get(source_id=source_id)
+                    if prior_plan_instance is not None:
+                        prior_plans.append(prior_plan_instance)
+                upsert(
+                    db.Policy,
+                    {'id': d['id']},
+                    {'prior_plan': prior_plans},
+                )
+
+        # delete all records in table but not in ingest dataset
+        n_deleted = db.Policy.delete_2(upserted)
+        commit()
+        print('Inserted: ' + str(n_inserted))
+        print('Updated: ' + str(n_updated))
+        print('Deleted: ' + str(n_deleted))
+
+    @db_session
     def create_metadata(self, db):
         """Create metadata instances if they do not exist. If they do exist,
         update them.
@@ -1437,12 +1561,28 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         print('\n\n[4] Ingesting files from Airtable attachments...')
 
+        # TODO ensure correct set of keys used based on data being parsed
+        # keys for policy document PDFs
         policy_doc_keys = {
             'attachment_for_policy': {
                 'data_source': 'policy_data_source',
                 'name': 'policy_name',
                 'type': 'policy',
-            }
+            },
+        }
+
+        # ...for plans
+        plan_doc_keys = {
+            'attachment_for_plan': {
+                'data_source': 'plan_data_source',
+                'name': 'name',
+                'type': 'plan'
+            },
+            'attachment_for_plan_announcement': {
+                'data_source': 'announcement_data_source',
+                'name': 'name',
+                'type': 'plan_announcement'
+            },
         }
 
         docs_by_id = dict()
@@ -1458,6 +1598,7 @@ class CovidPolicyPlugin(IngestPlugin):
         n_deleted = 0
 
         # for each record in the raw data, potentially create file(s)
+        # TODO replace `self.data` with an argument-specified dataset
         for i, d in self.data.iterrows():
 
             # if unique ID is not an integer, skip

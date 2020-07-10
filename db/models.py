@@ -65,7 +65,7 @@ class Version(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str, nullable=True)
     date = Required(date)
-    last_datum_date = Required(datetime.date)
+    last_datum_date = Optional(datetime.date)
     type = Required(str)
 
 
@@ -113,7 +113,13 @@ class Glossary(db.Entity):
         return custom_delete(db.Glossary, records)
 
 
-class PolicyPlan(db.Entity):
+class Plan(db.Entity):
+    """Plans. Similar to policies but they lack legal authority."""
+    pass
+
+
+class Policy(db.Entity):
+    """Non-pharmaceutical intervention (NPI) policies."""
     id = PrimaryKey(int, auto=False)
     source_id = Required(str)
 
@@ -128,8 +134,14 @@ class PolicyPlan(db.Entity):
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
     subtarget = Optional(str)  # multiselect, concat
-    policy_number = Optional(int, nullable=True)  # policy only
+    policy_number = Optional(int, nullable=True)
+    relaxing_or_restricting = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
+
+    # authority data
+    auth_entity_has_authority = Optional(str)
+    authority_name = Optional(str)
+    auth_entity_authority_data_source = Optional(str)
 
     # key dates
     date_issued = Optional(date)
@@ -141,23 +153,10 @@ class PolicyPlan(db.Entity):
     file = Set('File', table="file_to_policy")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Optional('Place')
-    prior_policy = Set('PolicyPlan', table="policy_to_prior_policy")
+    prior_policy = Set('Policy', table="policy_to_prior_policy")
+    _prior_policy = Set('Policy')
 
-    # reverse attributes
-    _prior_policy = Set('PolicyPlan')
-
-
-class Plan(PolicyPlan):
-    """Plans. Similar to policies but they lack legal authority."""
-    pass
-
-
-class Policy(PolicyPlan):
-    """Non-pharmaceutical intervention (NPI) policies."""
-    auth_entity_has_authority = Optional(str)
-    authority_name = Optional(str)
-    auth_entity_authority_data_source = Optional(str)
-    relaxing_or_restricting = Optional(str)
+    # Currently unused attributes
     # policy_number = Optional(int)
     # legal_challenge = Optional(bool)
     # case_name = Optional(str)
@@ -261,7 +260,7 @@ class Place(db.Entity):
     dillons_rule = Optional(str)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
     auth_entities = Set('Auth_Entity')
     observations = Set('Observation')
 
@@ -287,7 +286,7 @@ class Auth_Entity(db.Entity):
     office = Optional(str)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
     place = Optional('Place')
 
 
@@ -303,4 +302,4 @@ class File(db.Entity):
     airtable_attachment = Required(bool, default=False)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
