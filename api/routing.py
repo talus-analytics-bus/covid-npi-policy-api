@@ -122,6 +122,24 @@ async def get_policy(fields: List[str] = Query(None)):
     return schema.get_policy(fields=fields)
 
 
+@app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
+async def get_policy(fields: List[str] = Query(None)):
+    """Return Plan data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Plan response dictionary.
+
+    """
+    return schema.get_plan(fields=fields)
+
+
 @app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
 async def get_policy_status(geo_res=str):
     """Return Policy data.

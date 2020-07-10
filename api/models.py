@@ -75,6 +75,38 @@ class Policy(BaseModel):
     file: List = None
 
 
+class Plan(BaseModel):
+    """Plans. Similar to policies but they lack legal authority."""
+    id: int
+    source_id: str
+
+    # descriptive information
+    name: str = None
+    desc: str = None
+    org_name: str = None
+    org_type: str = None
+    name: str = None
+
+    # dates
+    date_issued: date = None
+    date_start_effective: date = None
+    date_end_effective: date = None
+
+    # standardized fields / tags
+    n_phases: int = None
+    auth_entity_has_authority: str = None
+    reqs_essential: List[str] = None
+    reqs_private: List[str] = None
+    reqs_school: List[str] = None
+    reqs_social: List[str] = None
+    reqs_hospital: List[str] = None
+    reqs_other: List[str] = None
+
+    # sourcing and PDFs
+    plan_data_source: str = None
+    announcement_data_source: str = None
+
+
 class PolicyStatus(BaseModel):
     place_name: str = None
     value: str
@@ -87,6 +119,10 @@ class PolicyFilters(BaseModel):
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class PlanList(Response):
+    data: List[Plan]
 
 
 class PolicyDict(Response):

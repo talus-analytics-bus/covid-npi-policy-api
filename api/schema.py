@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File
+    Auth_Entity, Place, File, PlanList
 from .util import str_to_date
 from db import db
 
@@ -315,6 +315,106 @@ def get_policy(
                 data=data,
                 success=True,
                 message=f'''{len(q)} policies found'''
+            )
+        return res
+
+
+@db_session
+@cached
+def get_plan(
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_issued',
+    return_db_instances: bool = False,
+    by_category: str = None,
+):
+    """Returns Plan instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to plan data (see function
+        `apply_policy_filters` below).
+    fields : list
+        List of Plan instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class `Plan` that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered policies, otherwise returns the list of dictionaries
+        containing the policy data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
+    all = fields is None
+
+    # get ordered policies from database
+    q = select(i for i in db.Plan).order_by(
+        desc(getattr(db.Plan, order_by_field)))
+
+    # TODO: Filters
+    # # apply filters if any
+    # if filters is not None:
+    #     q = apply_policy_filters(q, filters)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+
+        return_fields_by_entity = defaultdict(list)
+        if fields is not None:
+            return_fields_by_entity['plan'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc']
+        return_fields_by_entity['auth_entity'] = [
+            'id', 'name']
+
+        # define list of instances to return
+        data = []
+
+        # for each policy
+        for d in q:
+
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                return_fields_by_entity=return_fields_by_entity)
+
+            # add it to the output list
+            data.append(d_dict)
+
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Policy
+        if by_category is not None:
+            pass
+            # data_by_category = defaultdict(list)
+            # for i in data:
+            #     data_by_category[i[by_category]].append(i)
+            #
+            # res = PolicyDict(
+            #     data=data_by_category,
+            #     success=True,
+            #     message=f'''{len(q)} plans found'''
+            # )
+        else:
+            # create response from output list
+            res = PlanList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} plans found'''
             )
         return res
 
