@@ -708,12 +708,6 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 print('QA/QC found no issues. Continuing.')
 
-            # # upsert metadata records
-            # self.create_metadata(db)
-            #
-            # # upsert glossary terms
-            # self.create_glossary(db)
-
             # set column names to database field names
             all_keys = select(
                 (
@@ -748,7 +742,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # create Policy instances
             self.create_policies(db)
-        # process_policy_data(self, db)
+        process_policy_data(self, db)
 
         # PLAN DATA # --------------------------------------------------------#
         def process_plan_data(self, db):
@@ -771,12 +765,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 # sys.exit(0)
             else:
                 print('QA/QC found no issues. Continuing.')
-
-            # # # upsert metadata records
-            # # self.create_metadata(db)
-            #
-            # # upsert glossary terms
-            # self.create_glossary(db)
 
             # set column names to database field names
             all_keys = select(
@@ -826,14 +814,13 @@ class CovidPolicyPlugin(IngestPlugin):
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
         self.create_auth_entities_and_places_for_plans(db)
-        input('Added auth entities and places for plans. Press enter.')
 
         # VERSION DATA # -----------------------------------------------------#
         # update version
         action, version = upsert(
             db.Version,
             {
-                'type': 'Policy data',
+                'type': 'Policy and plan data',
             },
             {
                 'date': date.today(),
@@ -2062,6 +2049,13 @@ class CovidPolicyPlugin(IngestPlugin):
         doc_keys = policy_doc_keys if entity_class == db.Policy \
             else plan_doc_keys
 
+        print('doc_keys')
+        print(doc_keys)
+        input('press enter')
+
+        # track types added to assist deletion
+        types = set()
+
         # for each record in the raw data, potentially create file(s)
         # TODO replace `self.data` with an argument-specified dataset
         for i, d in data.iterrows():
@@ -2080,6 +2074,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 if d[key] is not None and len(d[key]) > 0:
                     # remove all non-airtable attachments of this type
                     type = doc_keys[key]['type']
+                    types.add(type)
                     policy = entity_class[d['id']]
                     to_delete = select(
                         i for i in policy.file
@@ -2121,6 +2116,7 @@ class CovidPolicyPlugin(IngestPlugin):
             i for i in db.File
             if i not in upserted
             and i.airtable_attachment
+            and i.type in types
         )
         n_deleted = len(to_delete)
         to_delete.delete()

@@ -108,7 +108,7 @@ def get_version():
 
 @db_session
 # @cached
-def get_metadata(fields: list):
+def get_metadata(fields: list, entity_class_name: str):
     """Returns Metadata instance fields for the fields specified.
 
     Parameters
@@ -138,6 +138,7 @@ def get_metadata(fields: list):
             i for i in db.Metadata
             if i.field == field
             and i.entity_name.lower() == entity_name
+            and i.class_name == entity_class_name
         )
 
         # store metadata fields in output data if they exist

@@ -309,12 +309,13 @@ class CovidPolicyExportPlugin(ExcelExport):
         # return list of rows
         return rows
 
-    def default_data_getter_legend(self):
+    def default_data_getter_legend(self, class_name: str = 'Policy'):
         # get all metadata
         db = self.db
         metadata = select(
             i for i in db.Metadata
             if i.export == True
+            and i.class_name == class_name
         ).order_by(db.Metadata.order)
 
         # init export data list

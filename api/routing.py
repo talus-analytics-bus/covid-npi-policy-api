@@ -40,7 +40,10 @@ async def get_version():
 
 
 @app.get("/get/metadata", response_model=MetadataList)
-async def get_metadata(fields: List[str] = Query(None)):
+async def get_metadata(
+    fields: List[str] = Query(None),
+    entity_class_name: str = 'Policy'
+):
     """Returns Metadata instance fields for the fields specified.
 
     Parameters
@@ -55,7 +58,9 @@ async def get_metadata(fields: List[str] = Query(None)):
         Response containing metadata information for the fields.
 
     """
-    return schema.get_metadata(fields)
+    return schema.get_metadata(
+        fields=fields, entity_class_name=entity_class_name
+    )
 
 
 @app.get("/get/file/redirect")
