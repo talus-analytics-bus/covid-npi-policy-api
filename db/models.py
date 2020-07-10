@@ -116,7 +116,127 @@ class Glossary(db.Entity):
 
 class Plan(db.Entity):
     """Plans. Similar to policies but they lack legal authority."""
-    pass
+    id = PrimaryKey(int, auto=False)
+    source_id = Required(str)
+
+    # descriptive information
+    name = Optional(str)
+    desc = Optional(str)
+    org_name = Optional(str)
+    org_type = Optional(str)
+    name = Optional(str)
+
+    # dates
+    date_issued = Optional(date)
+    date_start_effective = Optional(date)
+    date_end_effective = Optional(date)
+
+    # standardized fields / tags
+    n_phases = Optional(int)
+    auth_entity_has_authority = Optional(str)
+    reqs_essential = Optional(StrArray)
+    reqs_private = Optional(StrArray)
+    reqs_school = Optional(StrArray)
+    reqs_social = Optional(StrArray)
+    reqs_hospital = Optional(StrArray)
+    reqs_other = Optional(StrArray)
+
+    # sourcing and PDFs
+    plan_data_source = Optional(str)
+    announcement_data_source = Optional(str)
+
+    # relationships
+    policy = Optional('Policy')
+    file = Set('File', table="file_to_plan")
+    place = Optional('Place')
+    auth_entity = Set('Auth_Entity', table="auth_entity_to_plan")
+
+    # TODO reuse code from `Policy` entity instead of repeating here
+
+    def delete_2(records):
+        """Custom delete function for Plan class.
+
+        See `custom_delete` definition for more information.
+
+        """
+        return custom_delete(db.Plan, records)
+
+    def to_dict_2(self, **kwargs):
+        """Converts instances of this entity class to dictionaries, along with
+        any first-level children it has which are also instances of a supported
+        database class.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments, used to support native `to_dict` behavior.
+
+        Returns
+        -------
+        dict
+            The dictionary.
+
+        """
+        # get which fields should be returned by entity name
+        return_fields_by_entity = \
+            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
+            in kwargs else dict()
+
+        # if `only` was specified, use that as the `policy` entity's return
+        # fields, and delete the `return_fields_by_entity` data.
+        if 'only' in kwargs:
+            return_fields_by_entity['policy'] = kwargs['only']
+            del kwargs['only']
+        del kwargs['return_fields_by_entity']
+
+        # convert the policy instance to a dictionary, which may contain
+        # various other types of entities in it represented only by their
+        # unique IDs, rather than having their data provided as a dictionary
+        instance_dict = None
+        if 'policy' in return_fields_by_entity and \
+                len(return_fields_by_entity['policy']) > 0:
+            instance_dict = Policy.to_dict(
+                self, only=return_fields_by_entity['policy'], **kwargs)
+        else:
+            instance_dict = Policy.to_dict(self, **kwargs)
+
+        # iterate over the items in the Policy instance's dictionary in search
+        # for other entity types for which we have unique IDs but need full
+        # data dictionaries
+        for k, v in instance_dict.items():
+
+            # For each supported entity type, convert its unique ID into a
+            # dictionary of data fields, limited to those defined in
+            # `return_fields_by_entity`, if applicable.
+            #
+            # TODO ensure `return_fields_by_entity` is fully implemented
+            # and flexible
+
+            # Place
+            if k == 'place':
+                instance_dict[k] = Place[v].to_dict(
+                    only=return_fields_by_entity['place'])
+
+            # Auth_Entity
+            elif k == 'auth_entity':
+                instances = list()
+                for id in v:
+                    instances.append(Auth_Entity[id].to_dict())
+                instance_dict[k] = instances
+
+            # File
+            elif k == 'file':
+                instance_dict['file'] = list()
+                file_fields = ['id']
+                for id in v:
+                    instance = File[id]
+                    doc_instance_dict = instance.to_dict(only=file_fields)
+
+                    # append file dict to list
+                    instance_dict['file'].append(
+                        doc_instance_dict['id']
+                    )
+        return instance_dict
 
 
 class Policy(db.Entity):
@@ -156,6 +276,7 @@ class Policy(db.Entity):
     place = Optional('Place')
     prior_policy = Set('Policy', table="policy_to_prior_policy")
     _prior_policy = Set('Policy')
+    plan = Optional('Plan')
 
     # Currently unused attributes
     # policy_number = Optional(int)
@@ -262,6 +383,7 @@ class Place(db.Entity):
 
     # relationships
     policies = Set('Policy')
+    plans = Set('Plan')
     auth_entities = Set('Auth_Entity')
     observations = Set('Observation')
 
@@ -288,6 +410,7 @@ class Auth_Entity(db.Entity):
 
     # relationships
     policies = Set('Policy')
+    plans = Set('Plan')
     place = Optional('Place')
 
 
@@ -304,3 +427,4 @@ class File(db.Entity):
 
     # relationships
     policies = Set('Policy')
+    plans = Set('Plan')
