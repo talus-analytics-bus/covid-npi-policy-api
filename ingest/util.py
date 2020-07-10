@@ -164,7 +164,8 @@ def nyt_caseload_csv_to_dict(download_url: str):
     return output
 
 
-def jhu_caseload_csv_to_dict(download_url: str):
+@db_session
+def jhu_caseload_csv_to_dict(download_url: str, db):
 
     output = defaultdict(list)
 
@@ -173,10 +174,9 @@ def jhu_caseload_csv_to_dict(download_url: str):
     rows = r.iter_lines(decode_unicode=True)
 
     # remove the header row from the generator
-    dates_raw = next(rows).split(',')[4:]
+    headers_raw = next(rows).split(',')
+    dates_raw = headers_raw[4:]
     dates = list()
-    print('\nDATES:')
-    print(dates_raw)
     for d in dates_raw:
         date_parts = d.split('/')
         mm = date_parts[0] if len(date_parts[0]) == 2 else \
@@ -188,27 +188,65 @@ def jhu_caseload_csv_to_dict(download_url: str):
         date_str = yyyy + '-' + mm + '-' + dd
         dates.append(date_str)
 
-    print('\nROWS:')
+    headers = headers_raw[0:4] + dates
+    skip = ('Lat', 'Long', 'Province/State')
+
+    row_lists = list()
     for row in rows:
         row_list = row.split(',')
 
-        file_dict[row_list[1]].append(row_list)
-        print('row_list')
-        print(row_list)
-        input('Press enter to continue.')
+        row_lists.append(row_list)
 
-    print('\nITEMS:')
-    for loc, data in file_dict.items():
-        print('data')
-        print(data)
-        # for day in data:
-        #     output[day[1]].append({
-        #         'date':  day[0],
-        #         'state':  day[1],
-        #         'fips':  day[2],
-        #         'cases':  day[3],
-        #         'deaths':  day[4],
-        #     })
+    missing_names = set()
+    data = list()
+    for row_list in row_lists:
+        if row_list[0] != '':
+            continue
+
+        datum = dict()
+        idx = 0
+        for header in headers:
+            if header in skip:
+                idx += 1
+                continue
+            else:
+                if header == 'Country/Region':
+                    datum['name'] = row_list[idx] \
+                        .replace('"', '') \
+                        .replace('*', '')
+
+                else:
+                    datum[header] = int(float(row_list[idx]))
+                idx += 1
+
+        # get place ISO, ID from name
+        p = select(
+            i for i in db.Place
+            if i.name == datum['name']
+            or datum['name'] in i.other_names
+        ).first()
+        if p is None:
+            print('ERROR: No place found for ' + datum['name'])
+            missing_names.add(datum['name'])
+            continue
+        else:
+            datum['place'] = p
+
+        # reshape again
+        for date in dates:
+            datum_final = dict()
+            datum_final['date'] = date
+            datum_final['value'] = datum[date]
+            datum_final['place'] = datum['place']
+            data.append(datum_final)
+
+    print('\nmissing_names')
+    pp.pprint(missing_names)
     input('Press enter to continue.')
-    return []
+
+    print('\ndata')
+    pp.pprint(data)
+    input('Press enter to continue.')
+
     # return output
+    return data

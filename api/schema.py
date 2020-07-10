@@ -108,7 +108,7 @@ def get_version():
 
 @db_session
 # @cached
-def get_metadata(fields: list):
+def get_metadata(fields: list, entity_class_name: str):
     """Returns Metadata instance fields for the fields specified.
 
     Parameters
@@ -138,6 +138,7 @@ def get_metadata(fields: list):
             i for i in db.Metadata
             if i.field == field
             and i.entity_name.lower() == entity_name
+            and i.class_name == entity_class_name
         )
 
         # store metadata fields in output data if they exist
@@ -384,10 +385,10 @@ def get_policy_status(
                     ''')
                 data = [
                     {
-                        'place_name': i.place.area1,
+                        'place_name': i.place.area1 if geo_res == 'state' else i.place.iso3,
                         'value': i.value,
                         'datestamp': i.date,
-                    } for i in q
+                    } for i in q if i.place.level == level
                 ]
             else:
 
@@ -451,6 +452,7 @@ def get_policy_status(
 @db_session
 def get_lockdown_level(
     geo_res: str = None,
+    iso3: str = None,
     name: str = None,
     date: str = None,
     end_date: str = None,
@@ -475,15 +477,25 @@ def get_lockdown_level(
                 order by place, date desc
         ''')
 
+    country_only = geo_res == 'country'
     for i in q:
-        datum = {
-            'value': i.value,
-            'datestamp': i.date,
-        }
-        if name is None:
-            datum['place_name'] = i.place.area1
-        elif i.place.area1 != name:
+        if country_only and i.place.level != 'Country':
             continue
+        else:
+            datum = {
+                'value': i.value,
+                'datestamp': i.date,
+            }
+            if country_only:
+                if iso3 == 'all':
+                    datum['place_name'] = i.place.iso3
+                elif i.place.iso3 != iso3:
+                    continue
+            else:
+                if name is None:
+                    datum['place_name'] = i.place.area1
+                elif i.place.area1 != name:
+                    continue
         data.append(datum)
 
     # if `end_date` is specified, keep adding data until it is reached

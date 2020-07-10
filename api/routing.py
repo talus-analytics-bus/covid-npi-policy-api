@@ -40,7 +40,10 @@ async def get_version():
 
 
 @app.get("/get/metadata", response_model=MetadataList)
-async def get_metadata(fields: List[str] = Query(None)):
+async def get_metadata(
+    fields: List[str] = Query(None),
+    entity_class_name: str = 'Policy'
+):
     """Returns Metadata instance fields for the fields specified.
 
     Parameters
@@ -55,7 +58,9 @@ async def get_metadata(fields: List[str] = Query(None)):
         Response containing metadata information for the fields.
 
     """
-    return schema.get_metadata(fields)
+    return schema.get_metadata(
+        fields=fields, entity_class_name=entity_class_name
+    )
 
 
 @app.get("/get/file/redirect")
@@ -148,7 +153,7 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(geo_res=geo_res, date=date)
+    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
 @app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)

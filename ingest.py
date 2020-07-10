@@ -20,9 +20,6 @@ if __name__ == "__main__":
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
 
-    # # Update caseload data
-    # plugin_caseload = CovidCaseloadPlugin()
-    # plugin_caseload.upsert_data()
     sys.exit(0)
 
     # # Drop all data/tables before ingesting

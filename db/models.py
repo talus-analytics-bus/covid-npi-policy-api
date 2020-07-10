@@ -65,7 +65,7 @@ class Version(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str, nullable=True)
     date = Required(date)
-    last_datum_date = Required(datetime.date)
+    last_datum_date = Optional(datetime.date)
     type = Required(str)
 
 
@@ -82,7 +82,8 @@ class Metadata(db.Entity):
     notes = Optional(str)
     entity_name = Required(str)
     export = Required(bool)
-    PrimaryKey(entity_name, field)
+    class_name = Required(str)
+    PrimaryKey(class_name, entity_name, field)
 
     def delete_2(records):
         """Custom delete function for Metadata class.
@@ -113,7 +114,133 @@ class Glossary(db.Entity):
         return custom_delete(db.Glossary, records)
 
 
-class PolicyPlan(db.Entity):
+class Plan(db.Entity):
+    """Plans. Similar to policies but they lack legal authority."""
+    id = PrimaryKey(int, auto=False)
+    source_id = Required(str)
+
+    # descriptive information
+    name = Optional(str)
+    desc = Optional(str)
+    org_name = Optional(str)
+    org_type = Optional(str)
+    name = Optional(str)
+
+    # dates
+    date_issued = Optional(date)
+    date_start_effective = Optional(date)
+    date_end_effective = Optional(date)
+
+    # standardized fields / tags
+    n_phases = Optional(int)
+    auth_entity_has_authority = Optional(str)
+    reqs_essential = Optional(StrArray)
+    reqs_private = Optional(StrArray)
+    reqs_school = Optional(StrArray)
+    reqs_social = Optional(StrArray)
+    reqs_hospital = Optional(StrArray)
+    reqs_other = Optional(StrArray)
+
+    # sourcing and PDFs
+    plan_data_source = Optional(str)
+    announcement_data_source = Optional(str)
+
+    # relationships
+    policy = Optional('Policy')
+    file = Set('File', table="file_to_plan")
+    place = Optional('Place')
+    auth_entity = Set('Auth_Entity', table="auth_entity_to_plan")
+
+    # TODO reuse code from `Policy` entity instead of repeating here
+
+    def delete_2(records):
+        """Custom delete function for Plan class.
+
+        See `custom_delete` definition for more information.
+
+        """
+        return custom_delete(db.Plan, records)
+
+    def to_dict_2(self, **kwargs):
+        """Converts instances of this entity class to dictionaries, along with
+        any first-level children it has which are also instances of a supported
+        database class.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments, used to support native `to_dict` behavior.
+
+        Returns
+        -------
+        dict
+            The dictionary.
+
+        """
+        # get which fields should be returned by entity name
+        return_fields_by_entity = \
+            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
+            in kwargs else dict()
+
+        # if `only` was specified, use that as the `policy` entity's return
+        # fields, and delete the `return_fields_by_entity` data.
+        if 'only' in kwargs:
+            return_fields_by_entity['policy'] = kwargs['only']
+            del kwargs['only']
+        del kwargs['return_fields_by_entity']
+
+        # convert the policy instance to a dictionary, which may contain
+        # various other types of entities in it represented only by their
+        # unique IDs, rather than having their data provided as a dictionary
+        instance_dict = None
+        if 'policy' in return_fields_by_entity and \
+                len(return_fields_by_entity['policy']) > 0:
+            instance_dict = Policy.to_dict(
+                self, only=return_fields_by_entity['policy'], **kwargs)
+        else:
+            instance_dict = Policy.to_dict(self, **kwargs)
+
+        # iterate over the items in the Policy instance's dictionary in search
+        # for other entity types for which we have unique IDs but need full
+        # data dictionaries
+        for k, v in instance_dict.items():
+
+            # For each supported entity type, convert its unique ID into a
+            # dictionary of data fields, limited to those defined in
+            # `return_fields_by_entity`, if applicable.
+            #
+            # TODO ensure `return_fields_by_entity` is fully implemented
+            # and flexible
+
+            # Place
+            if k == 'place':
+                instance_dict[k] = Place[v].to_dict(
+                    only=return_fields_by_entity['place'])
+
+            # Auth_Entity
+            elif k == 'auth_entity':
+                instances = list()
+                for id in v:
+                    instances.append(Auth_Entity[id].to_dict())
+                instance_dict[k] = instances
+
+            # File
+            elif k == 'file':
+                instance_dict['file'] = list()
+                file_fields = ['id']
+                for id in v:
+                    instance = File[id]
+                    doc_instance_dict = instance.to_dict(only=file_fields)
+
+                    # append file dict to list
+                    instance_dict['file'].append(
+                        doc_instance_dict['id']
+                    )
+        return instance_dict
+
+
+class Policy(db.Entity):
+    """Non-pharmaceutical intervention (NPI) policies."""
     id = PrimaryKey(int, auto=False)
     source_id = Required(str)
 
@@ -128,8 +255,14 @@ class PolicyPlan(db.Entity):
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
     subtarget = Optional(str)  # multiselect, concat
-    policy_number = Optional(int, nullable=True)  # policy only
+    policy_number = Optional(int, nullable=True)
+    relaxing_or_restricting = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
+
+    # authority data
+    auth_entity_has_authority = Optional(str)
+    authority_name = Optional(str)
+    auth_entity_authority_data_source = Optional(str)
 
     # key dates
     date_issued = Optional(date)
@@ -141,23 +274,11 @@ class PolicyPlan(db.Entity):
     file = Set('File', table="file_to_policy")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Optional('Place')
-    prior_policy = Set('PolicyPlan', table="policy_to_prior_policy")
+    prior_policy = Set('Policy', table="policy_to_prior_policy")
+    _prior_policy = Set('Policy')
+    plan = Optional('Plan')
 
-    # reverse attributes
-    _prior_policy = Set('PolicyPlan')
-
-
-class Plan(PolicyPlan):
-    """Plans. Similar to policies but they lack legal authority."""
-    pass
-
-
-class Policy(PolicyPlan):
-    """Non-pharmaceutical intervention (NPI) policies."""
-    auth_entity_has_authority = Optional(str)
-    authority_name = Optional(str)
-    auth_entity_authority_data_source = Optional(str)
-    relaxing_or_restricting = Optional(str)
+    # Currently unused attributes
     # policy_number = Optional(int)
     # legal_challenge = Optional(bool)
     # case_name = Optional(str)
@@ -261,7 +382,8 @@ class Place(db.Entity):
     dillons_rule = Optional(str)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
+    plans = Set('Plan')
     auth_entities = Set('Auth_Entity')
     observations = Set('Observation')
 
@@ -287,7 +409,8 @@ class Auth_Entity(db.Entity):
     office = Optional(str)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
+    plans = Set('Plan')
     place = Optional('Place')
 
 
@@ -303,4 +426,5 @@ class File(db.Entity):
     airtable_attachment = Required(bool, default=False)
 
     # relationships
-    policies = Set('PolicyPlan')
+    policies = Set('Policy')
+    plans = Set('Plan')
