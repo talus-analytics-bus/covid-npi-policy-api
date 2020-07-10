@@ -689,60 +689,66 @@ class CovidPolicyPlugin(IngestPlugin):
         # upsert glossary terms
         self.create_glossary(db)
 
-        # # POLICY DATA # ------------------------------------------------------#
-        # def process_policy_data(self, db):
-        #     # sort by policy ID
-        #     self.data.sort_values('Unique ID')
-        #
-        #     # remove records without a unique ID and other features
-        #     self.data = self.data.loc[self.data['Unique ID'] != '', :]
-        #     self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
-        #     self.data = self.data.loc[self.data['Policy description'] != '', :]
-        #     self.data = self.data.loc[self.data['Effective start date'] != '', :]
-        #
-        #     # analyze for QA/QC and quit if errors detected
-        #     valid = self.check(self.data)
-        #     if not valid:
-        #         print('Data are invalid. Please correct issues and try again.')
-        #         # sys.exit(0)
-        #     else:
-        #         print('QA/QC found no issues. Continuing.')
-        #
-        #     # upsert metadata records
-        #     self.create_metadata(db)
-        #
-        #     # upsert glossary terms
-        #     self.create_glossary(db)
-        #
-        #     # set column names to database field names
-        #     all_keys = select((i.ingest_field, i.display_name, i.field)
-        #                       for i in db.Metadata)[:]
-        #
-        #     # use field names instead of column headers for core dataset
-        #     # TODO do this for future data tables as needed
-        #     columns = dict()
-        #     for ingest_field, display_name, db_field in all_keys:
-        #         field = ingest_field if ingest_field != '' else db_field
-        #         columns[display_name] = field
-        #     self.data = self.data.rename(columns=columns)
-        #
-        #     # format certain values
-        #     for col in ('auth_entity.level', 'place.level'):
-        #         for to_replace, value in (
-        #             ('State/Province (Intermediate area)', 'State / Province'),
-        #             ('Local area (county, city)', 'Local'),
-        #             ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-        #              'Multiple countries / Global policy'),
-        #         ):
-        #             self.data[col] = self.data[col].replace(
-        #                 to_replace=to_replace,
-        #                 value=value
-        #             )
-        #
-        #     # create Policy instances
-        #     self.create_policies(db)
+        # POLICY DATA # ------------------------------------------------------#
+        def process_policy_data(self, db):
+            # sort by policy ID
+            self.data.sort_values('Unique ID')
+
+            # remove records without a unique ID and other features
+            self.data = self.data.loc[self.data['Unique ID'] != '', :]
+            self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
+            self.data = self.data.loc[self.data['Policy description'] != '', :]
+            self.data = self.data.loc[self.data['Effective start date'] != '', :]
+
+            # analyze for QA/QC and quit if errors detected
+            valid = self.check(self.data)
+            if not valid:
+                print('Data are invalid. Please correct issues and try again.')
+                # sys.exit(0)
+            else:
+                print('QA/QC found no issues. Continuing.')
+
+            # # upsert metadata records
+            # self.create_metadata(db)
+            #
+            # # upsert glossary terms
+            # self.create_glossary(db)
+
+            # set column names to database field names
+            all_keys = select(
+                (
+                    i.ingest_field,
+                    i.display_name,
+                    i.field
+                )
+                for i in db.Metadata
+                if i.class_name == 'Policy'
+            )[:]
+
+            # use field names instead of column headers for core dataset
+            # TODO do this for future data tables as needed
+            columns = dict()
+            for ingest_field, display_name, db_field in all_keys:
+                field = ingest_field if ingest_field != '' else db_field
+                columns[display_name] = field
+            self.data = self.data.rename(columns=columns)
+
+            # format certain values
+            for col in ('auth_entity.level', 'place.level'):
+                for to_replace, value in (
+                    ('State/Province (Intermediate area)', 'State / Province'),
+                    ('Local area (county, city)', 'Local'),
+                    ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
+                     'Multiple countries / Global policy'),
+                ):
+                    self.data[col] = self.data[col].replace(
+                        to_replace=to_replace,
+                        value=value
+                    )
+
+            # create Policy instances
+            self.create_policies(db)
         # process_policy_data(self, db)
-        # input('Done!')
 
         # PLAN DATA # --------------------------------------------------------#
         def process_plan_data(self, db):
@@ -773,8 +779,15 @@ class CovidPolicyPlugin(IngestPlugin):
             # self.create_glossary(db)
 
             # set column names to database field names
-            all_keys = select((i.ingest_field, i.display_name, i.field)
-                              for i in db.Metadata)[:]
+            all_keys = select(
+                (
+                    i.ingest_field,
+                    i.display_name,
+                    i.field
+                )
+                for i in db.Metadata
+                if i.class_name == 'Plan'
+            )[:]
 
             # use field names instead of column headers for core dataset
             # TODO do this for future data tables as needed
@@ -783,24 +796,24 @@ class CovidPolicyPlugin(IngestPlugin):
                 field = ingest_field if ingest_field != '' else db_field
                 columns[display_name] = field
             data = data.rename(columns=columns)
+            self.data_plans = data
 
-            # format certain values
-            for col in ('auth_entity.level', 'place.level'):
-                for to_replace, value in (
-                    ('State/Province (Intermediate area)', 'State / Province'),
-                    ('Local area (county, city)', 'Local'),
-                    ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-                     'Multiple countries / Global policy'),
-                ):
-                    data[col] = data[col].replace(
-                        to_replace=to_replace,
-                        value=value
-                    )
+            # # format certain values
+            # for col in ('auth_entity.level', 'place.level'):
+            #     for to_replace, value in (
+            #         ('State/Province (Intermediate area)', 'State / Province'),
+            #         ('Local area (county, city)', 'Local'),
+            #         ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
+            #          'Multiple countries / Global policy'),
+            #     ):
+            #         data[col] = data[col].replace(
+            #             to_replace=to_replace,
+            #             value=value
+            #         )
 
-            # create Policy instances
-            self.create_policies(db)
+            # create Plan instances
+            self.create_plans(db)
         process_plan_data(self, db)
-        input('Done!')
 
         # FILES DATA # -------------------------------------------------------#
         # create and validate File instances (syncs the file objects to S3)
@@ -811,6 +824,8 @@ class CovidPolicyPlugin(IngestPlugin):
         # PLACES DATA # ------------------------------------------------------#
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
+        self.create_auth_entities_and_places_for_plans(db)
+        input('Added auth entities and places for plans. Press enter.')
 
         # VERSION DATA # -----------------------------------------------------#
         # update version
@@ -1127,6 +1142,318 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Deleted: ' + str(n_deleted_auth_entity))
 
     @db_session
+    def create_auth_entities_and_places_for_plans(self, db):
+        """Create authorizing entity instances and place instances specifically
+        related to plans (not policies, which have a different function:
+        `create_auth_entities_and_places`).
+
+        Parameters
+        ----------
+        db : type
+            PonyORM database instance
+
+        Returns
+        -------
+        self
+
+        """
+
+        # Local methods ########################################################
+        def get_place_loc(i):
+            """Get well-known text location string for a place.
+
+            Parameters
+            ----------
+            i : type
+                Instance of `Place`.
+
+            Returns
+            -------
+            str
+                Well-known location string
+
+            """
+            if i.area2.lower() not in ('unspecified', 'n/a', ''):
+                return f'''{i.area2}, {i.area1}, {i.country_name}'''
+            elif i.area1.lower() not in ('unspecified', 'n/a', ''):
+                return f'''{i.area1}, {i.country_name}'''
+            else:
+                return i.country_name
+
+        def get_auth_entities_from_raw_data(d):
+            """Given a datum `d` from raw data, create a list of authorizing
+            entities that are implied by the semicolon-delimited names and
+            offices on that datum.
+
+            Parameters
+            ----------
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            type
+                Description of returned object.
+
+            """
+            entity_names = d['name'].split('; ')
+            entity_offices = d['office'].split('; ')
+            num_entities = len(entity_names)
+            if num_entities == 1:
+                return [d]
+            else:
+                i = 0
+                entities = list()
+                for instance in entity_names:
+                    entities.append(
+                        {
+                            'id': d['id'],
+                            'name': entity_names[i],
+                            'office': entity_offices[i]
+                        }
+                    )
+                return entities
+
+        # TODO move formatter to higher-level scope
+        def formatter(key, d):
+            """Return 'Unspecified' if a null value, otherwise return value.
+
+            Parameters
+            ----------
+            key : type
+                Description of parameter `key`.
+            d : type
+                Description of parameter `d`.
+
+            Returns
+            -------
+            unknown
+                Formattedalue of data field for the record.
+
+            """
+            if d[key] == 'N/A' or d[key] == 'NA' or d[key] == None or d[key] == '':
+                if key in show_in_progress:
+                    return 'In progress'
+                else:
+                    return 'Unspecified'
+            else:
+                return d[key]
+
+        # load data to get country names from ISO3 codes
+        country_data = pd.read_json('./ingest/data/country.json') \
+            .to_dict(orient='records')
+
+        def get_name_from_iso3(iso3: str):
+            """Given the 3-character ISO code of a country, returns its name
+            plus the code in parentheses, or `None` if no match.
+
+            Parameters
+            ----------
+            iso3 : str
+                3-char iso code
+
+            Returns
+            -------
+            type
+                Name or `None`
+
+            """
+            try:
+                country = next(d for d in country_data if d['alpha-3'] == iso3)
+                return country['name'] + ' (' + iso3 + ')'
+            except:
+                print('Found no country match for: ' + str(iso3))
+                return None
+
+        # Main #################################################################
+        # retrieve keys needed to ingest data for Place, Auth_Entity, and
+        # Auth_Entity.Place data fields.
+        place_keys = select(
+            i.ingest_field for i in db.Metadata
+            if i.entity_name == 'Place'
+            and i.ingest_field != ''
+            and i.export == True
+            and i.class_name == 'Plan'
+        )[:][:]
+
+        auth_entity_keys = select(
+            i.ingest_field for i in db.Metadata
+            if i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity'
+            and i.export == True
+            and i.class_name == 'Plan'
+        )[:][:]
+
+        auth_entity_place_keys = select(
+            i.ingest_field for i in db.Metadata
+            if i.ingest_field != ''
+            and i.entity_name == 'Auth_Entity.Place'
+            and i.export == True
+            and i.class_name == 'Plan'
+        )[:][:]
+
+        # track upserted records
+        n_inserted = 0
+        n_updated = 0
+        n_deleted = 0
+        n_inserted_auth_entity = 0
+        n_updated_auth_entity = 0
+        n_deleted_auth_entity = 0
+
+        # for each row of the data
+        for i, d in self.data_plans.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
+            if reject(d):
+                continue
+
+            ## Add places ######################################################
+            # determine whether the specified instance has been defined yet, and
+            # if not, add it.
+            instance_data = {key: formatter(key, d) for key in place_keys}
+
+            # get or create the place affected (for plans, will always be the
+            # same as authorizing entity's place, for now)
+            place_affected = None
+
+            # get or create the place of the auth entity
+            auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
+                key, d) for key in auth_entity_place_keys}
+            # auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
+            #     key, d) for key in auth_entity_place_keys +
+            #     ['home_rule', 'dillons_rule']}
+
+            # perform upsert using get and set data fields
+            # place_affected_instance_data['country_name'] = \
+            auth_entity_place_instance_data['country_name'] = \
+                get_name_from_iso3(auth_entity_place_instance_data['iso3'])
+
+            # determine a level based on the populated fields
+            if d['org_type'] != 'Government':
+                level = d['org_type']
+            elif auth_entity_place_instance_data['area2'].strip() != '' and \
+                    auth_entity_place_instance_data['area2'] != 'NA' and \
+                    auth_entity_place_instance_data['area2'] is not None:
+                level = 'Local'
+            elif auth_entity_place_instance_data['area1'].strip() != '' and \
+                    auth_entity_place_instance_data['area1'] != 'NA' and \
+                    auth_entity_place_instance_data['area1'] is not None:
+                level = 'State / Province'
+            elif auth_entity_place_instance_data['iso3'].strip() != '' and \
+                    auth_entity_place_instance_data['iso3'] != 'NA' and \
+                    auth_entity_place_instance_data['iso3'] is not None:
+                level = 'Country'
+            else:
+                print('place')
+                print(place)
+                input('ERROR: Could not determine a `level` for place')
+
+            # assign synthetic "level"
+            auth_entity_place_instance_data['level'] = level
+
+            get_keys = ['level', 'iso3', 'area1', 'area2']
+            set_keys = ['country_name']
+            # set_keys = ['dillons_rule', 'home_rule', 'country_name']
+            place_auth_get = {k: auth_entity_place_instance_data[k]
+                              for k in get_keys}
+            place_auth_set = {k: auth_entity_place_instance_data[k]
+                              for k in set_keys}
+
+            action, place_auth = upsert(
+                db.Place,
+                place_auth_get,
+                place_auth_set,
+            )
+            place_auth.loc = get_place_loc(place_auth)
+            if action == 'update':
+                n_updated += 1
+            elif action == 'insert':
+                n_inserted += 1
+
+            # if the affected place is undefined, set it equal to the
+            # auth entity's place
+            if place_affected is None:
+                place_affected = place_auth
+
+            # link instance to required entities
+            # TODO consider flagging updates here
+            db.Plan[d['id']].place = place_affected
+
+            ## Add auth_entities ###############################################
+            # parse auth entities in raw data record (there may be more than
+            # one defined for each record)
+            # raw_data = get_auth_entities_from_raw_data(d)
+
+            # for each individual auth entity
+            db.Plan[d['id']].auth_entity = set()
+            for auth_entity_instance_data in \
+                    [{'name': d['org_name'], 'place': place_auth}]:
+
+                # # get or create auth entity
+                # auth_entity_instance_data = {key: formatter(
+                #     key, dd) for key in auth_entity_keys}
+                # auth_entity_instance_data['place'] = place_auth
+
+                # perform upsert using get and set data fields
+                get_keys = ['name', 'place']
+                action, auth_entity = upsert(
+                    db.Auth_Entity,
+                    {k: auth_entity_instance_data[k]
+                        for k in get_keys},
+                    {},
+                )
+                if action == 'update':
+                    n_updated_auth_entity += 1
+                elif action == 'insert':
+                    n_inserted_auth_entity += 1
+
+                # link instance to required entities
+                db.Plan[d['id']].auth_entity.add(auth_entity)
+            commit()
+
+        ## Delete unused instances #############################################
+        # delete auth_entities that are not used
+        auth_entities_to_delete = select(
+            i for i in db.Auth_Entity
+            if len(i.policies) == 0 and
+            len(i.plans) == 0
+        )
+        if len(auth_entities_to_delete) > 0:
+            auth_entities_to_delete.delete()
+            n_deleted_auth_entity += len(auth_entities_to_delete)
+            commit()
+
+        # delete places that are not used
+        places_to_delete = select(
+            i for i in db.Place
+            if len(i.policies) == 0
+            and len(i.auth_entities) == 0
+            and len(i.plans) == 0
+        )
+        if len(places_to_delete) > 0:
+            places_to_delete.delete()
+            n_deleted += len(places_to_delete)
+            commit()
+
+        print('\n\n[7] Ingesting places...')
+        print('Total in database: ' + str(len(db.Place.select())))
+        # print('Inserted: ' + str(n_inserted))
+        # print('Updated: ' + str(n_updated))
+        print('Deleted: ' + str(n_deleted))
+
+        print('\n\n[8] Ingesting authorizing entities...')
+        print('Total in database: ' + str(len(db.Auth_Entity.select())))
+        # print('Inserted: ' + str(n_inserted_auth_entity))
+        # print('Updated: ' + str(n_updated_auth_entity))
+        print('Deleted: ' + str(n_deleted_auth_entity))
+
+    @db_session
     def create_policies(self, db):
         """Create policy instances.
         TODO generalize to plans, etc.
@@ -1144,9 +1471,14 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         print('\n\n[3] Ingesting policy data...')
 
-        keys = select(i.field for i in db.Metadata if i.entity_name ==
-                      'Policy' and i.field != 'id' and
-                      i.ingest_field != '')[:]
+        # retrieve data field keys for policies
+        keys = select(
+            i.field for i in db.Metadata
+            if i.entity_name == 'Policy'
+            and i.class_name == 'Policy'
+            and i.field != 'id'
+            and i.ingest_field != ''
+        )[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -1263,9 +1595,15 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         print('\n\n[3b] Ingesting plan data...')
 
-        keys = select(i.field for i in db.Metadata if i.entity_name ==
-                      'Plan' and i.field != 'id' and
-                      i.ingest_field != '')[:]
+        # retrieve data field keys for plans
+        keys = select(
+            i.field for i in db.Metadata
+            if i.entity_name == 'Plan'
+            and i.field != 'id'
+            and i.ingest_field != ''
+            and i.class_name == 'Plan'
+            and i.field != 'policy'
+        )[:]
 
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
@@ -1280,20 +1618,20 @@ class CovidPolicyPlugin(IngestPlugin):
                     return unspec_val
                 else:
                     return d[key]
-            elif key == 'policy_number':
+            elif key == 'policy_number' or key == 'n_phases':
                 if d[key] != '':
                     return int(d[key])
                 else:
                     return None
             elif d[key] == 'N/A' or d[key] == 'NA' or d[key] == '':
-                if key in ('prior_plan'):
+                if key in ('policy'):
                     return set()
                 else:
                     return unspec_val
             elif key == 'id':
                 return int(d[key])
-            elif key in ('prior_plan'):
-                post_creation_attrs[d['id']]['prior_plan'] = set(d[key])
+            elif key in ('policy'):
+                post_creation_attrs[d['id']]['policy'] = set(d[key])
                 return set()
             elif type(d[key]) != str and iterable(d[key]):
                 if len(d[key]) > 0:
@@ -1307,7 +1645,10 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        for i, d in self.data.iterrows():
+        # define data
+        data = self.data_plans
+
+        for i, d in data.iterrows():
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest
@@ -1321,10 +1662,10 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # upsert policies
             action, instance = upsert(
-                db.Policy,
+                db.Plan,
                 {'id': d['id']},
                 {key: formatter(key, d) for key in keys},
-                skip=['prior_plan']
+                skip=['policy']
             )
             if action == 'update':
                 n_updated += 1
@@ -1343,23 +1684,24 @@ class CovidPolicyPlugin(IngestPlugin):
             if reject(d):
                 continue
 
-            # upsert policies
+            # upsert Plans
+            # TODO handle linking to Policies
             # TODO consider how to count these updates, since they're done
             # after new instances are created (if counting them at all)
-            if d['prior_plan'] != '':
-                prior_plans = list()
-                for source_id in d['prior_plan']:
-                    prior_plan_instance = db.Policy.get(source_id=source_id)
-                    if prior_plan_instance is not None:
-                        prior_plans.append(prior_plan_instance)
+            if False and d['policy'] != '':
+                linked_policies = list()
+                for source_id in d['policy']:
+                    policy_instance = db.Plan.get(source_id=source_id)
+                    if policy_instance is not None:
+                        linked_policies.append(policy_instance)
                 upsert(
-                    db.Policy,
+                    db.Plan,
                     {'id': d['id']},
-                    {'prior_plan': prior_plans},
+                    {'policy': linked_policies},
                 )
 
         # delete all records in table but not in ingest dataset
-        n_deleted = db.Policy.delete_2(upserted)
+        n_deleted = db.Plan.delete_2(upserted)
         commit()
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
