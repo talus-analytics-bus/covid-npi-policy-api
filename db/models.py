@@ -185,7 +185,7 @@ class Plan(db.Entity):
         # if `only` was specified, use that as the `policy` entity's return
         # fields, and delete the `return_fields_by_entity` data.
         if 'only' in kwargs:
-            return_fields_by_entity['policy'] = kwargs['only']
+            return_fields_by_entity['plan'] = kwargs['only']
             del kwargs['only']
         del kwargs['return_fields_by_entity']
 
@@ -193,12 +193,12 @@ class Plan(db.Entity):
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
         instance_dict = None
-        if 'policy' in return_fields_by_entity and \
-                len(return_fields_by_entity['policy']) > 0:
-            instance_dict = Policy.to_dict(
-                self, only=return_fields_by_entity['policy'], **kwargs)
+        if 'plan' in return_fields_by_entity and \
+                len(return_fields_by_entity['plan']) > 0:
+            instance_dict = Plan.to_dict(
+                self, only=return_fields_by_entity['plan'], **kwargs)
         else:
-            instance_dict = Policy.to_dict(self, **kwargs)
+            instance_dict = Plan.to_dict(self, **kwargs)
 
         # iterate over the items in the Policy instance's dictionary in search
         # for other entity types for which we have unique IDs but need full
@@ -236,6 +236,7 @@ class Plan(db.Entity):
                     instance_dict['file'].append(
                         doc_instance_dict['id']
                     )
+        print(instance_dict)
         return instance_dict
 
 

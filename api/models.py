@@ -105,6 +105,7 @@ class Plan(BaseModel):
     # sourcing and PDFs
     plan_data_source: str = None
     announcement_data_source: str = None
+    file: List = None
 
 
 class PolicyStatus(BaseModel):
