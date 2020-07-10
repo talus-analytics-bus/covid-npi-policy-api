@@ -180,6 +180,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             i for i in db.Metadata
             if i.export == True
             # and i.ingest_field != ''
+            and i.class_name == 'Policy'
         ).order_by(db.Metadata.order)
 
         # get all policies (one policy per row exported)
@@ -316,6 +317,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             i for i in db.Metadata
             if i.export == True
             and i.class_name == class_name
+            and i.class_name == 'Policy'
         ).order_by(db.Metadata.order)
 
         # init export data list
