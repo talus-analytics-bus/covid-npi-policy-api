@@ -515,7 +515,7 @@ class CovidPolicyPlugin(IngestPlugin):
             .as_dataframe(view='API ingest')
 
         # plan data
-        self.data = self.client \
+        self.data_plans = self.client \
             .worksheet(name='Plan database') \
             .as_dataframe()
 
@@ -683,65 +683,136 @@ class CovidPolicyPlugin(IngestPlugin):
         # print(self.local_areas)
         # input('Press enter to continue.')
 
-        # sort by policy ID
-        self.data.sort_values('Unique ID')
-
-        # remove records without a unique ID and other features
-        self.data = self.data.loc[self.data['Unique ID'] != '', :]
-        self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
-        self.data = self.data.loc[self.data['Policy description'] != '', :]
-        self.data = self.data.loc[self.data['Effective start date'] != '', :]
-
-        # analyze for QA/QC and quit if errors detected
-        valid = self.check(self.data)
-        if not valid:
-            print('Data are invalid. Please correct issues and try again.')
-            # sys.exit(0)
-        else:
-            print('QA/QC found no issues. Continuing.')
-
         # upsert metadata records
         self.create_metadata(db)
 
         # upsert glossary terms
         self.create_glossary(db)
 
-        # set column names to database field names
-        all_keys = select((i.ingest_field, i.display_name, i.field)
-                          for i in db.Metadata)[:]
+        # # POLICY DATA # ------------------------------------------------------#
+        # def process_policy_data(self, db):
+        #     # sort by policy ID
+        #     self.data.sort_values('Unique ID')
+        #
+        #     # remove records without a unique ID and other features
+        #     self.data = self.data.loc[self.data['Unique ID'] != '', :]
+        #     self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
+        #     self.data = self.data.loc[self.data['Policy description'] != '', :]
+        #     self.data = self.data.loc[self.data['Effective start date'] != '', :]
+        #
+        #     # analyze for QA/QC and quit if errors detected
+        #     valid = self.check(self.data)
+        #     if not valid:
+        #         print('Data are invalid. Please correct issues and try again.')
+        #         # sys.exit(0)
+        #     else:
+        #         print('QA/QC found no issues. Continuing.')
+        #
+        #     # upsert metadata records
+        #     self.create_metadata(db)
+        #
+        #     # upsert glossary terms
+        #     self.create_glossary(db)
+        #
+        #     # set column names to database field names
+        #     all_keys = select((i.ingest_field, i.display_name, i.field)
+        #                       for i in db.Metadata)[:]
+        #
+        #     # use field names instead of column headers for core dataset
+        #     # TODO do this for future data tables as needed
+        #     columns = dict()
+        #     for ingest_field, display_name, db_field in all_keys:
+        #         field = ingest_field if ingest_field != '' else db_field
+        #         columns[display_name] = field
+        #     self.data = self.data.rename(columns=columns)
+        #
+        #     # format certain values
+        #     for col in ('auth_entity.level', 'place.level'):
+        #         for to_replace, value in (
+        #             ('State/Province (Intermediate area)', 'State / Province'),
+        #             ('Local area (county, city)', 'Local'),
+        #             ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
+        #              'Multiple countries / Global policy'),
+        #         ):
+        #             self.data[col] = self.data[col].replace(
+        #                 to_replace=to_replace,
+        #                 value=value
+        #             )
+        #
+        #     # create Policy instances
+        #     self.create_policies(db)
+        # process_policy_data(self, db)
+        # input('Done!')
 
-        # use field names instead of column headers for core dataset
-        # TODO do this for future data tables as needed
-        columns = dict()
-        for ingest_field, display_name, db_field in all_keys:
-            field = ingest_field if ingest_field != '' else db_field
-            columns[display_name] = field
-        self.data = self.data.rename(columns=columns)
+        # PLAN DATA # --------------------------------------------------------#
+        def process_plan_data(self, db):
+            # define data
+            data = self.data_plans
 
-        # format certain values
-        for col in ('auth_entity.level', 'place.level'):
-            for to_replace, value in (
-                ('State/Province (Intermediate area)', 'State / Province'),
-                ('Local area (county, city)', 'Local'),
-                ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-                 'Multiple countries / Global policy'),
-            ):
-                self.data[col] = self.data[col].replace(
-                    to_replace=to_replace,
-                    value=value
-                )
+            # sort by unique ID
+            data.sort_values('Unique ID')
 
-        # create Policy instances
-        self.create_policies(db)
+            # remove records without a unique ID and other features
+            # TODO confirm these criteria
+            data = data.loc[data['Unique ID'] != '', :]
+            data = data.loc[data['Plan description'] != '', :]
+            data = data.loc[data['Plan announcement date'] != '', :]
 
+            # analyze for QA/QC and quit if errors detected
+            valid = self.check(data)
+            if not valid:
+                print('Data are invalid. Please correct issues and try again.')
+                # sys.exit(0)
+            else:
+                print('QA/QC found no issues. Continuing.')
+
+            # # # upsert metadata records
+            # # self.create_metadata(db)
+            #
+            # # upsert glossary terms
+            # self.create_glossary(db)
+
+            # set column names to database field names
+            all_keys = select((i.ingest_field, i.display_name, i.field)
+                              for i in db.Metadata)[:]
+
+            # use field names instead of column headers for core dataset
+            # TODO do this for future data tables as needed
+            columns = dict()
+            for ingest_field, display_name, db_field in all_keys:
+                field = ingest_field if ingest_field != '' else db_field
+                columns[display_name] = field
+            data = data.rename(columns=columns)
+
+            # format certain values
+            for col in ('auth_entity.level', 'place.level'):
+                for to_replace, value in (
+                    ('State/Province (Intermediate area)', 'State / Province'),
+                    ('Local area (county, city)', 'Local'),
+                    ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
+                     'Multiple countries / Global policy'),
+                ):
+                    data[col] = data[col].replace(
+                        to_replace=to_replace,
+                        value=value
+                    )
+
+            # create Policy instances
+            self.create_policies(db)
+        process_plan_data(self, db)
+        input('Done!')
+
+        # FILES DATA # -------------------------------------------------------#
         # create and validate File instances (syncs the file objects to S3)
         self.create_files_from_attachments(db)
         self.create_files_from_urls(db)
         self.validate_docs(db)
 
+        # PLACES DATA # ------------------------------------------------------#
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
 
+        # VERSION DATA # -----------------------------------------------------#
         # update version
         action, version = upsert(
             db.Version,
@@ -1315,7 +1386,17 @@ class CovidPolicyPlugin(IngestPlugin):
         upserted = set()
         n_inserted = 0
         n_updated = 0
-        for i, d in self.data_dictionary.iterrows():
+
+        # assign dd type to each dd
+        self.data_dictionary.loc[:, 'Type'] = 'Policy'
+        self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
+
+        full_dd = pd.concat([self.data_dictionary, self.data_dictionary_plans])
+        # full_dd = self.data_dictionary + self.data_dictionary_plans
+        print('full_dd')
+        print(full_dd)
+
+        for i, d in full_dd.iterrows():
             if d['Category'] != '':
                 colgroup = d['Category']
             if d['Database entity'] == '' or d['Database field name'] == '':
@@ -1334,6 +1415,7 @@ class CovidPolicyPlugin(IngestPlugin):
             action, instance = upsert(db.Metadata, {
                 'field': d['Database field name'],
                 'entity_name': d['Database entity'],
+                'class_name': d['Type']
             }, metadatum_attributes)
             if action == 'update':
                 n_updated += 1
@@ -1346,6 +1428,7 @@ class CovidPolicyPlugin(IngestPlugin):
             ({
                 'field': 'loc',
                 'entity_name': 'Place',
+                'class_name': 'Policy'
             }, {
                 'ingest_field': 'loc',
                 'display_name': 'Country / Specific location',
@@ -1356,8 +1439,35 @@ class CovidPolicyPlugin(IngestPlugin):
                 'order': 0,
                 'export': False,
             }), ({
+                'field': 'loc',
+                'entity_name': 'Place',
+                'class_name': 'Plan'
+            }, {
+                'ingest_field': 'loc',
+                'display_name': 'Country / Specific location',
+                'colgroup': '',
+                'definition': 'The location affected by the plan',
+                'possible_values': 'Any text',
+                'notes': '',
+                'order': 0,
+                'export': False,
+            }), ({
                 'field': 'source_id',
                 'entity_name': 'Policy',
+                'class_name': 'Policy',
+            }, {
+                'ingest_field': 'source_id',
+                'display_name': 'Source ID',
+                'colgroup': '',
+                'definition': 'The unique ID of the record in the original dataset',
+                'possible_values': 'Any text',
+                'order': 0,
+                'notes': '',
+                'export': False,
+            }), ({
+                'field': 'source_id',
+                'entity_name': 'Plan',
+                'class_name': 'Plan',
             }, {
                 'ingest_field': 'source_id',
                 'display_name': 'Source ID',
@@ -1370,6 +1480,7 @@ class CovidPolicyPlugin(IngestPlugin):
             }), ({
                 'field': 'date_end_actual_or_anticipated',
                 'entity_name': 'Policy',
+                'class_name': 'Policy',
             }, {
                 'ingest_field': '',
                 'display_name': 'Policy end date',

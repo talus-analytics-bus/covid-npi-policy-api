@@ -82,7 +82,8 @@ class Metadata(db.Entity):
     notes = Optional(str)
     entity_name = Required(str)
     export = Required(bool)
-    PrimaryKey(entity_name, field)
+    class_name = Required(str)
+    PrimaryKey(class_name, entity_name, field)
 
     def delete_2(records):
         """Custom delete function for Metadata class.
