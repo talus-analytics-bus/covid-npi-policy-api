@@ -2050,10 +2050,6 @@ class CovidPolicyPlugin(IngestPlugin):
         doc_keys = policy_doc_keys if entity_class == db.Policy \
             else plan_doc_keys
 
-        print('doc_keys')
-        print(doc_keys)
-        input('press enter')
-
         # track types added to assist deletion
         types = set()
 
