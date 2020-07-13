@@ -755,7 +755,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # remove records without a unique ID and other features
             # TODO confirm these criteria
             data = data.loc[data['Unique ID'] != '', :]
-            # data = data.loc[data['Plan description'] != '', :]
+            data = data.loc[data['Plan description'] != '', :]
             # data = data.loc[data['Plan announcement date'] != '', :]
 
             # analyze for QA/QC and quit if errors detected
