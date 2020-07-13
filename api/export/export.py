@@ -81,13 +81,15 @@ class SheetSettings():
         type: str,
         intro_text: str,
         init_irow: dict,
-        data_getter: types.FunctionType
+        data_getter: types.FunctionType,
+        class_name: str,
     ):
         self.name = name
         self.type = type
         self.intro_text = intro_text
         self.init_irow = init_irow
-        self.data = data_getter()
+        self.class_name = class_name
+        self.data = data_getter(class_name=class_name)
         self.num_cols = 0
 
     def get_init_icol(self):

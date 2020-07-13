@@ -77,7 +77,7 @@ def export(filters: dict = None):
 
     """
     # Create Excel export file
-    genericExcelExport = CovidPolicyExportPlugin(db, filters)
+    genericExcelExport = CovidPolicyExportPlugin(db, filters, 'Policy')
     content = genericExcelExport.build()
     media_type = 'application/' + \
         'vnd.openxmlformats-officedocument.spreadsheetml.sheet'

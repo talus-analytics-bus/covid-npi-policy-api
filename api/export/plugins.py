@@ -43,7 +43,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     """
 
-    def __init__(self, db, filters):
+    def __init__(self, db, filters, class_name):
         self.db = db
         self.data = None
         self.init_irow = {
@@ -74,7 +74,8 @@ class CovidPolicyExportPlugin(ExcelExport):
                     'colnames': 6,
                     'data': 7
                 },
-                data_getter=self.default_data_getter
+                data_getter=self.default_data_getter,
+                class_name=class_name
             ),
             SheetSettings(
                 name='Legend',
@@ -90,7 +91,8 @@ class CovidPolicyExportPlugin(ExcelExport):
                     'colnames': 6,
                     'data': 7
                 },
-                data_getter=self.default_data_getter_legend
+                data_getter=self.default_data_getter_legend,
+                class_name=class_name
             )
         ]
 
@@ -147,7 +149,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         return self
 
-    def default_data_getter(self):
+    def default_data_getter(self, class_name: str = 'Policy'):
 
         def get_joined_entity(main_entity, joined_entity_string):
             """Given a main entity class and a string of joined entities like
@@ -184,9 +186,16 @@ class CovidPolicyExportPlugin(ExcelExport):
         ).order_by(db.Metadata.order)
 
         # get all policies (one policy per row exported)
-        policies = schema.get_policy(
-            filters=self.filters, return_db_instances=True
-        )
+        # TODO use generic var names
+        policies = None
+        if class_name == 'Policy':
+            policies = schema.get_policy(
+                filters=self.filters, return_db_instances=True
+            )
+        elif class_name == 'Plan':
+            policies = schema.get_plan(
+                filters=self.filters, return_db_instances=True
+            )
 
         # init export data list
         rows = list()
@@ -214,6 +223,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             for dd in metadata:
 
                 # if it's the PDF permalink column: handle specially
+                # TODO reduce repeated code
                 if dd.display_name == 'Attachment for policy':
                     permalinks = list()
                     for file in d.file:
@@ -222,9 +232,26 @@ class CovidPolicyExportPlugin(ExcelExport):
                     row[dd.colgroup]['Permalink for policy PDF(s)'] = "\n".join(
                         permalinks)
                     continue
+                elif dd.display_name == 'Plan PDF':
+                    permalinks = list()
+                    for file in d.file:
+                        permalinks.append(
+                            'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
+                    row[dd.colgroup]['Permalink for plan PDF(s)'] = "\n".join(
+                        permalinks)
+                    continue
+                elif dd.display_name == 'Plan announcement PDF':
+                    permalinks = list()
+                    for file in d.file:
+                        permalinks.append(
+                            'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
+                    row[dd.colgroup]['Permalink for plan announcement PDF(s)'] = "\n".join(
+                        permalinks)
+                    continue
 
                 # check whether it is a policy or a joined entity
-                join = dd.entity_name != 'Policy'
+                join = dd.entity_name != 'Policy' and \
+                    dd.entity_name != 'Plan'
 
                 # if it is not a join (data field entity is Policy)
                 if not join:
