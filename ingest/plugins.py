@@ -787,19 +787,6 @@ class CovidPolicyPlugin(IngestPlugin):
             data = data.rename(columns=columns)
             self.data_plans = data
 
-            # # format certain values
-            # for col in ('auth_entity.level', 'place.level'):
-            #     for to_replace, value in (
-            #         ('State/Province (Intermediate area)', 'State / Province'),
-            #         ('Local area (county, city)', 'Local'),
-            #         ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-            #          'Multiple countries / Global policy'),
-            #     ):
-            #         data[col] = data[col].replace(
-            #             to_replace=to_replace,
-            #             value=value
-            #         )
-
             # create Plan instances
             self.create_plans(db)
         process_plan_data(self, db)
