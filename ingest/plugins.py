@@ -1162,7 +1162,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 Well-known location string
 
             """
-            if i.area2.lower() not in ('unspecified', 'n/a', ''):
+            if i.area2.lower() not in ('unspecified', 'n/a', '') \
+                    and i.level == 'Government':
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area1}, {i.country_name}'''

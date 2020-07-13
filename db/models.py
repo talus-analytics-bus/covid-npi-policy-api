@@ -214,6 +214,7 @@ class Plan(db.Entity):
 
             # Place
             if k == 'place':
+                print('YAY!!')
                 instance_dict[k] = Place[v].to_dict(
                     only=return_fields_by_entity['place'])
 

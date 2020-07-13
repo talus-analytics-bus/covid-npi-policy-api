@@ -193,7 +193,7 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
-@app.post("/post/policy", response_model_exclude_unset=True)
+@app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_policy(
     body: PolicyFilters,
     by_category: str = None,
@@ -215,6 +215,32 @@ async def post_policy(
 
     """
     return schema.get_policy(
+        filters=body.filters, fields=fields, by_category=by_category
+    )
+
+
+@app.post("/post/plan", response_model=ListResponse, response_model_exclude_unset=True)
+async def post_plan(
+    body: PolicyFilters,
+    by_category: str = None,
+    fields: List[str] = Query(None),
+):
+    """Return Plan data with filters applied.
+
+    Parameters
+    ----------
+    body : PolicyFilters
+        Filters to apply.
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Plan response dictionary
+
+    """
+    return schema.get_plan(
         filters=body.filters, fields=fields, by_category=by_category
     )
 

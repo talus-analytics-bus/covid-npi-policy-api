@@ -360,10 +360,9 @@ def get_plan(
     q = select(i for i in db.Plan).order_by(
         desc(getattr(db.Plan, order_by_field)))
 
-    # TODO: Filters
-    # # apply filters if any
-    # if filters is not None:
-    #     q = apply_policy_filters(q, filters)
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
 
     # return query object if arguments requested it
     if return_db_instances:
@@ -890,6 +889,20 @@ def apply_policy_filters(q, filters: dict = dict()):
                         )
                     )
 
+                )
+                continue
+
+            elif field == 'date_issued':
+                # return instances where `date_issued` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_issued is not None
+                    and i.date_issued <= end
+                    and i.date_issued >= start
                 )
                 continue
 

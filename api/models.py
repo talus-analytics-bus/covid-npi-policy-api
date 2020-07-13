@@ -107,6 +107,9 @@ class Plan(BaseModel):
     announcement_data_source: str = None
     file: List = None
 
+    # relationships
+    place: Place = None
+
 
 class PolicyStatus(BaseModel):
     place_name: str = None
