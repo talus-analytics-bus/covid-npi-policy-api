@@ -21,7 +21,7 @@ import pandas as pd
 # constants
 # define S3 client used for adding / checking for files in the S3
 # storage bucket
-s3 = boto3.client('s3')
+s3 = boto3.client('s3', verify=False)
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
 # pretty printing: for printing JSON objects legibly
