@@ -121,6 +121,7 @@ class Plan(db.Entity):
 
     # descriptive information
     name = Optional(str)
+    primary_loc = Optional(str)
     desc = Optional(str)
     org_name = Optional(str)
     org_type = Optional(str)
@@ -134,12 +135,16 @@ class Plan(db.Entity):
     # standardized fields / tags
     n_phases = Optional(int)
     auth_entity_has_authority = Optional(str)
-    reqs_essential = Optional(StrArray)
-    reqs_private = Optional(StrArray)
-    reqs_school = Optional(StrArray)
-    reqs_social = Optional(StrArray)
-    reqs_hospital = Optional(StrArray)
-    reqs_other = Optional(StrArray)
+    reqs_essential = Optional(StrArray, nullable=True)
+    reqs_private = Optional(StrArray, nullable=True)
+    reqs_school = Optional(StrArray, nullable=True)
+    reqs_social = Optional(StrArray, nullable=True)
+    reqs_hospital = Optional(StrArray, nullable=True)
+    reqs_public = Optional(StrArray, nullable=True, volatile=True)
+    reqs_other = Optional(StrArray, nullable=True)
+
+    # university only
+    residential = Optional(bool)
 
     # sourcing and PDFs
     plan_data_source = Optional(str)

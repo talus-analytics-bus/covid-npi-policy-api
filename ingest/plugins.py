@@ -756,6 +756,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # TODO confirm these criteria
             data = data.loc[data['Unique ID'] != '', :]
             data = data.loc[data['Plan description'] != '', :]
+            data = data.loc[data['Plan PDF'] != '', :]
             # data = data.loc[data['Plan announcement date'] != '', :]
 
             # analyze for QA/QC and quit if errors detected
@@ -1663,32 +1664,32 @@ class CovidPolicyPlugin(IngestPlugin):
                 n_inserted += 1
             upserted.add(instance)
 
-        for i, d in self.data.iterrows():
-            # if unique ID is not an integer, skip
-            # TODO handle on ingest
-            try:
-                int(d['id'])
-            except:
-                continue
-
-            if reject(d):
-                continue
-
-            # upsert Plans
-            # TODO handle linking to Policies
-            # TODO consider how to count these updates, since they're done
-            # after new instances are created (if counting them at all)
-            if False and d['policy'] != '':
-                linked_policies = list()
-                for source_id in d['policy']:
-                    policy_instance = db.Plan.get(source_id=source_id)
-                    if policy_instance is not None:
-                        linked_policies.append(policy_instance)
-                upsert(
-                    db.Plan,
-                    {'id': d['id']},
-                    {'policy': linked_policies},
-                )
+        # for i, d in self.data.iterrows():
+        #     # if unique ID is not an integer, skip
+        #     # TODO handle on ingest
+        #     try:
+        #         int(d['id'])
+        #     except:
+        #         continue
+        #
+        #     if reject(d):
+        #         continue
+        #
+        #     # upsert Plans
+        #     # TODO handle linking to Policies
+        #     # TODO consider how to count these updates, since they're done
+        #     # after new instances are created (if counting them at all)
+        #     if False and d['policy'] != '':
+        #         linked_policies = list()
+        #         for source_id in d['policy']:
+        #             policy_instance = db.Plan.get(source_id=source_id)
+        #             if policy_instance is not None:
+        #                 linked_policies.append(policy_instance)
+        #         upsert(
+        #             db.Plan,
+        #             {'id': d['id']},
+        #             {'policy': linked_policies},
+        #         )
 
         # delete all records in table but not in ingest dataset
         n_deleted = db.Plan.delete_2(upserted)

@@ -16,7 +16,10 @@ from db import db
 
 
 @app.post("/post/export")
-async def export(body: PolicyFilters):
+async def export(
+    body: PolicyFilters,
+    class_name: str,
+):
     """Return XLSX data export for policies with the given filters applied.
 
     Parameters
@@ -31,7 +34,7 @@ async def export(body: PolicyFilters):
 
     """
     filters = body.filters if bool(body.filters) == True else None
-    return schema.export(filters=filters)
+    return schema.export(filters=filters, class_name=class_name)
 
 
 @app.get("/get/version")

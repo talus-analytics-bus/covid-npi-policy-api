@@ -82,6 +82,7 @@ class Plan(BaseModel):
 
     # descriptive information
     name: str = None
+    primary_loc: str = None
     desc: str = None
     org_name: str = None
     org_type: str = None
@@ -100,7 +101,11 @@ class Plan(BaseModel):
     reqs_school: List[str] = None
     reqs_social: List[str] = None
     reqs_hospital: List[str] = None
+    reqs_public: List[str] = None
     reqs_other: List[str] = None
+
+    # university only
+    residential: bool = None
 
     # sourcing and PDFs
     plan_data_source: str = None

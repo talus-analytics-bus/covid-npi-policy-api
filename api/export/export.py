@@ -134,6 +134,9 @@ class SheetSettings():
                     # special formatting
                     if colname.endswith('date') and value is None:
                         value = 'Unspecified'
+                    elif value == 'Unspecified':
+                        value = ''
+
                     worksheet.write(irow, icol, value, self.formats.cell())
                     icol = icol + 1
             worksheet.set_row(irow, 75)
