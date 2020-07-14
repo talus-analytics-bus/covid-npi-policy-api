@@ -21,7 +21,7 @@ import pandas as pd
 # constants
 # define S3 client used for adding / checking for files in the S3
 # storage bucket
-s3 = boto3.client('s3', verify=False)
+s3 = boto3.client('s3')
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
 # pretty printing: for printing JSON objects legibly
@@ -503,6 +503,9 @@ class CovidPolicyPlugin(IngestPlugin):
         # self.local_areas = self.client \
         #     .worksheet(name='Local Area Database') \
         #     .as_dataframe()
+
+        # s3 bucket file keys
+        self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
 
         # policy data
         self.data = self.client \
@@ -2126,7 +2129,6 @@ class CovidPolicyPlugin(IngestPlugin):
         n_added = 0
         n_failed = 0
         n_checked = 0
-        keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
         could_not_download = set()
         missing_filenames = set()
         for file in files:
@@ -2134,7 +2136,7 @@ class CovidPolicyPlugin(IngestPlugin):
             print(f'''Checking file {n_checked} of {len(files)}...''')
             if file.filename is not None:
                 file_key = file.filename
-                if file_key in keys:
+                if file_key in self.s3_bucket_keys:
                     # print('\nFile found')
                     n_valid += 1
                     pass
