@@ -89,8 +89,6 @@ def export(filters: dict = None, class_name: str = 'Policy'):
 
 @db_session
 def get_version():
-    # q = select(i for i in db.Version)
-    # data = [i.to_dict(only=['type', 'date']) for i in q]
     data_tmp = db.Version.select_by_sql(f'''
         SELECT distinct on ("type") * FROM "version"
         ORDER BY "type", "date" desc
@@ -99,6 +97,37 @@ def get_version():
             for i in data_tmp]
     data.sort(key=lambda x: x['type'], reverse=True)
     data.sort(key=lambda x: x['date'], reverse=True)
+    return {
+        'success': True,
+        'data': data,
+        'message': 'Success'
+    }
+
+
+@db_session
+def get_count(class_names):
+    """Return the number of instances for entities in the db, if they are
+    on the list of supported entities.
+
+    Parameters
+    ----------
+    class_names : type
+        Description of parameter `class_names`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    supported_entities = ('Policy', 'Plan')
+    data = dict()
+    for d in class_names:
+        if d not in supported_entities or not hasattr(db, d):
+            continue
+        else:
+            n = get(count(i) for i in getattr(db, d))
+            data[d] = n
     return {
         'success': True,
         'data': data,

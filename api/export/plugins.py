@@ -59,42 +59,104 @@ class CovidPolicyExportPlugin(ExcelExport):
         self.filters = filters
 
         # Define a sheet settings instance for each tab of the XLSX
-        self.sheet_settings = [
-            SheetSettings(
-                name='Exported data',
-                type='data',
-                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.',
-                init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
+        # If class_name is all, then export policies and plans, otherwise
+        # export whichever is defined in `class_name`
+        export_policies_and_plans = class_name == 'all'
+        if not export_policies_and_plans:
+            nouns = {
+                's': 'Policy',
+                'p': 'Policies'
+            } if class_name == 'Policy' else \
+                {
+                's': 'Plan',
+                'p': 'Plans'
+            }
+            self.sheet_settings = [
+                SheetSettings(
+                    name=nouns['p'],
+                    type='data',
+                    intro_text=f'''The table below lists {nouns['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter,
+                    class_name=class_name
+                ),
+                SheetSettings(
+                    name='Legend',
+                    type='legend',
+                    intro_text=f'''A description for each data column in the "{nouns['p']}" tab and its possible values is provided below.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter_legend,
+                    class_name=class_name
+                )
+            ]
+        else:
+
+            self.sheet_settings = []
+            tabs = (
+                {
+                    's': 'Policy',
+                    'p': 'Policies'
                 },
-                data_getter=self.default_data_getter,
-                class_name=class_name
-            ),
-            SheetSettings(
-                name='Legend',
-                type='legend',
-                intro_text='A description for each data column in the "Exported data" tab and its possible values is provided below.',
-                init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
-                },
-                data_getter=self.default_data_getter_legend,
-                class_name=class_name
+                {
+                    's': 'Plan',
+                    'p': 'Plans'
+                }
             )
-        ]
+            for tab in tabs:
+                self.sheet_settings += [
+                    SheetSettings(
+                        name=tab['p'],
+                        type='data',
+                        intro_text=f'''The table below lists {tab['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                        init_irow={
+                            'logo': 0,
+                            'title': 1,
+                            'subtitle': 2,
+                            'intro_text': 3,
+                            'gap': 4,
+                            'colgroups': 5,
+                            'colnames': 6,
+                            'data': 7
+                        },
+                        data_getter=self.default_data_getter,
+                        class_name=tab['s']
+                    ),
+                    SheetSettings(
+                        name='Legend - ' + tab['p'],
+                        type='legend',
+                        intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
+                        init_irow={
+                            'logo': 0,
+                            'title': 1,
+                            'subtitle': 2,
+                            'intro_text': 3,
+                            'gap': 4,
+                            'colgroups': 5,
+                            'colnames': 6,
+                            'data': 7
+                        },
+                        data_getter=self.default_data_getter_legend,
+                        class_name=tab['s']
+                    )
+                ]
 
     def add_content(self, workbook):
         """Add content, e.g., the tab containing the exported data.
@@ -297,8 +359,6 @@ class CovidPolicyExportPlugin(ExcelExport):
 
                     # specially handle location fields
                     is_location_field = dd.field in ('area1', 'area2', 'iso3')
-                    if is_location_field:
-                        print(d.place.level)
 
                     # get the joined entity
                     joined_entity = get_joined_entity(d, dd.entity_name)

@@ -42,6 +42,13 @@ async def get_version():
     return schema.get_version()
 
 
+@app.get("/get/count")
+async def get_count(
+    class_names: List[str] = Query(None),
+):
+    return schema.get_count(class_names=class_names)
+
+
 @app.get("/get/metadata", response_model=MetadataList)
 async def get_metadata(
     fields: List[str] = Query(None),
