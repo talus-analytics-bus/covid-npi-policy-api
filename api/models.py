@@ -114,6 +114,7 @@ class Plan(BaseModel):
 
     # relationships
     place: Place = None
+    auth_entity: Auth_Entity = None
 
 
 class PolicyStatus(BaseModel):
