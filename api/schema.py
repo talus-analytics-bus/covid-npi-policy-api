@@ -715,7 +715,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
         # such that "Unspecified" is last
         # TODO handle other special values like "Unspecified" as needed
         options = None
-        if field == 'country_name':
+        if field == 'country_name' or field == 'level':
             options = select(
                 getattr(i, field) for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
@@ -724,6 +724,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             options = select(
                 getattr(i, field) for i in entity_class
             ).filter(lambda x: x is not None)[:][:]
+
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
