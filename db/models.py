@@ -140,7 +140,7 @@ class Plan(db.Entity):
     reqs_school = Optional(StrArray, nullable=True)
     reqs_social = Optional(StrArray, nullable=True)
     reqs_hospital = Optional(StrArray, nullable=True)
-    reqs_public = Optional(StrArray, nullable=True, volatile=True)
+    reqs_public = Optional(StrArray, nullable=True)
     reqs_other = Optional(StrArray, nullable=True)
 
     # university only
@@ -219,7 +219,6 @@ class Plan(db.Entity):
 
             # Place
             if k == 'place':
-                print('YAY!!')
                 instance_dict[k] = Place[v].to_dict(
                     only=return_fields_by_entity['place'])
 
@@ -242,7 +241,6 @@ class Plan(db.Entity):
                     instance_dict['file'].append(
                         doc_instance_dict['id']
                     )
-        print(instance_dict)
         return instance_dict
 
 
