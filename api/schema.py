@@ -62,7 +62,7 @@ def cached(func):
 
 @db_session
 @cached
-def export(filters: dict = None, class_name: str = 'Test'):
+def export(filters: dict = None, class_name: str = 'Policy'):
     """Return XLSX data export for policies with the given filters applied.
 
     Parameters
@@ -633,8 +633,8 @@ def get_lockdown_level(
 
 
 @db_session
-@cached
-def get_optionset(fields: list = list()):
+# @cached
+def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -678,12 +678,23 @@ def get_optionset(fields: list = list()):
         entity_name, field = d_str.split('.')
         entity_class = getattr(db, entity_name)
 
+        # check places relevant only for the entity of `class_name`
+        class_name_field = 'policies' if class_name == 'Policy' \
+            else 'plans'
+
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
         # TODO handle other special values like "Unspecified" as needed
-        options = select(
-            getattr(i, field) for i in entity_class
-        ).filter(lambda x: x is not None)[:][:]
+        options = None
+        if field == 'country_name':
+            options = select(
+                getattr(i, field) for i in entity_class
+                if len(getattr(i, class_name_field)) > 0
+            ).filter(lambda x: x is not None)[:][:]
+        else:
+            options = select(
+                getattr(i, field) for i in entity_class
+            ).filter(lambda x: x is not None)[:][:]
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
@@ -717,35 +728,41 @@ def get_optionset(fields: list = list()):
             options = options_with_groups
         elif uses_geo_groups:
             options_with_groups = list()
+
             if field == 'area1':
                 for option in options:
                     # get group from glossary data
                     parent = select(
                         i for i in db.Place
                         if i.area1 == option
+                        and len(getattr(i, class_name_field)) > 0
                     ).first()
+
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
                         options_with_groups.append(
                             [option, parent.country_name])
                     else:
-                        # TODO figure out best way to handle "Other" cases
-                        options_with_groups.append([option, 'Other'])
+                        continue
+                        # # TODO figure out best way to handle "Other" cases
+                        # options_with_groups.append([option, 'Other'])
             elif field == 'area2':
                 for option in options:
                     # get group from glossary data
                     parent = select(
                         i for i in db.Place
                         if i.area2 == option
+                        and len(getattr(i, class_name_field)) > 0
                     ).first()
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
                         options_with_groups.append([option, parent.area1])
                     else:
-                        # TODO figure out best way to handle "Other" cases
-                        options_with_groups.append([option, 'Other'])
+                        continue
+                        # # TODO figure out best way to handle "Other" cases
+                        # options_with_groups.append([option, 'Other'])
 
             options = options_with_groups
 

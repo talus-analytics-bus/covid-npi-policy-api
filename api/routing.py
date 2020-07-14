@@ -249,7 +249,10 @@ async def post_plan(
 
 
 @app.get("/get/optionset", response_model=OptionSetList)
-async def get_optionset(fields: List[str] = Query(None), entity_name: str = None):
+async def get_optionset(
+    fields: List[str] = Query(None),
+    class_name: str = 'Policy'
+):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -260,7 +263,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
     ----------
     fields : list
         List of strings of data fields names.
-    entity_name : str
+    class_name : str
         The name of the entity for which to check possible values.
 
     Returns
@@ -269,7 +272,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
         List of possible optionset values for each field.
 
     """
-    return schema.get_optionset(fields=fields)
+    return schema.get_optionset(fields=fields, class_name=class_name)
 
 
 ##
