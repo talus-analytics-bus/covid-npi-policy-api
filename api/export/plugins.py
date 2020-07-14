@@ -209,8 +209,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 return True
 
         formatters = {
-            'area1': lambda instance, value: value if instance.level != 'Country' else 'N/A',
-            'area2': lambda instance, value: value if instance.level == 'Local' else 'N/A',
+            'area1': lambda instance, value:
+                value if instance.level != 'Country' else 'N/A',
+            'area2': lambda instance, value:
+                value if instance.level not in ('Country', 'State / Province')
+                and value != ''
+                and value != 'Unspecified'
+                else 'N/A',
         }
 
         # for each policy (i.e., row)
@@ -290,6 +295,11 @@ class CovidPolicyExportPlugin(ExcelExport):
                 # otherwise, if the data field is on an entity other than Policy
                 else:
 
+                    # specially handle location fields
+                    is_location_field = dd.field in ('area1', 'area2', 'iso3')
+                    if is_location_field:
+                        print(d.place.level)
+
                     # get the joined entity
                     joined_entity = get_joined_entity(d, dd.entity_name)
 
@@ -299,7 +309,8 @@ class CovidPolicyExportPlugin(ExcelExport):
                     else:
 
                         # check if the joined entity is a set or single
-                        is_set = iterable(joined_entity)
+                        is_set = iterable(joined_entity) and type(
+                            joined_entity) != str
 
                         # SET OF ENTITIES #------------------------------------#
                         # iterate over them and return a semicolon-delimited

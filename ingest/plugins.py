@@ -1319,15 +1319,15 @@ class CovidPolicyPlugin(IngestPlugin):
             if d['org_type'] != 'Government':
                 level = d['org_type']
             elif auth_entity_place_instance_data['area2'].strip() != '' and \
-                    auth_entity_place_instance_data['area2'] != 'NA' and \
+                    auth_entity_place_instance_data['area2'] != 'Unspecified' and \
                     auth_entity_place_instance_data['area2'] is not None:
                 level = 'Local'
             elif auth_entity_place_instance_data['area1'].strip() != '' and \
-                    auth_entity_place_instance_data['area1'] != 'NA' and \
+                    auth_entity_place_instance_data['area1'] != 'Unspecified' and \
                     auth_entity_place_instance_data['area1'] is not None:
                 level = 'State / Province'
             elif auth_entity_place_instance_data['iso3'].strip() != '' and \
-                    auth_entity_place_instance_data['iso3'] != 'NA' and \
+                    auth_entity_place_instance_data['iso3'] != 'Unspecified' and \
                     auth_entity_place_instance_data['iso3'] is not None:
                 level = 'Country'
             else:
