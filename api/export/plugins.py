@@ -43,7 +43,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     """
 
-    def __init__(self, db, filters):
+    def __init__(self, db, filters, class_name):
         self.db = db
         self.data = None
         self.init_irow = {
@@ -59,40 +59,104 @@ class CovidPolicyExportPlugin(ExcelExport):
         self.filters = filters
 
         # Define a sheet settings instance for each tab of the XLSX
-        self.sheet_settings = [
-            SheetSettings(
-                name='Exported data',
-                type='data',
-                intro_text='The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.',
-                init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
+        # If class_name is all, then export policies and plans, otherwise
+        # export whichever is defined in `class_name`
+        export_policies_and_plans = class_name == 'all'
+        if not export_policies_and_plans:
+            nouns = {
+                's': 'Policy',
+                'p': 'Policies'
+            } if class_name == 'Policy' else \
+                {
+                's': 'Plan',
+                'p': 'Plans'
+            }
+            self.sheet_settings = [
+                SheetSettings(
+                    name=nouns['p'],
+                    type='data',
+                    intro_text=f'''The table below lists {nouns['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter,
+                    class_name=class_name
+                ),
+                SheetSettings(
+                    name='Legend',
+                    type='legend',
+                    intro_text=f'''A description for each data column in the "{nouns['p']}" tab and its possible values is provided below.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter_legend,
+                    class_name=class_name
+                )
+            ]
+        else:
+
+            self.sheet_settings = []
+            tabs = (
+                {
+                    's': 'Policy',
+                    'p': 'Policies'
                 },
-                data_getter=self.default_data_getter
-            ),
-            SheetSettings(
-                name='Legend',
-                type='legend',
-                intro_text='A description for each data column in the "Exported data" tab and its possible values is provided below.',
-                init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
-                },
-                data_getter=self.default_data_getter_legend
+                {
+                    's': 'Plan',
+                    'p': 'Plans'
+                }
             )
-        ]
+            for tab in tabs:
+                self.sheet_settings += [
+                    SheetSettings(
+                        name=tab['p'],
+                        type='data',
+                        intro_text=f'''The table below lists {tab['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                        init_irow={
+                            'logo': 0,
+                            'title': 1,
+                            'subtitle': 2,
+                            'intro_text': 3,
+                            'gap': 4,
+                            'colgroups': 5,
+                            'colnames': 6,
+                            'data': 7
+                        },
+                        data_getter=self.default_data_getter,
+                        class_name=tab['s']
+                    ),
+                    SheetSettings(
+                        name='Legend - ' + tab['p'],
+                        type='legend',
+                        intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
+                        init_irow={
+                            'logo': 0,
+                            'title': 1,
+                            'subtitle': 2,
+                            'intro_text': 3,
+                            'gap': 4,
+                            'colgroups': 5,
+                            'colnames': 6,
+                            'data': 7
+                        },
+                        data_getter=self.default_data_getter_legend,
+                        class_name=tab['s']
+                    )
+                ]
 
     def add_content(self, workbook):
         """Add content, e.g., the tab containing the exported data.
@@ -147,7 +211,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         return self
 
-    def default_data_getter(self):
+    def default_data_getter(self, class_name: str = 'Policy'):
 
         def get_joined_entity(main_entity, joined_entity_string):
             """Given a main entity class and a string of joined entities like
@@ -180,13 +244,20 @@ class CovidPolicyExportPlugin(ExcelExport):
             i for i in db.Metadata
             if i.export == True
             # and i.ingest_field != ''
-            and i.class_name == 'Policy'
+            and i.class_name == class_name
         ).order_by(db.Metadata.order)
 
         # get all policies (one policy per row exported)
-        policies = schema.get_policy(
-            filters=self.filters, return_db_instances=True
-        )
+        # TODO use generic var names
+        policies = None
+        if class_name == 'Policy':
+            policies = schema.get_policy(
+                filters=self.filters, return_db_instances=True
+            )
+        elif class_name == 'Plan':
+            policies = schema.get_plan(
+                filters=self.filters, return_db_instances=True
+            )
 
         # init export data list
         rows = list()
@@ -200,8 +271,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 return True
 
         formatters = {
-            'area1': lambda instance, value: value if instance.level != 'Country' else 'N/A',
-            'area2': lambda instance, value: value if instance.level == 'Local' else 'N/A',
+            'area1': lambda instance, value:
+                value if instance.level != 'Country' else 'N/A',
+            'area2': lambda instance, value:
+                value if instance.level not in ('Country', 'State / Province')
+                and value != ''
+                and value != 'Unspecified'
+                else 'N/A',
         }
 
         # for each policy (i.e., row)
@@ -214,6 +290,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             for dd in metadata:
 
                 # if it's the PDF permalink column: handle specially
+                # TODO reduce repeated code
                 if dd.display_name == 'Attachment for policy':
                     permalinks = list()
                     for file in d.file:
@@ -222,9 +299,26 @@ class CovidPolicyExportPlugin(ExcelExport):
                     row[dd.colgroup]['Permalink for policy PDF(s)'] = "\n".join(
                         permalinks)
                     continue
+                elif dd.display_name == 'Plan PDF':
+                    permalinks = list()
+                    for file in d.file:
+                        permalinks.append(
+                            'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
+                    row[dd.colgroup]['Permalink for plan PDF(s)'] = "\n".join(
+                        permalinks)
+                    continue
+                elif dd.display_name == 'Plan announcement PDF':
+                    permalinks = list()
+                    for file in d.file:
+                        permalinks.append(
+                            'https://api.covidamp.org/get/file/redirect?id=' + str(file.id))
+                    row[dd.colgroup]['Permalink for plan announcement PDF(s)'] = "\n".join(
+                        permalinks)
+                    continue
 
                 # check whether it is a policy or a joined entity
-                join = dd.entity_name != 'Policy'
+                join = dd.entity_name != 'Policy' and \
+                    dd.entity_name != 'Plan'
 
                 # if it is not a join (data field entity is Policy)
                 if not join:
@@ -263,6 +357,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                 # otherwise, if the data field is on an entity other than Policy
                 else:
 
+                    # specially handle location fields
+                    is_location_field = dd.field in ('area1', 'area2', 'iso3')
+
                     # get the joined entity
                     joined_entity = get_joined_entity(d, dd.entity_name)
 
@@ -272,7 +369,8 @@ class CovidPolicyExportPlugin(ExcelExport):
                     else:
 
                         # check if the joined entity is a set or single
-                        is_set = iterable(joined_entity)
+                        is_set = iterable(joined_entity) and type(
+                            joined_entity) != str
 
                         # SET OF ENTITIES #------------------------------------#
                         # iterate over them and return a semicolon-delimited
@@ -317,7 +415,6 @@ class CovidPolicyExportPlugin(ExcelExport):
             i for i in db.Metadata
             if i.export == True
             and i.class_name == class_name
-            and i.class_name == 'Policy'
         ).order_by(db.Metadata.order)
 
         # init export data list

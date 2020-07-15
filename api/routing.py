@@ -16,7 +16,10 @@ from db import db
 
 
 @app.post("/post/export")
-async def export(body: PolicyFilters):
+async def export(
+    body: PolicyFilters,
+    class_name: str,
+):
     """Return XLSX data export for policies with the given filters applied.
 
     Parameters
@@ -31,12 +34,19 @@ async def export(body: PolicyFilters):
 
     """
     filters = body.filters if bool(body.filters) == True else None
-    return schema.export(filters=filters)
+    return schema.export(filters=filters, class_name=class_name)
 
 
 @app.get("/get/version")
 async def get_version():
     return schema.get_version()
+
+
+@app.get("/get/count")
+async def get_count(
+    class_names: List[str] = Query(None),
+):
+    return schema.get_count(class_names=class_names)
 
 
 @app.get("/get/metadata", response_model=MetadataList)
@@ -122,6 +132,24 @@ async def get_policy(fields: List[str] = Query(None)):
     return schema.get_policy(fields=fields)
 
 
+@app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
+async def get_plan(fields: List[str] = Query(None)):
+    """Return Plan data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Plan response dictionary.
+
+    """
+    return schema.get_plan(fields=fields)
+
+
 @app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
 async def get_policy_status(geo_res=str):
     """Return Policy data.
@@ -175,7 +203,7 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
-@app.post("/post/policy", response_model_exclude_unset=True)
+@app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_policy(
     body: PolicyFilters,
     by_category: str = None,
@@ -201,8 +229,37 @@ async def post_policy(
     )
 
 
+@app.post("/post/plan", response_model=ListResponse, response_model_exclude_unset=True)
+async def post_plan(
+    body: PolicyFilters,
+    by_category: str = None,
+    fields: List[str] = Query(None),
+):
+    """Return Plan data with filters applied.
+
+    Parameters
+    ----------
+    body : PolicyFilters
+        Filters to apply.
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Plan response dictionary
+
+    """
+    return schema.get_plan(
+        filters=body.filters, fields=fields, by_category=by_category
+    )
+
+
 @app.get("/get/optionset", response_model=OptionSetList)
-async def get_optionset(fields: List[str] = Query(None), entity_name: str = None):
+async def get_optionset(
+    fields: List[str] = Query(None),
+    class_name: str = 'Policy'
+):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -213,7 +270,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
     ----------
     fields : list
         List of strings of data fields names.
-    entity_name : str
+    class_name : str
         The name of the entity for which to check possible values.
 
     Returns
@@ -222,7 +279,7 @@ async def get_optionset(fields: List[str] = Query(None), entity_name: str = None
         List of possible optionset values for each field.
 
     """
-    return schema.get_optionset(fields=fields)
+    return schema.get_optionset(fields=fields, class_name=class_name)
 
 
 ##

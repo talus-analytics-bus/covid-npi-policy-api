@@ -121,6 +121,7 @@ class Plan(db.Entity):
 
     # descriptive information
     name = Optional(str)
+    primary_loc = Optional(str)
     desc = Optional(str)
     org_name = Optional(str)
     org_type = Optional(str)
@@ -134,12 +135,16 @@ class Plan(db.Entity):
     # standardized fields / tags
     n_phases = Optional(int)
     auth_entity_has_authority = Optional(str)
-    reqs_essential = Optional(StrArray)
-    reqs_private = Optional(StrArray)
-    reqs_school = Optional(StrArray)
-    reqs_social = Optional(StrArray)
-    reqs_hospital = Optional(StrArray)
-    reqs_other = Optional(StrArray)
+    reqs_essential = Optional(StrArray, nullable=True)
+    reqs_private = Optional(StrArray, nullable=True)
+    reqs_school = Optional(StrArray, nullable=True)
+    reqs_social = Optional(StrArray, nullable=True)
+    reqs_hospital = Optional(StrArray, nullable=True)
+    reqs_public = Optional(StrArray, nullable=True)
+    reqs_other = Optional(StrArray, nullable=True)
+
+    # university only
+    residential = Optional(bool)
 
     # sourcing and PDFs
     plan_data_source = Optional(str)
@@ -185,7 +190,7 @@ class Plan(db.Entity):
         # if `only` was specified, use that as the `policy` entity's return
         # fields, and delete the `return_fields_by_entity` data.
         if 'only' in kwargs:
-            return_fields_by_entity['policy'] = kwargs['only']
+            return_fields_by_entity['plan'] = kwargs['only']
             del kwargs['only']
         del kwargs['return_fields_by_entity']
 
@@ -193,12 +198,12 @@ class Plan(db.Entity):
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
         instance_dict = None
-        if 'policy' in return_fields_by_entity and \
-                len(return_fields_by_entity['policy']) > 0:
-            instance_dict = Policy.to_dict(
-                self, only=return_fields_by_entity['policy'], **kwargs)
+        if 'plan' in return_fields_by_entity and \
+                len(return_fields_by_entity['plan']) > 0:
+            instance_dict = Plan.to_dict(
+                self, only=return_fields_by_entity['plan'], **kwargs)
         else:
-            instance_dict = Policy.to_dict(self, **kwargs)
+            instance_dict = Plan.to_dict(self, **kwargs)
 
         # iterate over the items in the Policy instance's dictionary in search
         # for other entity types for which we have unique IDs but need full

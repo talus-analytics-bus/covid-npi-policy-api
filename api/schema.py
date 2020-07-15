@@ -13,8 +13,8 @@ from fastapi.responses import FileResponse, Response
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File
-from .util import str_to_date
+    Auth_Entity, Place, File, PlanList
+from .util import str_to_date, find
 from db import db
 
 # # Code optimization profiling
@@ -62,7 +62,7 @@ def cached(func):
 
 @db_session
 @cached
-def export(filters: dict = None):
+def export(filters: dict = None, class_name: str = 'Policy'):
     """Return XLSX data export for policies with the given filters applied.
 
     Parameters
@@ -77,7 +77,7 @@ def export(filters: dict = None):
 
     """
     # Create Excel export file
-    genericExcelExport = CovidPolicyExportPlugin(db, filters)
+    genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
     content = genericExcelExport.build()
     media_type = 'application/' + \
         'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -89,8 +89,6 @@ def export(filters: dict = None):
 
 @db_session
 def get_version():
-    # q = select(i for i in db.Version)
-    # data = [i.to_dict(only=['type', 'date']) for i in q]
     data_tmp = db.Version.select_by_sql(f'''
         SELECT distinct on ("type") * FROM "version"
         ORDER BY "type", "date" desc
@@ -99,6 +97,37 @@ def get_version():
             for i in data_tmp]
     data.sort(key=lambda x: x['type'], reverse=True)
     data.sort(key=lambda x: x['date'], reverse=True)
+    return {
+        'success': True,
+        'data': data,
+        'message': 'Success'
+    }
+
+
+@db_session
+def get_count(class_names):
+    """Return the number of instances for entities in the db, if they are
+    on the list of supported entities.
+
+    Parameters
+    ----------
+    class_names : type
+        Description of parameter `class_names`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    supported_entities = ('Policy', 'Plan')
+    data = dict()
+    for d in class_names:
+        if d not in supported_entities or not hasattr(db, d):
+            continue
+        else:
+            n = get(count(i) for i in getattr(db, d))
+            data[d] = n
     return {
         'success': True,
         'data': data,
@@ -319,6 +348,105 @@ def get_policy(
         return res
 
 
+@db_session
+@cached
+def get_plan(
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_issued',
+    return_db_instances: bool = False,
+    by_category: str = None,
+):
+    """Returns Plan instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to plan data (see function
+        `apply_policy_filters` below).
+    fields : list
+        List of Plan instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class `Plan` that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered policies, otherwise returns the list of dictionaries
+        containing the policy data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
+    all = fields is None
+
+    # get ordered policies from database
+    q = select(i for i in db.Plan).order_by(
+        desc(getattr(db.Plan, order_by_field)))
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+
+        return_fields_by_entity = defaultdict(list)
+        if fields is not None:
+            return_fields_by_entity['plan'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc']
+        return_fields_by_entity['auth_entity'] = [
+            'id', 'name']
+
+        # define list of instances to return
+        data = []
+
+        # for each policy
+        for d in q:
+
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                return_fields_by_entity=return_fields_by_entity)
+
+            # add it to the output list
+            data.append(d_dict)
+
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Policy
+        if by_category is not None:
+            pass
+            # data_by_category = defaultdict(list)
+            # for i in data:
+            #     data_by_category[i[by_category]].append(i)
+            #
+            # res = PolicyDict(
+            #     data=data_by_category,
+            #     success=True,
+            #     message=f'''{len(q)} plans found'''
+            # )
+        else:
+            # create response from output list
+            res = PlanList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} plans found'''
+            )
+        return res
+
+
 @cached
 @db_session
 def get_policy_status(
@@ -534,8 +662,8 @@ def get_lockdown_level(
 
 
 @db_session
-@cached
-def get_optionset(fields: list = list()):
+# @cached
+def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -572,6 +700,26 @@ def get_optionset(fields: list = list()):
     # define output data dict
     data = dict()
 
+    # get all glossary terms if needed
+    need_glossary_terms = any(d_str in fields_using_groups for d_str in fields)
+    glossary_terms = \
+        select(i for i in db.Glossary)[:][:] if need_glossary_terms \
+        else list()
+
+    # check places relevant only for the entity of `class_name`
+    class_name_field = 'policies' if class_name == 'Policy' \
+        else 'plans'
+
+    # get all places if needed
+    need_places = any(d_str in fields_using_geo_groups for d_str in fields)
+    place_instances = \
+        select(
+            (i.area1, i.area2, i.country_name)
+            for i in db.Place
+            if len(getattr(i, class_name_field)) > 0
+        )[:][:] if need_places \
+        else list()
+
     # for each field to get optionset values for:
     for d_str in fields:
 
@@ -582,9 +730,17 @@ def get_optionset(fields: list = list()):
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
         # TODO handle other special values like "Unspecified" as needed
-        options = select(
-            getattr(i, field) for i in entity_class
-        ).filter(lambda x: x is not None)[:][:]
+        options = None
+        if field == 'country_name' or field == 'level':
+            options = select(
+                getattr(i, field) for i in entity_class
+                if len(getattr(i, class_name_field)) > 0
+            ).filter(lambda x: x is not None)[:][:]
+        else:
+            options = select(
+                getattr(i, field) for i in entity_class
+            ).filter(lambda x: x is not None)[:][:]
+
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
@@ -601,13 +757,14 @@ def get_optionset(fields: list = list()):
             options_with_groups = list()
             for option in options:
                 # get group from glossary data
-                parent = db.Glossary.get(
-                    **{
-                        'entity_name': entity_name,
-                        'field': field,
-                        'subterm': option
-                    }
+                parent = find(
+                    lambda i:
+                        i.entity_name == entity_name
+                        and i.field == field
+                        and i.subterm == option,
+                    glossary_terms
                 )
+
                 # if a parent was found use its term as the group, otherwise
                 # specify "Other" as the group
                 if parent:
@@ -618,35 +775,42 @@ def get_optionset(fields: list = list()):
             options = options_with_groups
         elif uses_geo_groups:
             options_with_groups = list()
+
             if field == 'area1':
                 for option in options:
                     # get group from glossary data
-                    parent = select(
-                        i for i in db.Place
-                        if i.area1 == option
-                    ).first()
+                    parent = find(
+                        lambda i:
+                            i[0] == option,
+                        place_instances
+                    )
+
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
                         options_with_groups.append(
-                            [option, parent.country_name])
+                            [option, parent[2]])
                     else:
-                        # TODO figure out best way to handle "Other" cases
-                        options_with_groups.append([option, 'Other'])
+                        continue
+                        # # TODO figure out best way to handle "Other" cases
+                        # options_with_groups.append([option, 'Other'])
             elif field == 'area2':
                 for option in options:
                     # get group from glossary data
-                    parent = select(
-                        i for i in db.Place
-                        if i.area2 == option
-                    ).first()
+                    parent = find(
+                        lambda i:
+                            i[1] == option,
+                        place_instances
+                    )
+
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
-                        options_with_groups.append([option, parent.area1])
+                        options_with_groups.append([option, parent[0]])
                     else:
-                        # TODO figure out best way to handle "Other" cases
-                        options_with_groups.append([option, 'Other'])
+                        continue
+                        # # TODO figure out best way to handle "Other" cases
+                        # options_with_groups.append([option, 'Other'])
 
             options = options_with_groups
 
@@ -671,7 +835,6 @@ def get_optionset(fields: list = list()):
                 'id': id,
                 'value': value,
                 'label': value,
-                # 'label': get_label_from_value(field, value),
             }
             if uses_groups:
                 datum['group'] = group
@@ -790,6 +953,20 @@ def apply_policy_filters(q, filters: dict = dict()):
                         )
                     )
 
+                )
+                continue
+
+            elif field == 'date_issued':
+                # return instances where `date_issued` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_issued is not None
+                    and i.date_issued <= end
+                    and i.date_issued >= start
                 )
                 continue
 

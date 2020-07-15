@@ -504,6 +504,9 @@ class CovidPolicyPlugin(IngestPlugin):
         #     .worksheet(name='Local Area Database') \
         #     .as_dataframe()
 
+        # s3 bucket file keys
+        self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
+
         # policy data
         self.data = self.client \
             .worksheet(name='Policy Database') \
@@ -756,7 +759,8 @@ class CovidPolicyPlugin(IngestPlugin):
             # TODO confirm these criteria
             data = data.loc[data['Unique ID'] != '', :]
             data = data.loc[data['Plan description'] != '', :]
-            data = data.loc[data['Plan announcement date'] != '', :]
+            data = data.loc[data['Plan PDF'] != '', :]
+            # data = data.loc[data['Plan announcement date'] != '', :]
 
             # analyze for QA/QC and quit if errors detected
             valid = self.check(data)
@@ -786,19 +790,6 @@ class CovidPolicyPlugin(IngestPlugin):
             data = data.rename(columns=columns)
             self.data_plans = data
 
-            # # format certain values
-            # for col in ('auth_entity.level', 'place.level'):
-            #     for to_replace, value in (
-            #         ('State/Province (Intermediate area)', 'State / Province'),
-            #         ('Local area (county, city)', 'Local'),
-            #         ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-            #          'Multiple countries / Global policy'),
-            #     ):
-            #         data[col] = data[col].replace(
-            #             to_replace=to_replace,
-            #             value=value
-            #         )
-
             # create Plan instances
             self.create_plans(db)
         process_plan_data(self, db)
@@ -820,7 +811,8 @@ class CovidPolicyPlugin(IngestPlugin):
         action, version = upsert(
             db.Version,
             {
-                'type': 'Policy and plan data',
+                'type': 'Policy data',
+                # 'type': 'Policy and plan data',
             },
             {
                 'date': date.today(),
@@ -1161,7 +1153,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 Well-known location string
 
             """
-            if i.area2.lower() not in ('unspecified', 'n/a', ''):
+            if i.area2.lower() not in ('unspecified', 'n/a', '') \
+                    and i.level == 'Government':
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area1}, {i.country_name}'''
@@ -1276,7 +1269,7 @@ class CovidPolicyPlugin(IngestPlugin):
             i.ingest_field for i in db.Metadata
             if i.ingest_field != ''
             and i.entity_name == 'Auth_Entity.Place'
-            and i.export == True
+            # and i.export == True
             and i.class_name == 'Plan'
         )[:][:]
 
@@ -1326,15 +1319,15 @@ class CovidPolicyPlugin(IngestPlugin):
             if d['org_type'] != 'Government':
                 level = d['org_type']
             elif auth_entity_place_instance_data['area2'].strip() != '' and \
-                    auth_entity_place_instance_data['area2'] != 'NA' and \
+                    auth_entity_place_instance_data['area2'] != 'Unspecified' and \
                     auth_entity_place_instance_data['area2'] is not None:
                 level = 'Local'
             elif auth_entity_place_instance_data['area1'].strip() != '' and \
-                    auth_entity_place_instance_data['area1'] != 'NA' and \
+                    auth_entity_place_instance_data['area1'] != 'Unspecified' and \
                     auth_entity_place_instance_data['area1'] is not None:
                 level = 'State / Province'
             elif auth_entity_place_instance_data['iso3'].strip() != '' and \
-                    auth_entity_place_instance_data['iso3'] != 'NA' and \
+                    auth_entity_place_instance_data['iso3'] != 'Unspecified' and \
                     auth_entity_place_instance_data['iso3'] is not None:
                 level = 'Country'
             else:
@@ -1661,32 +1654,32 @@ class CovidPolicyPlugin(IngestPlugin):
                 n_inserted += 1
             upserted.add(instance)
 
-        for i, d in self.data.iterrows():
-            # if unique ID is not an integer, skip
-            # TODO handle on ingest
-            try:
-                int(d['id'])
-            except:
-                continue
-
-            if reject(d):
-                continue
-
-            # upsert Plans
-            # TODO handle linking to Policies
-            # TODO consider how to count these updates, since they're done
-            # after new instances are created (if counting them at all)
-            if False and d['policy'] != '':
-                linked_policies = list()
-                for source_id in d['policy']:
-                    policy_instance = db.Plan.get(source_id=source_id)
-                    if policy_instance is not None:
-                        linked_policies.append(policy_instance)
-                upsert(
-                    db.Plan,
-                    {'id': d['id']},
-                    {'policy': linked_policies},
-                )
+        # for i, d in self.data.iterrows():
+        #     # if unique ID is not an integer, skip
+        #     # TODO handle on ingest
+        #     try:
+        #         int(d['id'])
+        #     except:
+        #         continue
+        #
+        #     if reject(d):
+        #         continue
+        #
+        #     # upsert Plans
+        #     # TODO handle linking to Policies
+        #     # TODO consider how to count these updates, since they're done
+        #     # after new instances are created (if counting them at all)
+        #     if False and d['policy'] != '':
+        #         linked_policies = list()
+        #         for source_id in d['policy']:
+        #             policy_instance = db.Plan.get(source_id=source_id)
+        #             if policy_instance is not None:
+        #                 linked_policies.append(policy_instance)
+        #         upsert(
+        #             db.Plan,
+        #             {'id': d['id']},
+        #             {'policy': linked_policies},
+        #         )
 
         # delete all records in table but not in ingest dataset
         n_deleted = db.Plan.delete_2(upserted)
@@ -2049,10 +2042,6 @@ class CovidPolicyPlugin(IngestPlugin):
         doc_keys = policy_doc_keys if entity_class == db.Policy \
             else plan_doc_keys
 
-        print('doc_keys')
-        print(doc_keys)
-        input('press enter')
-
         # track types added to assist deletion
         types = set()
 
@@ -2140,7 +2129,6 @@ class CovidPolicyPlugin(IngestPlugin):
         n_added = 0
         n_failed = 0
         n_checked = 0
-        keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
         could_not_download = set()
         missing_filenames = set()
         for file in files:
@@ -2148,7 +2136,7 @@ class CovidPolicyPlugin(IngestPlugin):
             print(f'''Checking file {n_checked} of {len(files)}...''')
             if file.filename is not None:
                 file_key = file.filename
-                if file_key in keys:
+                if file_key in self.s3_bucket_keys:
                     # print('\nFile found')
                     n_valid += 1
                     pass
