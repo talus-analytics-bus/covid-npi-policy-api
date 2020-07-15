@@ -32,6 +32,30 @@ class bcolors:
 special_fields = ('home_rule', 'dillons_rule')
 
 
+def find_all(i, filter_func):
+    """Finds all instances in iterable `i` for which func `filter_func`
+    returns True, returns emptylist otherwise.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+    filter_func : type
+        Description of parameter `filter_func`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    return list(
+        filter(
+            filter_func, i
+        )
+    )
+
+
 @db_session
 def upsert(cls, get: dict, set: dict = None, skip: list = []):
     """Insert or update record into specified class based on checking for

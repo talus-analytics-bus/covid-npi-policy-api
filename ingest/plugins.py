@@ -15,7 +15,7 @@ import pprint
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
 from .util import upsert, download_file, bcolors, nyt_caseload_csv_to_dict, \
-    jhu_caseload_csv_to_dict
+    jhu_caseload_csv_to_dict, find_all
 import pandas as pd
 
 # constants
@@ -499,10 +499,10 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[0] Connecting to Airtable and fetching tables...')
         self.client.connect()
 
-        # # local area database
-        # self.local_areas = self.client \
-        #     .worksheet(name='Local Area Database') \
-        #     .as_dataframe()
+        # local area database
+        self.local_areas = self.client \
+            .worksheet(name='Local Area Database') \
+            .as_dataframe()
 
         # s3 bucket file keys
         self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
@@ -742,6 +742,34 @@ class CovidPolicyPlugin(IngestPlugin):
                         to_replace=to_replace,
                         value=value
                     )
+
+            # assign local areas cols of policy data based on local area
+            # database linkages
+            local_areas = self.local_areas.to_dict(orient='records')
+            for i, d in self.data.iterrows():
+                if d['auth_entity.level'] != 'Local':
+                    continue
+                else:
+                    print('\nPolicy name: ' + d['policy_name'])
+                    print('\nSource ID: ' + d['source_id'])
+                    auth_local_areas = find_all(
+                        i=local_areas,
+                        filter_func=lambda x:
+                            d['source_id'] in x['Policy Database']
+                    )
+                    # TODO FIX THIS so it actually filters right
+                    affected_local_areas = find_all(
+                        i=local_areas,
+                        filter_func=lambda x:
+                            d['source_id'] in x['Policy Database 2']
+                    )
+
+                    print('Aff. local area results: ')
+                    pp.pprint([a['County/City Name']
+                               for a in affected_local_areas])
+                    if d['id'] == 7633:
+                        input('Paused.')
+                    # input('Press enter to continue.')
 
             # create Policy instances
             self.create_policies(db)
