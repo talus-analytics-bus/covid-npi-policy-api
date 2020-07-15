@@ -133,7 +133,7 @@ async def get_policy(fields: List[str] = Query(None)):
 
 
 @app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
-async def get_policy(fields: List[str] = Query(None)):
+async def get_plan(fields: List[str] = Query(None)):
     """Return Plan data.
 
     Parameters
