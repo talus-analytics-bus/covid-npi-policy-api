@@ -92,7 +92,7 @@ def get_secret(
 # check for config.ini and use that configuration for the PostgreSQL
 # database if it's there
 config = configparser.ConfigParser(allow_no_value=True)
-config.read('./db/config-local.ini')
+# config.read('./db/config-local.ini')
 
 # collate parameters from INI file or from AWS Secrets Manager if that is
 # not provided
@@ -108,7 +108,7 @@ else:
     conn_params['username'] = secret['username']
     conn_params['host'] = secret['host']
     conn_params['password'] = secret['password']
-
+print(conn_params)
 
 # init PonyORM database instance
 db = orm.Database()
