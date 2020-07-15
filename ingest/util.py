@@ -242,11 +242,11 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
 
     print('\nmissing_names')
     pp.pprint(missing_names)
-    input('Press enter to continue.')
+    # input('Press enter to continue.')
 
     print('\ndata')
     pp.pprint(data)
-    input('Press enter to continue.')
+    # input('Press enter to continue.')
 
     # return output
     return data
