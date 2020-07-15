@@ -1269,7 +1269,7 @@ class CovidPolicyPlugin(IngestPlugin):
             i.ingest_field for i in db.Metadata
             if i.ingest_field != ''
             and i.entity_name == 'Auth_Entity.Place'
-            and i.export == True
+            # and i.export == True
             and i.class_name == 'Plan'
         )[:][:]
 
