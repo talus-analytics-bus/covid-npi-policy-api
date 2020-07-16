@@ -76,15 +76,27 @@ def export(filters: dict = None, class_name: str = 'Policy'):
         The XLSX data export file.
 
     """
-    # Create Excel export file
-    genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
-    content = genericExcelExport.build()
     media_type = 'application/' + \
         'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    return Response(
-        content=content,
-        media_type=media_type
-    )
+
+    # If all data: return static Excel file
+    if class_name == 'all_static':
+        today = date.today()
+        file = download_file(
+            'https://gida.ghscosting.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx', 'COVID AMP - Full Data Export - ' + str(today).replace('-', ''), None, as_object=True)
+        return Response(
+            content=file,
+            media_type=media_type
+        )
+    else:
+        # Create Excel export file
+        genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
+        content = genericExcelExport.build()
+
+        return Response(
+            content=content,
+            media_type=media_type
+        )
 
 
 @db_session
