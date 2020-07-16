@@ -219,8 +219,11 @@ class Plan(db.Entity):
 
             # Place
             if k == 'place':
-                instance_dict[k] = Place[v].to_dict(
-                    only=return_fields_by_entity['place'])
+                try:
+                    instance_dict[k] = Place[v].to_dict(
+                        only=return_fields_by_entity['place'])
+                except:
+                    pass
 
             # Auth_Entity
             elif k == 'auth_entity':
@@ -349,8 +352,11 @@ class Policy(db.Entity):
 
             # Place
             if k == 'place':
-                instance_dict[k] = Place[v].to_dict(
-                    only=return_fields_by_entity['place'])
+                try:
+                    instance_dict[k] = Place[v].to_dict(
+                        only=return_fields_by_entity['place'])
+                except:
+                    pass
 
             # Auth_Entity
             elif k == 'auth_entity':
