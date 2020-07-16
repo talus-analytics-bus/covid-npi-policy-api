@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, Response
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
     Auth_Entity, Place, File, PlanList
-from .util import str_to_date, find
+from .util import str_to_date, find, download_file
 from db import db
 
 # # Code optimization profiling
