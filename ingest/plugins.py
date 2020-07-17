@@ -698,8 +698,22 @@ class CovidPolicyPlugin(IngestPlugin):
             self.data.sort_values('Unique ID')
 
             # remove records without a unique ID and other features
+            # TODO using a loop
             self.data = self.data.loc[self.data['Unique ID'] != '', :]
-            self.data = self.data.loc[self.data['Authorizing level of government'] != '', :]
+            self.data = self.data.loc[
+                self.data['Authorizing level of government'] != '', :
+            ]
+
+            # do not ingest "Tribal nation" data until a plugin is written to
+            # determine `place` instance attributes for tribal nations
+            self.data = self.data.loc[
+                self.data['Authorizing level of government']
+                != 'Tribal nation', :
+            ]
+            self.data = self.data.loc[
+                self.data['Authorizing country ISO']
+                != '', :
+            ]
             self.data = self.data.loc[self.data['Policy description'] != '', :]
             self.data = self.data.loc[self.data['Effective start date'] != '', :]
 
