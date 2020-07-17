@@ -108,7 +108,7 @@ else:
     conn_params['username'] = secret['username']
     conn_params['host'] = secret['host']
     conn_params['password'] = secret['password']
-
+print(conn_params)
 
 # init PonyORM database instance
 db = orm.Database()

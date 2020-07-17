@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, Response
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
     Auth_Entity, Place, File, PlanList
-from .util import str_to_date
+from .util import str_to_date, find, download_file
 from db import db
 
 # # Code optimization profiling
@@ -76,15 +76,27 @@ def export(filters: dict = None, class_name: str = 'Policy'):
         The XLSX data export file.
 
     """
-    # Create Excel export file
-    genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
-    content = genericExcelExport.build()
     media_type = 'application/' + \
         'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    return Response(
-        content=content,
-        media_type=media_type
-    )
+
+    # If all data: return static Excel file
+    if class_name == 'all_static':
+        today = date.today()
+        file = download_file(
+            'https://gida.ghscosting.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx', 'COVID AMP - Full Data Export - ' + str(today).replace('-', ''), None, as_object=True)
+        return Response(
+            content=file,
+            media_type=media_type
+        )
+    else:
+        # Create Excel export file
+        genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
+        content = genericExcelExport.build()
+
+        return Response(
+            content=content,
+            media_type=media_type
+        )
 
 
 @db_session
@@ -700,16 +712,32 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # define output data dict
     data = dict()
 
+    # get all glossary terms if needed
+    need_glossary_terms = any(d_str in fields_using_groups for d_str in fields)
+    glossary_terms = \
+        select(i for i in db.Glossary)[:][:] if need_glossary_terms \
+        else list()
+
+    # check places relevant only for the entity of `class_name`
+    class_name_field = 'policies' if class_name == 'Policy' \
+        else 'plans'
+
+    # get all places if needed
+    need_places = any(d_str in fields_using_geo_groups for d_str in fields)
+    place_instances = \
+        select(
+            (i.area1, i.area2, i.country_name)
+            for i in db.Place
+            if len(getattr(i, class_name_field)) > 0
+        )[:][:] if need_places \
+        else list()
+
     # for each field to get optionset values for:
     for d_str in fields:
 
         # split into entity class name and field
         entity_name, field = d_str.split('.')
         entity_class = getattr(db, entity_name)
-
-        # check places relevant only for the entity of `class_name`
-        class_name_field = 'policies' if class_name == 'Policy' \
-            else 'plans'
 
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
@@ -741,13 +769,14 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             options_with_groups = list()
             for option in options:
                 # get group from glossary data
-                parent = db.Glossary.get(
-                    **{
-                        'entity_name': entity_name,
-                        'field': field,
-                        'subterm': option
-                    }
+                parent = find(
+                    lambda i:
+                        i.entity_name == entity_name
+                        and i.field == field
+                        and i.subterm == option,
+                    glossary_terms
                 )
+
                 # if a parent was found use its term as the group, otherwise
                 # specify "Other" as the group
                 if parent:
@@ -762,17 +791,17 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             if field == 'area1':
                 for option in options:
                     # get group from glossary data
-                    parent = select(
-                        i for i in db.Place
-                        if i.area1 == option
-                        and len(getattr(i, class_name_field)) > 0
-                    ).first()
+                    parent = find(
+                        lambda i:
+                            i[0] == option,
+                        place_instances
+                    )
 
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
                         options_with_groups.append(
-                            [option, parent.country_name])
+                            [option, parent[2]])
                     else:
                         continue
                         # # TODO figure out best way to handle "Other" cases
@@ -780,15 +809,16 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             elif field == 'area2':
                 for option in options:
                     # get group from glossary data
-                    parent = select(
-                        i for i in db.Place
-                        if i.area2 == option
-                        and len(getattr(i, class_name_field)) > 0
-                    ).first()
+                    parent = find(
+                        lambda i:
+                            i[1] == option,
+                        place_instances
+                    )
+
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
-                        options_with_groups.append([option, parent.area1])
+                        options_with_groups.append([option, parent[0]])
                     else:
                         continue
                         # # TODO figure out best way to handle "Other" cases
@@ -817,7 +847,6 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                 'id': id,
                 'value': value,
                 'label': value,
-                # 'label': get_label_from_value(field, value),
             }
             if uses_groups:
                 datum['group'] = group
