@@ -2,6 +2,7 @@
 # standard modules
 import os
 import pytz
+import time
 from os import sys
 from datetime import date, datetime, timedelta
 from collections import defaultdict
@@ -681,11 +682,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        # create local area places from local area database
-        # TODO
-        # print(self.local_areas)
-        # input('Press enter to continue.')
-
         # upsert metadata records
         self.create_metadata(db)
 
@@ -757,33 +753,87 @@ class CovidPolicyPlugin(IngestPlugin):
                         value=value
                     )
 
+            def assign_local_areas_str(
+                datum,
+                level_field_name,
+                db_field_name,
+                local_area_field_name,
+                local_area_arr_field_name
+            ):
+                """Assign semicolon-delimited list of local area names to the
+                appropriate Policy instance data fields based on the local area
+                entity instances defined for it.
+
+                Parameters
+                ----------
+                datum : type
+                    Description of parameter `datum`.
+                level_field_name : type
+                    Description of parameter `level_field_name`.
+                db_field_name : type
+                    Description of parameter `db_field_name`.
+                local_area_field_name : type
+                    Description of parameter `local_area_field_name`.
+
+                Returns
+                -------
+                type
+                    Description of returned object.
+
+                """
+                if datum[level_field_name] == 'Local':
+
+                    # method by performing join in Airtable first
+
+                    local_areas_str_tmp = d[local_area_arr_field_name]
+                    local_areas_str = "; ".join(local_areas_str_tmp)
+                    datum[db_field_name] = local_areas_str
+
+                    # # method by performing join in this Python script
+                    # local_areas_instances = find_all(
+                    #     i=local_areas,
+                    #     filter_func=lambda x:
+                    #         datum['source_id'] in x[db_field_name]
+                    # )
+                    #
+                    # # assign string value for areas
+                    # local_areas_str = "; ".join(
+                    #     [a['County/City Name']
+                    #      for a in local_areas_instances]
+                    # )
+                    # datum[db_field_name] = local_areas_str
+
             # assign local areas cols of policy data based on local area
             # database linkages
+            print('\n\nAssigning local area names from local area database...')
+            then = time.perf_counter()
             local_areas = self.local_areas.to_dict(orient='records')
             for i, d in self.data.iterrows():
-                if d['auth_entity.level'] != 'Local':
-                    continue
-                else:
-                    print('\nPolicy name: ' + d['policy_name'])
-                    print('\nSource ID: ' + d['source_id'])
-                    auth_local_areas = find_all(
-                        i=local_areas,
-                        filter_func=lambda x:
-                            d['source_id'] in x['Policy Database']
-                    )
-                    # TODO FIX THIS so it actually filters right
-                    affected_local_areas = find_all(
-                        i=local_areas,
-                        filter_func=lambda x:
-                            d['source_id'] in x['Policy Database 2']
-                    )
 
-                    print('Aff. local area results: ')
-                    pp.pprint([a['County/City Name']
-                               for a in affected_local_areas])
-                    if d['id'] == 7633:
-                        input('Paused.')
-                    # input('Press enter to continue.')
+                # print(d['policy_name'])
+                # print(
+                #     d['Affected local area (e.g., county, city) names - Linked to Local Area Database'])
+                # input('Press enter to continue')
+                #
+
+                assign_local_areas_str(
+                    datum=d,
+                    level_field_name='auth_entity.level',
+                    db_field_name='Policy Database',
+                    local_area_field_name='auth_entity.area2',
+                    local_area_arr_field_name='Authorizing local area (e.g., county, city) names - Linked to Local Area Database'
+                )
+                assign_local_areas_str(
+                    datum=d,
+                    level_field_name='place.level',
+                    db_field_name='Policy Database 2',
+                    local_area_field_name='place.area2',
+                    local_area_arr_field_name='Affected local area (e.g., county, city) names - Linked to Local Area Database'
+                )
+
+            now = time.perf_counter()
+            sec = now - then
+            print('Local area names assigned, sec: ' + str(sec))
 
             # create Policy instances
             self.create_policies(db)
@@ -898,8 +948,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area1}, {i.country_name}'''
-            else:
+            elif i.country_name is not None:
                 return i.country_name
+            else:
+                print(i.to_dict())
+                input('Could not determine place name for this instance.')
 
         def get_auth_entities_from_raw_data(d):
             """Given a datum `d` from raw data, create a list of authorizing
