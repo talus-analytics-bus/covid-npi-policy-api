@@ -18,6 +18,7 @@ from enum import Enum
 class Response(BaseModel):
     success: bool
     message: str
+    next_page_url: str = None
 
 
 class ListResponse(Response):
