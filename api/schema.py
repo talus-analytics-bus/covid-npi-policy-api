@@ -307,7 +307,7 @@ def get_policy(
     # none was provided in the URL query args
     # TODO use pagination in all cases with a URL param arg-definable
     # page size
-    use_pagination = all or page is not None
+    use_pagination = (all or page is not None) and not return_db_instances
     pagesize = 10
     if use_pagination and (page is None or page == 0):
         page = 1
