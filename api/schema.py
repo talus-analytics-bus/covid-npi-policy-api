@@ -327,14 +327,13 @@ def get_policy(
 
         # define list of instances to return
         data = []
-
+        print('query made')
         # for each policy
         for d in q:
-
+            print('generating dicts')
             # convert it to a dictionary returning only the specified fields
             d_dict = d.to_dict_2(
                 return_fields_by_entity=return_fields_by_entity)
-
             # add it to the output list
             data.append(d_dict)
 

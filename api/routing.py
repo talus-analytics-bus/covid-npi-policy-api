@@ -129,6 +129,8 @@ async def get_policy(fields: List[str] = Query(None)):
         Policy response dictionary.
 
     """
+    print('fields')
+    print(fields)
     return schema.get_policy(fields=fields)
 
 
