@@ -3,12 +3,14 @@ bin/
 sh/
 ingest/sh
 
+
 # PDFs
 /api/pdf
 
 # Private config files
 config/
 config-*.ini
+db/config-local.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

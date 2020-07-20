@@ -1,6 +1,7 @@
 """Define API data processing methods"""
 # standard modules
 import functools
+import math
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -272,6 +273,7 @@ def get_policy(
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
     by_category: str = None,
+    page: int = None
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -301,6 +303,15 @@ def get_policy(
     # return all fields?
     all = fields is None
 
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    # TODO use pagination in all cases with a URL param arg-definable
+    # page size
+    use_pagination = all or page is not None
+    pagesize = 10
+    if use_pagination and (page is None or page == 0):
+        page = 1
+
     # get ordered policies from database
     q = select(i for i in db.Policy).order_by(
         desc(getattr(db.Policy, order_by_field)))
@@ -308,6 +319,13 @@ def get_policy(
     # apply filters if any
     if filters is not None:
         q = apply_policy_filters(q, filters)
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
 
     # return query object if arguments requested it
     if return_db_instances:
@@ -327,16 +345,19 @@ def get_policy(
 
         # define list of instances to return
         data = []
-
         # for each policy
         for d in q:
-
             # convert it to a dictionary returning only the specified fields
             d_dict = d.to_dict_2(
                 return_fields_by_entity=return_fields_by_entity)
-
             # add it to the output list
             data.append(d_dict)
+
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages \
+            else '/get/policy?page=' + str(page + 1)
 
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Policy
@@ -348,14 +369,16 @@ def get_policy(
             res = PolicyDict(
                 data=data_by_category,
                 success=True,
-                message=f'''{len(q)} policies found'''
+                message=f'''{len(q)} policies found''',
+                next_page_url=next_page_url
             )
         else:
             # create response from output list
             res = PolicyList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} policies found'''
+                message=f'''{len(q)} policies found''',
+                next_page_url=next_page_url
             )
         return res
 
