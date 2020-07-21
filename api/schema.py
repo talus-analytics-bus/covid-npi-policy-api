@@ -273,7 +273,8 @@ def get_policy(
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
     by_category: str = None,
-    page: int = None
+    page: int = None,
+    pagesize: int = 100
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -308,7 +309,6 @@ def get_policy(
     # TODO use pagination in all cases with a URL param arg-definable
     # page size
     use_pagination = (all or page is not None) and not return_db_instances
-    pagesize = 10
     if use_pagination and (page is None or page == 0):
         page = 1
 
@@ -345,7 +345,6 @@ def get_policy(
 
         # define list of instances to return
         data = []
-
         # for each policy
         for d in q:
             # convert it to a dictionary returning only the specified fields

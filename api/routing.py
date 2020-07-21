@@ -117,7 +117,8 @@ async def get_file(id: int, title: str):
 @app.get("/get/policy", response_model=ListResponse, response_model_exclude_unset=True)
 async def get_policy(
     fields: List[str] = Query(None),
-    page: int = None
+    page: int = None,
+    pagesize: int = 100,
 ):
     """Return Policy data.
 
@@ -132,7 +133,7 @@ async def get_policy(
         Policy response dictionary.
 
     """
-    return schema.get_policy(fields=fields, page=page)
+    return schema.get_policy(fields=fields, page=page, pagesize=pagesize)
 
 
 @app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
