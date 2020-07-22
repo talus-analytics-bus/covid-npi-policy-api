@@ -845,7 +845,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 now = time.perf_counter()
                 sec = now - then
                 print('Local area names assigned, sec: ' + str(sec))
-
+            assign_standardized_local_areas()
             # create Policy instances
             self.create_policies(db)
         process_policy_data(self, db)
