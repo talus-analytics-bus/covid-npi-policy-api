@@ -548,8 +548,8 @@ class CovidPolicyPlugin(IngestPlugin):
         # print('airtable_all')
         # print(airtable_all)
 
-        # clear existing
-        delete(i for i in db.Observation if i.metric == 0)
+        # # clear existing
+        # delete(i for i in db.Observation if i.metric == 0)
 
         # load data to get country names from ISO3 codes
         country_data = pd.read_json('./ingest/data/country.json') \
@@ -712,6 +712,8 @@ class CovidPolicyPlugin(IngestPlugin):
             # ]
             self.data = self.data.loc[self.data['Policy description'] != '', :]
             self.data = self.data.loc[self.data['Effective start date'] != '', :]
+            # self.data.loc[(self.data['Authorizing local area (e.g., county, city)']
+            #                != '') & (self.data['Authorizing level of government'] != 'Local'), 'Authorizing local area (e.g., county, city)'] = ''
 
             # analyze for QA/QC and quit if errors detected
             valid = self.check(self.data)
@@ -792,13 +794,21 @@ class CovidPolicyPlugin(IngestPlugin):
                         Description of returned object.
 
                     """
-                    if datum[level_field_name] == 'Local':
+                    if True:
+                        # if datum[level_field_name] == 'Local':
 
                         # method by performing join in Airtable first
-
-                        local_areas_str_tmp = d[local_area_arr_field_name]
+                        # print('\n\n\nlocal_area_arr_field_name')
+                        # print(local_area_arr_field_name)
+                        # print('local_areas_str_tmp')
+                        # print(local_areas_str_tmp)
+                        # print('db_field_name')
+                        # print(db_field_name)
+                        # print('local_areas_str')
+                        # print(local_areas_str)
+                        local_areas_str_tmp = datum[local_area_arr_field_name]
                         local_areas_str = "; ".join(local_areas_str_tmp)
-                        datum[db_field_name] = local_areas_str
+                        datum[local_area_field_name] = local_areas_str
 
                         # # method by performing join in this Python script
                         # local_areas_instances = find_all(
@@ -846,6 +856,10 @@ class CovidPolicyPlugin(IngestPlugin):
                 sec = now - then
                 print('Local area names assigned, sec: ' + str(sec))
             assign_standardized_local_areas()
+
+            # self.data.to_csv('file_name.csv')
+            # input('CSV written. Press enter.')
+
             # create Policy instances
             self.create_policies(db)
         process_policy_data(self, db)
@@ -1148,6 +1162,8 @@ class CovidPolicyPlugin(IngestPlugin):
             place_auth_set = {k: auth_entity_place_instance_data[k]
                               for k in set_keys}
 
+            print('\n\n\nplace_auth_set')
+            print(place_auth_get)
             action, place_auth = upsert(
                 db.Place,
                 place_auth_get,
