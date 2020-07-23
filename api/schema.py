@@ -356,8 +356,8 @@ def get_policy(
         # if pagination is being used, get next page URL if there is one
         n_pages = None if not use_pagination else math.ceil(n / pagesize)
         more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages \
-            else '/get/policy?page=' + str(page + 1)
+        next_page_url = None if not more_pages else \
+            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
 
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Policy
