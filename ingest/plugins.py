@@ -794,39 +794,22 @@ class CovidPolicyPlugin(IngestPlugin):
                         Description of returned object.
 
                     """
-                    if True:
-                        # if datum[level_field_name] == 'Local':
+                    local_areas_str_tmp = datum[local_area_arr_field_name]
+                    local_areas_str = "; ".join(local_areas_str_tmp)
+                    datum[local_area_field_name] = local_areas_str
 
-                        # method by performing join in Airtable first
-                        # print('\n\n\nlocal_area_arr_field_name')
-                        # print(local_area_arr_field_name)
-                        # print('local_areas_str_tmp')
-                        # print(local_areas_str_tmp)
-                        # print('db_field_name')
-                        # print(db_field_name)
-                        # print('local_areas_str')
-                        # print(local_areas_str)
-                        local_areas_str_tmp = datum[local_area_arr_field_name]
-                        local_areas_str = "; ".join(local_areas_str_tmp)
-                        datum[local_area_field_name] = local_areas_str
-
-                        # # method by performing join in this Python script
-                        # local_areas_instances = find_all(
-                        #     i=local_areas,
-                        #     filter_func=lambda x:
-                        #         datum['source_id'] in x[db_field_name]
-                        # )
-                        #
-                        # # assign string value for areas
-                        # local_areas_str = "; ".join(
-                        #     [a['County/City Name']
-                        #      for a in local_areas_instances]
-                        # )
-                        # datum[db_field_name] = local_areas_str
+                    # if local_area_arr_field_name == 'Auth state names (lookup)' \
+                    #         and local_areas_str != '':
+                    #     print('\n\n\local_areas_str')
+                    #     print(local_areas_str)
+                    #     print('datum[local_area_arr_field_name]')
+                    #     print(datum[local_area_arr_field_name])
+                    #     input('Press enter to continue.')
 
                 # assign local areas cols of policy data based on local area
                 # database linkages
-                print('\n\nAssigning local area names from local area database...')
+                print(
+                    '\n\nAssigning local and intermediate area names from local area database...')
                 then = time.perf_counter()
                 local_areas = self.local_areas.to_dict(orient='records')
                 for i, d in self.data.iterrows():
@@ -837,6 +820,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     # input('Press enter to continue')
                     #
 
+                    # Local areas
                     assign_local_areas_str(
                         datum=d,
                         level_field_name='auth_entity.level',
@@ -850,6 +834,22 @@ class CovidPolicyPlugin(IngestPlugin):
                         db_field_name='Policy Database 2',
                         local_area_field_name='place.area2',
                         local_area_arr_field_name='Affected local area (e.g., county, city) names - Linked to Local Area Database'
+                    )
+
+                    # Intermediate areas
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='auth_entity.level',
+                        db_field_name='Policy Database',
+                        local_area_field_name='auth_entity.area1',
+                        local_area_arr_field_name='Auth state names (lookup)'
+                    )
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='place.level',
+                        db_field_name='Policy Database 2',
+                        local_area_field_name='place.area1',
+                        local_area_arr_field_name='Aff state names (lookup)'
                     )
 
                 now = time.perf_counter()
@@ -1162,8 +1162,6 @@ class CovidPolicyPlugin(IngestPlugin):
             place_auth_set = {k: auth_entity_place_instance_data[k]
                               for k in set_keys}
 
-            print('\n\n\nplace_auth_set')
-            print(place_auth_get)
             action, place_auth = upsert(
                 db.Place,
                 place_auth_get,
