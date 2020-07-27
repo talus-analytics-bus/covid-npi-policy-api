@@ -63,6 +63,21 @@ def cached(func):
 
 @db_session
 @cached
+def get_countries_with_lockdown_levels():
+    countries_with_lockdown_levels = select(
+        i.place.iso3
+        for i in db.Observation
+        if i.metric == 0
+    )
+    return {
+        'success': True,
+        'message': 'Success',
+        'data': countries_with_lockdown_levels[:][:]
+    }
+
+
+@db_session
+@cached
 def export(filters: dict = None, class_name: str = 'Policy'):
     """Return XLSX data export for policies with the given filters applied.
 

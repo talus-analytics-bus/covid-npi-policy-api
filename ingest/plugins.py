@@ -548,8 +548,8 @@ class CovidPolicyPlugin(IngestPlugin):
         # print('airtable_all')
         # print(airtable_all)
 
-        # clear existing
-        delete(i for i in db.Observation if i.metric == 0)
+        # # clear existing
+        # delete(i for i in db.Observation if i.metric == 0)
 
         # load data to get country names from ISO3 codes
         country_data = pd.read_json('./ingest/data/country.json') \
@@ -700,18 +700,20 @@ class CovidPolicyPlugin(IngestPlugin):
                 self.data['Authorizing level of government'] != '', :
             ]
 
-            # do not ingest "Tribal nation" data until a plugin is written to
-            # determine `place` instance attributes for tribal nations
-            self.data = self.data.loc[
-                self.data['Authorizing level of government']
-                != 'Tribal nation', :
-            ]
-            self.data = self.data.loc[
-                self.data['Authorizing country ISO']
-                != '', :
-            ]
+            # # do not ingest "Tribal nation" data until a plugin is written to
+            # # determine `place` instance attributes for tribal nations
+            # self.data = self.data.loc[
+            #     self.data['Authorizing level of government']
+            #     != 'Tribal nation', :
+            # ]
+            # self.data = self.data.loc[
+            #     self.data['Authorizing country ISO']
+            #     != '', :
+            # ]
             self.data = self.data.loc[self.data['Policy description'] != '', :]
             self.data = self.data.loc[self.data['Effective start date'] != '', :]
+            # self.data.loc[(self.data['Authorizing local area (e.g., county, city)']
+            #                != '') & (self.data['Authorizing level of government'] != 'Local'), 'Authorizing local area (e.g., county, city)'] = ''
 
             # analyze for QA/QC and quit if errors detected
             valid = self.check(self.data)
@@ -753,27 +755,9 @@ class CovidPolicyPlugin(IngestPlugin):
                         value=value
                     )
 
-            def assign_local_areas_str(
-                datum,
-                level_field_name,
-                db_field_name,
-                local_area_field_name,
-                local_area_arr_field_name
-            ):
-                """Assign semicolon-delimited list of local area names to the
-                appropriate Policy instance data fields based on the local area
-                entity instances defined for it.
-
-                Parameters
-                ----------
-                datum : type
-                    Description of parameter `datum`.
-                level_field_name : type
-                    Description of parameter `level_field_name`.
-                db_field_name : type
-                    Description of parameter `db_field_name`.
-                local_area_field_name : type
-                    Description of parameter `local_area_field_name`.
+            def assign_standardized_local_areas():
+                """Overwrite values for local areas in free text column with
+                names of local area instances in the linked column.
 
                 Returns
                 -------
@@ -781,59 +765,100 @@ class CovidPolicyPlugin(IngestPlugin):
                     Description of returned object.
 
                 """
-                if datum[level_field_name] == 'Local':
 
-                    # method by performing join in Airtable first
+                def assign_local_areas_str(
+                    datum,
+                    level_field_name,
+                    db_field_name,
+                    local_area_field_name,
+                    local_area_arr_field_name
+                ):
+                    """Assign semicolon-delimited list of local area names to the
+                    appropriate Policy instance data fields based on the local area
+                    entity instances defined for it.
 
-                    local_areas_str_tmp = d[local_area_arr_field_name]
+                    Parameters
+                    ----------
+                    datum : type
+                        Description of parameter `datum`.
+                    level_field_name : type
+                        Description of parameter `level_field_name`.
+                    db_field_name : type
+                        Description of parameter `db_field_name`.
+                    local_area_field_name : type
+                        Description of parameter `local_area_field_name`.
+
+                    Returns
+                    -------
+                    type
+                        Description of returned object.
+
+                    """
+                    local_areas_str_tmp = datum[local_area_arr_field_name]
                     local_areas_str = "; ".join(local_areas_str_tmp)
-                    datum[db_field_name] = local_areas_str
+                    datum[local_area_field_name] = local_areas_str
 
-                    # # method by performing join in this Python script
-                    # local_areas_instances = find_all(
-                    #     i=local_areas,
-                    #     filter_func=lambda x:
-                    #         datum['source_id'] in x[db_field_name]
-                    # )
+                    # if local_area_arr_field_name == 'Auth state names (lookup)' \
+                    #         and local_areas_str != '':
+                    #     print('\n\n\local_areas_str')
+                    #     print(local_areas_str)
+                    #     print('datum[local_area_arr_field_name]')
+                    #     print(datum[local_area_arr_field_name])
+                    #     input('Press enter to continue.')
+
+                # assign local areas cols of policy data based on local area
+                # database linkages
+                print(
+                    '\n\nAssigning local and intermediate area names from local area database...')
+                then = time.perf_counter()
+                local_areas = self.local_areas.to_dict(orient='records')
+                for i, d in self.data.iterrows():
+
+                    # print(d['policy_name'])
+                    # print(
+                    #     d['Affected local area (e.g., county, city) names - Linked to Local Area Database'])
+                    # input('Press enter to continue')
                     #
-                    # # assign string value for areas
-                    # local_areas_str = "; ".join(
-                    #     [a['County/City Name']
-                    #      for a in local_areas_instances]
-                    # )
-                    # datum[db_field_name] = local_areas_str
 
-            # assign local areas cols of policy data based on local area
-            # database linkages
-            print('\n\nAssigning local area names from local area database...')
-            then = time.perf_counter()
-            local_areas = self.local_areas.to_dict(orient='records')
-            for i, d in self.data.iterrows():
+                    # Local areas
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='auth_entity.level',
+                        db_field_name='Policy Database',
+                        local_area_field_name='auth_entity.area2',
+                        local_area_arr_field_name='Authorizing local area (e.g., county, city) names - Linked to Local Area Database'
+                    )
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='place.level',
+                        db_field_name='Policy Database 2',
+                        local_area_field_name='place.area2',
+                        local_area_arr_field_name='Affected local area (e.g., county, city) names - Linked to Local Area Database'
+                    )
 
-                # print(d['policy_name'])
-                # print(
-                #     d['Affected local area (e.g., county, city) names - Linked to Local Area Database'])
-                # input('Press enter to continue')
-                #
+                    # Intermediate areas
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='auth_entity.level',
+                        db_field_name='Policy Database',
+                        local_area_field_name='auth_entity.area1',
+                        local_area_arr_field_name='Auth state names (lookup)'
+                    )
+                    assign_local_areas_str(
+                        datum=d,
+                        level_field_name='place.level',
+                        db_field_name='Policy Database 2',
+                        local_area_field_name='place.area1',
+                        local_area_arr_field_name='Aff state names (lookup)'
+                    )
 
-                assign_local_areas_str(
-                    datum=d,
-                    level_field_name='auth_entity.level',
-                    db_field_name='Policy Database',
-                    local_area_field_name='auth_entity.area2',
-                    local_area_arr_field_name='Authorizing local area (e.g., county, city) names - Linked to Local Area Database'
-                )
-                assign_local_areas_str(
-                    datum=d,
-                    level_field_name='place.level',
-                    db_field_name='Policy Database 2',
-                    local_area_field_name='place.area2',
-                    local_area_arr_field_name='Affected local area (e.g., county, city) names - Linked to Local Area Database'
-                )
+                now = time.perf_counter()
+                sec = now - then
+                print('Local area names assigned, sec: ' + str(sec))
+            assign_standardized_local_areas()
 
-            now = time.perf_counter()
-            sec = now - then
-            print('Local area names assigned, sec: ' + str(sec))
+            # self.data.to_csv('file_name.csv')
+            # input('CSV written. Press enter.')
 
             # create Policy instances
             self.create_policies(db)
@@ -947,7 +972,10 @@ class CovidPolicyPlugin(IngestPlugin):
             if i.area2.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area1}, {i.country_name}'''
+                if i.country_name is not None:
+                    return f'''{i.area1}, {i.country_name}'''
+                else:
+                    return i.area1
             elif i.country_name is not None:
                 return i.country_name
             else:

@@ -362,7 +362,10 @@ class Policy(db.Entity):
             elif k == 'auth_entity':
                 instances = list()
                 for id in v:
-                    instances.append(Auth_Entity[id].to_dict())
+                    try:
+                        instances.append(Auth_Entity[id].to_dict())
+                    except:
+                        pass
                 instance_dict[k] = instances
 
             # File
@@ -370,13 +373,16 @@ class Policy(db.Entity):
                 instance_dict['file'] = list()
                 file_fields = ['id']
                 for id in v:
-                    instance = File[id]
-                    doc_instance_dict = instance.to_dict(only=file_fields)
+                    try:
+                        instance = File[id]
+                        doc_instance_dict = instance.to_dict(only=file_fields)
 
-                    # append file dict to list
-                    instance_dict['file'].append(
-                        doc_instance_dict['id']
-                    )
+                        # append file dict to list
+                        instance_dict['file'].append(
+                            doc_instance_dict['id']
+                        )
+                    except:
+                        pass
         return instance_dict
 
 

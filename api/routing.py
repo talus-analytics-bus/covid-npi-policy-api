@@ -42,6 +42,11 @@ async def get_version():
     return schema.get_version()
 
 
+@app.get("/get/countries_with_lockdown_levels")
+async def get_countries_with_lockdown_levels():
+    return schema.get_countries_with_lockdown_levels()
+
+
 @app.get("/get/count")
 async def get_count(
     class_names: List[str] = Query(None),
