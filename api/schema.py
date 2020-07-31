@@ -831,7 +831,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                     # get group from glossary data
                     parent = find(
                         lambda i:
-                            i[0] == option,
+                            i[0] == option and i[2] != 'N/A',
                         place_instances
                     )
 
@@ -849,7 +849,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                     # get group from glossary data
                     parent = find(
                         lambda i:
-                            i[1] == option,
+                            i[1] == option and i[2] != 'N/A',
                         place_instances
                     )
 

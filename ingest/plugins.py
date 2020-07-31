@@ -19,6 +19,8 @@ from .util import upsert, download_file, bcolors, nyt_caseload_csv_to_dict, \
     jhu_caseload_csv_to_dict, find_all
 import pandas as pd
 
+pd.set_option("display.max_rows", None, "display.max_columns", None)
+
 # constants
 # define S3 client used for adding / checking for files in the S3
 # storage bucket
@@ -137,7 +139,24 @@ def reject(x):
         Description of returned object.
 
     """
-    return x['desc'] == ''
+    no_desc = x['desc'] == ''
+    multi_iso_aff = 'place.iso3' in x and \
+        (
+            ';' in x['place.iso3'] or
+            (
+                type(x['place.iso3']) == list and len(x['place.iso3']) > 1
+            )
+        )
+
+    multi_iso_auth = 'auth_entity.iso3' in x and \
+        (
+            ';' in x['auth_entity.iso3'] or
+            (
+                type(x['auth_entity.iso3']) == list and
+                len(x['auth_entity.iso3']) > 1
+            )
+        )
+    return no_desc or multi_iso_aff or multi_iso_auth
 
 
 class CovidCaseloadPlugin(IngestPlugin):
@@ -542,15 +561,6 @@ class CovidPolicyPlugin(IngestPlugin):
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
-        # airtable_all = self.client.worksheet(
-        #     name='Test_data').ws.get_all(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
-
-        # print('airtable_all')
-        # print(airtable_all)
-
-        # # clear existing
-        # delete(i for i in db.Observation if i.metric == 0)
-
         # load data to get country names from ISO3 codes
         country_data = pd.read_json('./ingest/data/country.json') \
             .to_dict(orient='records')
@@ -570,6 +580,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 Name or `None`
 
             """
+            if iso3 == 'Unspecified':
+                return 'N/A'
             try:
                 country = next(d for d in country_data if d['alpha-3'] == iso3)
                 return country['name'] + ' (' + iso3 + ')'
@@ -969,7 +981,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 Well-known location string
 
             """
-            if i.area2.lower() not in ('unspecified', 'n/a', ''):
+            if i.level == 'Tribal nation':
+                return i.area1
+            elif i.area2.lower() not in ('unspecified', 'n/a', ''):
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
                 if i.country_name is not None:
@@ -1060,6 +1074,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 Name or `None`
 
             """
+            if iso3 == 'Unspecified':
+                return 'N/A'
             try:
                 country = next(d for d in country_data if d['alpha-3'] == iso3)
                 return country['name'] + ' (' + iso3 + ')'
@@ -1124,6 +1140,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 place_affected_instance_data = {
                     key.split('.')[-1]: formatter(key, d) for key in place_keys}
 
+                # convert iso3 from list to str
+                if type(place_affected_instance_data['iso3']) == list:
+                    place_affected_instance_data['iso3'] = \
+                        '; '.join(place_affected_instance_data['iso3'])
+
                 # perform upsert using get and set data fields
                 place_affected_instance_data['country_name'] = \
                     get_name_from_iso3(place_affected_instance_data['iso3'])
@@ -1151,6 +1172,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 key, d) for key in auth_entity_place_keys +
                 ['home_rule', 'dillons_rule']}
 
+            # convert iso3 from list to str
+            if type(auth_entity_place_instance_data['iso3']) == list:
+                auth_entity_place_instance_data['iso3'] = \
+                    '; '.join(auth_entity_place_instance_data['iso3'])
+
             # perform upsert using get and set data fields
             # place_affected_instance_data['country_name'] = \
             auth_entity_place_instance_data['country_name'] = \
@@ -1162,6 +1188,9 @@ class CovidPolicyPlugin(IngestPlugin):
             place_auth_set = {k: auth_entity_place_instance_data[k]
                               for k in set_keys}
 
+            # pp.pprint('place_auth_set')
+            # pp.pprint(place_auth_set)
+            # input('Press enter.')
             action, place_auth = upsert(
                 db.Place,
                 place_auth_get,
@@ -1276,7 +1305,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 Well-known location string
 
             """
-            if i.area2.lower() not in ('unspecified', 'n/a', '') \
+            if i.level == 'Tribal nation':
+                return i.area1
+            elif i.area2.lower() not in ('unspecified', 'n/a', '') \
                     and i.level == 'Government':
                 return f'''{i.area2}, {i.area1}, {i.country_name}'''
             elif i.area1.lower() not in ('unspecified', 'n/a', ''):
@@ -1362,6 +1393,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 Name or `None`
 
             """
+            if iso3 == 'Unspecified':
+                return 'N/A'
             try:
                 country = next(d for d in country_data if d['alpha-3'] == iso3)
                 return country['name'] + ' (' + iso3 + ')'
@@ -1429,9 +1462,11 @@ class CovidPolicyPlugin(IngestPlugin):
             # get or create the place of the auth entity
             auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
                 key, d) for key in auth_entity_place_keys}
-            # auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
-            #     key, d) for key in auth_entity_place_keys +
-            #     ['home_rule', 'dillons_rule']}
+
+            # convert iso3 from list to str
+            if type(auth_entity_place_instance_data['iso3']) == list:
+                auth_entity_place_instance_data['iso3'] = \
+                    '; '.join(auth_entity_place_instance_data['iso3'])
 
             # perform upsert using get and set data fields
             # place_affected_instance_data['country_name'] = \
@@ -1666,7 +1701,8 @@ class CovidPolicyPlugin(IngestPlugin):
             if d['prior_policy'] != '':
                 prior_policies = list()
                 for source_id in d['prior_policy']:
-                    prior_policy_instance = db.Policy.get(source_id=source_id)
+                    prior_policy_instance = select(
+                        i for i in db.Policy if i.source_id == source_id).first()
                     if prior_policy_instance is not None:
                         prior_policies.append(prior_policy_instance)
                 upsert(
