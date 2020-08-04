@@ -217,6 +217,8 @@ async def post_policy(
     body: PolicyFilters,
     by_category: str = None,
     fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
 ):
     """Return Policy data with filters applied.
 
@@ -234,7 +236,8 @@ async def post_policy(
 
     """
     return schema.get_policy(
-        filters=body.filters, fields=fields, by_category=by_category
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize
     )
 
 

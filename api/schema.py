@@ -284,6 +284,8 @@ def get_file(id: int):
 @cached
 def get_policy(
     filters: dict = None,
+    ordering: list = [],
+    # ordering: list = [['policy_name', 'asc'], ['date_start_effective', 'desc']],
     fields: list = None,
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
@@ -328,8 +330,13 @@ def get_policy(
         page = 1
 
     # get ordered policies from database
-    q = select(i for i in db.Policy).order_by(
-        desc(getattr(db.Policy, order_by_field)))
+    q = select(i for i in db.Policy)
+    ordering.reverse()
+    for field, direction in ordering:
+        if direction == 'desc':
+            q = q.order_by(desc(getattr(db.Policy, field)))
+        else:
+            q = q.order_by(getattr(db.Policy, field))
 
     # apply filters if any
     if filters is not None:
