@@ -901,19 +901,19 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # create Plan instances
             self.create_plans(db)
-        process_plan_data(self, db)
+        # process_plan_data(self, db)
 
-        # FILES DATA # -------------------------------------------------------#
-        # create and validate File instances (syncs the file objects to S3)
-        self.create_files_from_attachments(db, 'Policy')
-        self.create_files_from_attachments(db, 'Plan')
-        self.create_files_from_urls(db)
-        self.validate_docs(db)
+        # # FILES DATA # -------------------------------------------------------#
+        # # create and validate File instances (syncs the file objects to S3)
+        # self.create_files_from_attachments(db, 'Policy')
+        # self.create_files_from_attachments(db, 'Plan')
+        # self.create_files_from_urls(db)
+        # self.validate_docs(db)
 
         # PLACES DATA # ------------------------------------------------------#
         # create Auth_Entity and Place instances
         self.create_auth_entities_and_places(db)
-        self.create_auth_entities_and_places_for_plans(db)
+        # self.create_auth_entities_and_places_for_plans(db)
 
         # VERSION DATA # -----------------------------------------------------#
         # update version
