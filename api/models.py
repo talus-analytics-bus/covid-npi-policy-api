@@ -72,7 +72,7 @@ class Policy(BaseModel):
 
     # relationships
     auth_entity: List[Auth_Entity] = None
-    place: Place = None
+    place: List[Place] = None
     file: List = None
 
 
@@ -114,7 +114,7 @@ class Plan(BaseModel):
     file: List = None
 
     # relationships
-    place: Place = None
+    place: List[Place] = None
     auth_entity: Auth_Entity = None
 
 

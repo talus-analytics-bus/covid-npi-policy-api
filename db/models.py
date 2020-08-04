@@ -153,7 +153,7 @@ class Plan(db.Entity):
     # relationships
     policy = Optional('Policy')
     file = Set('File', table="file_to_plan")
-    place = Set('Place', , table="place_to_plan")
+    place = Set('Place', table="place_to_plan")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_plan")
 
     # TODO reuse code from `Policy` entity instead of repeating here
@@ -219,11 +219,13 @@ class Plan(db.Entity):
 
             # Place
             if k == 'place':
-                try:
-                    instance_dict[k] = Place[v].to_dict(
-                        only=return_fields_by_entity['place'])
-                except:
-                    pass
+                instances = list()
+                for id in v:
+                    try:
+                        instances.append(Place[id].to_dict())
+                    except:
+                        pass
+                instance_dict[k] = instances
 
             # Auth_Entity
             elif k == 'auth_entity':
@@ -352,11 +354,13 @@ class Policy(db.Entity):
 
             # Place
             if k == 'place':
-                try:
-                    instance_dict[k] = Place[v].to_dict(
-                        only=return_fields_by_entity['place'])
-                except:
-                    pass
+                instances = list()
+                for id in v:
+                    try:
+                        instances.append(Place[id].to_dict())
+                    except:
+                        pass
+                instance_dict[k] = instances
 
             # Auth_Entity
             elif k == 'auth_entity':
