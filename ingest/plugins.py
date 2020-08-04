@@ -50,6 +50,36 @@ def iterable(obj):
         return True
 
 
+def get_place_loc(i):
+    """Get well-known text location string for a place.
+
+    Parameters
+    ----------
+    i : type
+        Instance of `Place`.
+
+    Returns
+    -------
+    str
+        Well-known location string
+
+    """
+    if i.level == 'Tribal nation':
+        return i.area1
+    elif i.area2.lower() not in ('unspecified', 'n/a', ''):
+        return f'''{i.area2}, {i.area1}, {i.country_name}'''
+    elif i.area1.lower() not in ('unspecified', 'n/a', ''):
+        if i.country_name is not None:
+            return f'''{i.area1}, {i.country_name}'''
+        else:
+            return i.area1
+    elif i.country_name is not None:
+        return i.country_name
+    else:
+        print(i.to_dict())
+        input('Could not determine place name for this instance.')
+
+
 def get_s3_bucket_keys(s3_bucket_name: str):
     """For the given S3 bucket, return all file keys, i.e., filenames.
 
@@ -931,6 +961,41 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
+    def post_process_places(self, db):
+        print('[X] Splitting places where needed...')
+        places_to_split_area2 = select(
+            i for i in db.Place
+            if ';' in i.area2
+        )
+        for p in places_to_split_area2:
+            print('\n\n')
+            places_to_upsert = p.area2.split('; ')
+            upserted_places = list()
+            for p2 in places_to_upsert:
+                print(p2)
+                instance = p.to_dict()
+                instance['area2'] = p2
+
+                get_keys = ['level', 'iso3', 'area1', 'area2']
+                set_keys = ['dillons_rule', 'home_rule', 'country_name']
+
+                get_data = {k: instance[k] for k in get_keys}
+                set_data = {k: instance[k] for k in set_keys}
+
+                action, place = upsert(
+                    db.Place,
+                    get_data,
+                    set_data,
+                )
+                place.loc = get_place_loc(place)
+                place.policies = p.policies
+                place.plans = p.plans
+                upserted_places.append(place)
+            pp.pprint([d.to_dict() for d in upserted_places])
+            commit()
+        places_to_split_area2.delete()
+
+    @db_session
     def create_auth_entities_and_places(self, db):
         """Create authorizing entity instances and place instances.
 
@@ -1090,6 +1155,7 @@ class CovidPolicyPlugin(IngestPlugin):
         n_deleted_auth_entity = 0
 
         # for each row of the data
+
         for i, d in self.data.iterrows():
 
             # if unique ID is not an integer, skip

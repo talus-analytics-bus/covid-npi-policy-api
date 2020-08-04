@@ -1037,11 +1037,11 @@ def apply_policy_filters(q, filters: dict = dict()):
             )
 
         # otherwise, apply the filter to the linked entity
-        else:
+        elif join:
             q = select(
                 i
                 for i in q
-                if getattr(i.place, field) in allowed_values
+                if i.place.filter(lambda x: getattr(x, field) in allowed_values)
             )
 
     # return the filtered query instance
