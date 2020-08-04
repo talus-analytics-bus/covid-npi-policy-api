@@ -53,9 +53,9 @@ class AirtableSource(DataSource):
             print(e)
             print('\nFailed to open worksheet with name ' + str(name))
 
-    def as_dataframe(self, header_row: int = 0, view: str = None):
+    def as_dataframe(self, header_row: int = 0, view: str = None, max_records: int = 10000000):
         try:
-            records_tmp = self.ws.get_all() if view is None else \
+            records_tmp = self.ws.get_all(max_records=max_records) if view is None else \
                 self.ws.get_all(view=view)
             records = list()
             for r_tmp in records_tmp:

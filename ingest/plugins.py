@@ -19,7 +19,6 @@ from .util import upsert, download_file, bcolors, nyt_caseload_csv_to_dict, \
     jhu_caseload_csv_to_dict, find_all
 import pandas as pd
 
-pd.set_option("display.max_rows", None, "display.max_columns", None)
 
 # constants
 # define S3 client used for adding / checking for files in the S3
@@ -50,6 +49,36 @@ def iterable(obj):
         return True
 
 
+# load data to get country names from ISO3 codes
+country_data = pd.read_json('./ingest/data/country.json') \
+    .to_dict(orient='records')
+
+
+def get_name_from_iso3(iso3: str):
+    """Given the 3-character ISO code of a country, returns its name
+    plus the code in parentheses, or `None` if no match.
+
+    Parameters
+    ----------
+    iso3 : str
+        3-char iso code
+
+    Returns
+    -------
+    type
+        Name or `None`
+
+    """
+    if iso3 == 'Unspecified':
+        return 'N/A'
+    try:
+        country = next(d for d in country_data if d['alpha-3'] == iso3)
+        return country['name'] + ' (' + iso3 + ')'
+    except:
+        print('Found no country match for: ' + str(iso3))
+        return None
+
+
 def get_place_loc(i):
     """Get well-known text location string for a place.
 
@@ -75,6 +104,8 @@ def get_place_loc(i):
             return i.area1
     elif i.country_name is not None:
         return i.country_name
+    elif i.level == 'Country' and ';' in i.iso3:
+        return 'Multiple countries'
     else:
         print(i.to_dict())
         input('Could not determine place name for this instance.')
@@ -168,23 +199,49 @@ def reject(x):
 
     """
     no_desc = x['desc'] == ''
-    multi_iso_aff = 'place.iso3' in x and \
-        (
-            ';' in x['place.iso3'] or
-            (
-                type(x['place.iso3']) == list and len(x['place.iso3']) > 1
-            )
-        )
+    # country_level_with_prov = False
+    # if x['id'] != '46010':
+    #     return True
+    #
+    # # pp.pprint('x')
+    # # pp.pprint(x)
+    # # input('Press enter to continue')
 
-    multi_iso_auth = 'auth_entity.iso3' in x and \
-        (
-            ';' in x['auth_entity.iso3'] or
-            (
-                type(x['auth_entity.iso3']) == list and
-                len(x['auth_entity.iso3']) > 1
-            )
-        )
-    return no_desc or multi_iso_aff or multi_iso_auth
+    # reject country-level policies that have a non-blank province or
+    # local area
+    types = ('auth_entity', 'place')
+    country_level_with_prov = False
+    for type in types:
+        levelKey = type + ".level"
+        area1Key = type + ".area1"
+        area2Key = type + ".area2"
+        if levelKey not in x:
+            continue
+        else:
+            if x[levelKey] == 'Country' and (
+                (area1Key in x and x[area1Key] != '') or (
+                    area2Key in x and x[area2Key]) != ''
+            ):
+                country_level_with_prov = True
+    reject = no_desc or country_level_with_prov
+    return reject
+    # multi_iso_aff = 'place.iso3' in x and \
+    #     (
+    #         ';' in x['place.iso3'] or
+    #         (
+    #             type(x['place.iso3']) == list and len(x['place.iso3']) > 1
+    #         )
+    #     )
+    #
+    # multi_iso_auth = 'auth_entity.iso3' in x and \
+    #     (
+    #         ';' in x['auth_entity.iso3'] or
+    #         (
+    #             type(x['auth_entity.iso3']) == list and
+    #             len(x['auth_entity.iso3']) > 1
+    #         )
+    #     )
+    # return no_desc or multi_iso_aff or multi_iso_auth
 
 
 class CovidCaseloadPlugin(IngestPlugin):
@@ -580,6 +637,8 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='Appendix: glossary') \
             .as_dataframe(view='API ingest')
 
+        pd.set_option("display.max_rows", None, "display.max_columns", None)
+
         return self
 
     @db_session
@@ -592,30 +651,6 @@ class CovidPolicyPlugin(IngestPlugin):
         # load data to get country names from ISO3 codes
         country_data = pd.read_json('./ingest/data/country.json') \
             .to_dict(orient='records')
-
-        def get_name_from_iso3(iso3: str):
-            """Given the 3-character ISO code of a country, returns its name
-            plus the code in parentheses, or `None` if no match.
-
-            Parameters
-            ----------
-            iso3 : str
-                3-char iso code
-
-            Returns
-            -------
-            type
-                Name or `None`
-
-            """
-            if iso3 == 'Unspecified':
-                return 'N/A'
-            try:
-                country = next(d for d in country_data if d['alpha-3'] == iso3)
-                return country['name'] + ' (' + iso3 + ')'
-            except:
-                print('Found no country match for: ' + str(iso3))
-                return None
 
         # add new observations
         skipped = 0
@@ -834,9 +869,12 @@ class CovidPolicyPlugin(IngestPlugin):
                         Description of returned object.
 
                     """
-                    local_areas_str_tmp = datum[local_area_arr_field_name]
-                    local_areas_str = "; ".join(local_areas_str_tmp)
-                    datum[local_area_field_name] = local_areas_str
+                    if local_area_arr_field_name in datum:
+                        local_areas_str_tmp = datum[local_area_arr_field_name]
+                        local_areas_str = "; ".join(local_areas_str_tmp)
+                        datum[local_area_field_name] = local_areas_str
+                    else:
+                        datum[local_area_field_name] = ''
 
                 # assign local areas cols of policy data based on local area
                 # database linkages
@@ -979,8 +1017,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 get_keys = ['level', 'iso3', 'area1', 'area2']
                 set_keys = ['dillons_rule', 'home_rule', 'country_name']
 
-                get_data = {k: instance[k] for k in get_keys}
-                set_data = {k: instance[k] for k in set_keys}
+                get_data = {k: instance[k] for k in get_keys if k in instance}
+                set_data = {k: instance[k] for k in set_keys if k in instance}
 
                 action, place = upsert(
                     db.Place,
@@ -990,14 +1028,67 @@ class CovidPolicyPlugin(IngestPlugin):
                 place.loc = get_place_loc(place)
                 place.policies += p.policies
                 place.plans += p.plans
-                if len(p.policies) == 0:
-                    pp.pprint(p)
-                    input('Press enter to continue.')
                 commit()
                 upserted_places.append(place)
             pp.pprint([d.to_dict() for d in upserted_places])
         places_to_split_area2.delete()
+
+        places_to_split_area2 = select(
+            i for i in db.Place
+            if ';' in i.area2
+        )
+
+        places_to_split_iso3 = select(
+            i for i in db.Place
+            if ';' in i.iso3
+            or i.loc == 'Multiple countries'
+        )
+        for p in places_to_split_iso3:
+            print('\n\n')
+            places_to_upsert = p.iso3.split('; ')
+            upserted_places = list()
+            for p2 in places_to_upsert:
+                print(p2)
+                instance = p.to_dict()
+                instance['iso3'] = p2
+                instance['country_name'] = get_name_from_iso3(p2)
+
+                get_keys = ['level', 'iso3', 'area1', 'area2']
+                set_keys = ['dillons_rule', 'home_rule', 'country_name']
+
+                get_data = {k: instance[k] for k in get_keys if k in instance}
+                set_data = {k: instance[k] for k in set_keys if k in instance}
+
+                action, place = upsert(
+                    db.Place,
+                    get_data,
+                    set_data,
+                )
+                place.loc = get_place_loc(place)
+                place.policies += p.policies
+                place.plans += p.plans
+                commit()
+                upserted_places.append(place)
+        places_to_split_area2.delete()
+        places_to_split_iso3.delete()
         commit()
+
+    @db_session
+    def post_process_policies(self, db):
+        # for travel restriction policies, set aff to auth
+        policies = select(
+            i for i in db.Policy
+            if i.primary_ph_measure == 'Travel restrictions'
+        )
+        for p in policies:
+            print('Updated: ' + p.policy_name)
+            all_country = all(ae.place.level ==
+                              'Country' for ae in p.auth_entity)
+            print('all_country')
+            print(all_country)
+            p.place = set()
+            for ae in p.auth_entity:
+                p.place.add(ae.place)
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -1015,35 +1106,6 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # Local methods ########################################################
-        def get_place_loc(i):
-            """Get well-known text location string for a place.
-
-            Parameters
-            ----------
-            i : type
-                Instance of `Place`.
-
-            Returns
-            -------
-            str
-                Well-known location string
-
-            """
-            if i.level == 'Tribal nation':
-                return i.area1
-            elif i.area2.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area2}, {i.area1}, {i.country_name}'''
-            elif i.area1.lower() not in ('unspecified', 'n/a', ''):
-                if i.country_name is not None:
-                    return f'''{i.area1}, {i.country_name}'''
-                else:
-                    return i.area1
-            elif i.country_name is not None:
-                return i.country_name
-            else:
-                print(i.to_dict())
-                input('Could not determine place name for this instance.')
-
         def get_auth_entities_from_raw_data(d):
             """Given a datum `d` from raw data, create a list of authorizing
             entities that are implied by the semicolon-delimited names and
@@ -1102,10 +1164,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     return 'Unspecified'
             else:
                 return d[key]
-
-        # load data to get country names from ISO3 codes
-        country_data = pd.read_json('./ingest/data/country.json') \
-            .to_dict(orient='records')
 
         def get_name_from_iso3(iso3: str):
             """Given the 3-character ISO code of a country, returns its name
@@ -1175,7 +1233,8 @@ class CovidPolicyPlugin(IngestPlugin):
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
-            instance_data = {key: formatter(key, d) for key in place_keys}
+            instance_data = {key: formatter(key, d)
+                             for key in place_keys if key in d}
 
             # the affected place is different from the auth entity's place if it
             # exists (is defined in the record) and is different
@@ -1187,7 +1246,7 @@ class CovidPolicyPlugin(IngestPlugin):
             place_affected = None
             if affected_diff_from_auth:
                 place_affected_instance_data = {
-                    key.split('.')[-1]: formatter(key, d) for key in place_keys}
+                    key.split('.')[-1]: formatter(key, d) for key in place_keys if key in d}
 
                 # convert iso3 from list to str
                 if type(place_affected_instance_data['iso3']) == list:
@@ -1201,9 +1260,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 place_affected_set_keys = [
                     'dillons_rule', 'home_rule', 'country_name']
                 place_affected_get = {k: place_affected_instance_data[k]
-                                      for k in place_affected_get_keys}
+                                      for k in place_affected_get_keys if k in place_affected_instance_data}
                 place_affected_set = {k: place_affected_instance_data[k]
-                                      for k in place_affected_set_keys}
+                                      for k in place_affected_set_keys if k in place_affected_instance_data}
 
                 action, place_affected = upsert(
                     db.Place,
@@ -1219,7 +1278,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # get or create the place of the auth entity
             auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
                 key, d) for key in auth_entity_place_keys +
-                ['home_rule', 'dillons_rule']}
+                ['home_rule', 'dillons_rule'] if key in d}
 
             # convert iso3 from list to str
             if type(auth_entity_place_instance_data['iso3']) == list:
@@ -1233,13 +1292,10 @@ class CovidPolicyPlugin(IngestPlugin):
             get_keys = ['level', 'iso3', 'area1', 'area2']
             set_keys = ['dillons_rule', 'home_rule', 'country_name']
             place_auth_get = {k: auth_entity_place_instance_data[k]
-                              for k in get_keys}
+                              for k in get_keys if k in auth_entity_place_instance_data}
             place_auth_set = {k: auth_entity_place_instance_data[k]
-                              for k in set_keys}
+                              for k in set_keys if k in auth_entity_place_instance_data}
 
-            # pp.pprint('place_auth_set')
-            # pp.pprint(place_auth_set)
-            # input('Press enter.')
             action, place_auth = upsert(
                 db.Place,
                 place_auth_get,
@@ -1271,7 +1327,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
                 # get or create auth entity
                 auth_entity_instance_data = {key: formatter(
-                    key, dd) for key in auth_entity_keys}
+                    key, dd) for key in auth_entity_keys if key in dd}
                 auth_entity_instance_data['place'] = place_auth
 
                 # perform upsert using get and set data fields
@@ -1279,7 +1335,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 action, auth_entity = upsert(
                     db.Auth_Entity,
                     {k: auth_entity_instance_data[k]
-                        for k in get_keys},
+                        for k in get_keys if k in auth_entity_instance_data},
                     {},
                 )
                 if action == 'update':
@@ -1336,30 +1392,6 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # Local methods ########################################################
-        def get_place_loc(i):
-            """Get well-known text location string for a place.
-
-            Parameters
-            ----------
-            i : type
-                Instance of `Place`.
-
-            Returns
-            -------
-            str
-                Well-known location string
-
-            """
-            if i.level == 'Tribal nation':
-                return i.area1
-            elif i.area2.lower() not in ('unspecified', 'n/a', '') \
-                    and i.level == 'Government':
-                return f'''{i.area2}, {i.area1}, {i.country_name}'''
-            elif i.area1.lower() not in ('unspecified', 'n/a', ''):
-                return f'''{i.area1}, {i.country_name}'''
-            else:
-                return i.country_name
-
         def get_auth_entities_from_raw_data(d):
             """Given a datum `d` from raw data, create a list of authorizing
             entities that are implied by the semicolon-delimited names and
@@ -1498,7 +1530,8 @@ class CovidPolicyPlugin(IngestPlugin):
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
-            instance_data = {key: formatter(key, d) for key in place_keys}
+            instance_data = {key: formatter(key, d)
+                             for key in place_keys if key in d}
 
             # get or create the place affected (for plans, will always be the
             # same as authorizing entity's place, for now)
@@ -1506,7 +1539,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # get or create the place of the auth entity
             auth_entity_place_instance_data = {key.split('.')[-1]: formatter(
-                key, d) for key in auth_entity_place_keys}
+                key, d) for key in auth_entity_place_keys if key in d}
 
             # convert iso3 from list to str
             if type(auth_entity_place_instance_data['iso3']) == list:
@@ -1543,9 +1576,9 @@ class CovidPolicyPlugin(IngestPlugin):
             get_keys = ['level', 'iso3', 'area1', 'area2']
             set_keys = ['country_name']
             place_auth_get = {k: auth_entity_place_instance_data[k]
-                              for k in get_keys}
+                              for k in get_keys if k in auth_entity_place_instance_data}
             place_auth_set = {k: auth_entity_place_instance_data[k]
-                              for k in set_keys}
+                              for k in set_keys if k in auth_entity_place_instance_data}
 
             action, place_auth = upsert(
                 db.Place,
@@ -1581,7 +1614,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 action, auth_entity = upsert(
                     db.Auth_Entity,
                     {k: auth_entity_instance_data[k]
-                        for k in get_keys},
+                        for k in get_keys if k in auth_entity_instance_data},
                     {},
                 )
                 if action == 'update':
@@ -1708,7 +1741,7 @@ class CovidPolicyPlugin(IngestPlugin):
             action, instance = upsert(
                 db.Policy,
                 {'id': d['id']},
-                {key: formatter(key, d) for key in keys},
+                {key: formatter(key, d) for key in keys if key in d},
                 skip=['prior_policy']
             )
             if action == 'update':
@@ -1731,7 +1764,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # upsert policies
             # TODO consider how to count these updates, since they're done
             # after new instances are created (if counting them at all)
-            if d['prior_policy'] != '':
+            if 'prior_policy' in d and d['prior_policy'] != '':
                 prior_policies = list()
                 for source_id in d['prior_policy']:
                     prior_policy_instance = select(
@@ -2118,19 +2151,19 @@ class CovidPolicyPlugin(IngestPlugin):
             db.Policy[d['id']].file.add(file)
             commit()
 
-        # delete any files that were not upserted from the database
-        to_delete = select(
-            i for i in db.File
-            if i not in upserted
-            and not i.airtable_attachment
-        )
-        n_deleted = len(to_delete)
-        to_delete.delete()
+        # # delete any files that were not upserted from the database
+        # to_delete = select(
+        #     i for i in db.File
+        #     if i not in upserted
+        #     and not i.airtable_attachment
+        # )
+        # n_deleted = len(to_delete)
+        # to_delete.delete()
         commit()
 
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
-        print('Deleted (still in S3): ' + str(n_deleted))
+        # print('Deleted (still in S3): ' + str(n_deleted))
 
         # display any records that were missing a PDF
         if len(missing_filenames) > 0:
