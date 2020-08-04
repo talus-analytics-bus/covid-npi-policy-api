@@ -38,8 +38,6 @@ show_in_progress = (
     "auth_entity_has_authority",
     "authority_name",
     "auth_entity_authority_data_source",
-    # "home_rule",
-    # "dillons_rule"
 )
 
 
@@ -810,14 +808,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     local_areas_str = "; ".join(local_areas_str_tmp)
                     datum[local_area_field_name] = local_areas_str
 
-                    # if local_area_arr_field_name == 'Auth state names (lookup)' \
-                    #         and local_areas_str != '':
-                    #     print('\n\n\local_areas_str')
-                    #     print(local_areas_str)
-                    #     print('datum[local_area_arr_field_name]')
-                    #     print(datum[local_area_arr_field_name])
-                    #     input('Press enter to continue.')
-
                 # assign local areas cols of policy data based on local area
                 # database linkages
                 print(
@@ -825,12 +815,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 then = time.perf_counter()
                 local_areas = self.local_areas.to_dict(orient='records')
                 for i, d in self.data.iterrows():
-
-                    # print(d['policy_name'])
-                    # print(
-                    #     d['Affected local area (e.g., county, city) names - Linked to Local Area Database'])
-                    # input('Press enter to continue')
-                    #
 
                     # Local areas
                     assign_local_areas_str(
@@ -869,9 +853,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 print('Local area names assigned, sec: ' + str(sec))
             assign_standardized_local_areas()
 
-            # self.data.to_csv('file_name.csv')
-            # input('CSV written. Press enter.')
-
             # create Policy instances
             self.create_policies(db)
         process_policy_data(self, db)
@@ -889,7 +870,6 @@ class CovidPolicyPlugin(IngestPlugin):
             data = data.loc[data['Unique ID'] != '', :]
             data = data.loc[data['Plan description'] != '', :]
             data = data.loc[data['Plan PDF'] != '', :]
-            # data = data.loc[data['Plan announcement date'] != '', :]
 
             # analyze for QA/QC and quit if errors detected
             valid = self.check(data)
@@ -941,7 +921,6 @@ class CovidPolicyPlugin(IngestPlugin):
             db.Version,
             {
                 'type': 'Policy data',
-                # 'type': 'Policy and plan data',
             },
             {
                 'date': date.today(),
@@ -1263,14 +1242,10 @@ class CovidPolicyPlugin(IngestPlugin):
 
         print('\n\n[7] Ingesting places...')
         print('Total in database: ' + str(len(db.Place.select())))
-        # print('Inserted: ' + str(n_inserted))
-        # print('Updated: ' + str(n_updated))
         print('Deleted: ' + str(n_deleted))
 
         print('\n\n[8] Ingesting authorizing entities...')
         print('Total in database: ' + str(len(db.Auth_Entity.select())))
-        # print('Inserted: ' + str(n_inserted_auth_entity))
-        # print('Updated: ' + str(n_updated_auth_entity))
         print('Deleted: ' + str(n_deleted_auth_entity))
 
     @db_session
@@ -1469,7 +1444,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     '; '.join(auth_entity_place_instance_data['iso3'])
 
             # perform upsert using get and set data fields
-            # place_affected_instance_data['country_name'] = \
             auth_entity_place_instance_data['country_name'] = \
                 get_name_from_iso3(auth_entity_place_instance_data['iso3'])
 
@@ -1498,7 +1472,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
             get_keys = ['level', 'iso3', 'area1', 'area2']
             set_keys = ['country_name']
-            # set_keys = ['dillons_rule', 'home_rule', 'country_name']
             place_auth_get = {k: auth_entity_place_instance_data[k]
                               for k in get_keys}
             place_auth_set = {k: auth_entity_place_instance_data[k]
@@ -1527,17 +1500,11 @@ class CovidPolicyPlugin(IngestPlugin):
             ## Add auth_entities ###############################################
             # parse auth entities in raw data record (there may be more than
             # one defined for each record)
-            # raw_data = get_auth_entities_from_raw_data(d)
 
             # for each individual auth entity
             db.Plan[d['id']].auth_entity = set()
             for auth_entity_instance_data in \
                     [{'name': d['org_name'], 'place': place_auth}]:
-
-                # # get or create auth entity
-                # auth_entity_instance_data = {key: formatter(
-                #     key, dd) for key in auth_entity_keys}
-                # auth_entity_instance_data['place'] = place_auth
 
                 # perform upsert using get and set data fields
                 get_keys = ['name', 'place']
@@ -1582,14 +1549,10 @@ class CovidPolicyPlugin(IngestPlugin):
 
         print('\n\n[7] Ingesting places...')
         print('Total in database: ' + str(len(db.Place.select())))
-        # print('Inserted: ' + str(n_inserted))
-        # print('Updated: ' + str(n_updated))
         print('Deleted: ' + str(n_deleted))
 
         print('\n\n[8] Ingesting authorizing entities...')
         print('Total in database: ' + str(len(db.Auth_Entity.select())))
-        # print('Inserted: ' + str(n_inserted_auth_entity))
-        # print('Updated: ' + str(n_updated_auth_entity))
         print('Deleted: ' + str(n_deleted_auth_entity))
 
     @db_session
@@ -1813,33 +1776,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 n_inserted += 1
             upserted.add(instance)
 
-        # for i, d in self.data.iterrows():
-        #     # if unique ID is not an integer, skip
-        #     # TODO handle on ingest
-        #     try:
-        #         int(d['id'])
-        #     except:
-        #         continue
-        #
-        #     if reject(d):
-        #         continue
-        #
-        #     # upsert Plans
-        #     # TODO handle linking to Policies
-        #     # TODO consider how to count these updates, since they're done
-        #     # after new instances are created (if counting them at all)
-        #     if False and d['policy'] != '':
-        #         linked_policies = list()
-        #         for source_id in d['policy']:
-        #             policy_instance = db.Plan.get(source_id=source_id)
-        #             if policy_instance is not None:
-        #                 linked_policies.append(policy_instance)
-        #         upsert(
-        #             db.Plan,
-        #             {'id': d['id']},
-        #             {'policy': linked_policies},
-        #         )
-
         # delete all records in table but not in ingest dataset
         n_deleted = db.Plan.delete_2(upserted)
         commit()
@@ -1874,7 +1810,6 @@ class CovidPolicyPlugin(IngestPlugin):
         self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
 
         full_dd = pd.concat([self.data_dictionary, self.data_dictionary_plans])
-        # full_dd = self.data_dictionary + self.data_dictionary_plans
         print('full_dd')
         print(full_dd)
 
