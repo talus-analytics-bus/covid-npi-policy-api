@@ -153,7 +153,7 @@ class Plan(db.Entity):
     # relationships
     policy = Optional('Policy')
     file = Set('File', table="file_to_plan")
-    place = Optional('Place')
+    place = Set('Place', , table="place_to_plan")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_plan")
 
     # TODO reuse code from `Policy` entity instead of repeating here
@@ -281,7 +281,7 @@ class Policy(db.Entity):
     # relationships
     file = Set('File', table="file_to_policy")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
-    place = Optional('Place')
+    place = Set('Place', table="place_to_policy")
     prior_policy = Set('Policy', table="policy_to_prior_policy")
     _prior_policy = Set('Policy')
     plan = Optional('Plan')
