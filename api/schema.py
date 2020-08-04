@@ -8,7 +8,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -328,23 +328,33 @@ def get_policy(
     use_pagination = (all or page is not None) and not return_db_instances
     if use_pagination and (page is None or page == 0):
         page = 1
-
+    q = select(i for i in db.Policy)
     # get ordered policies from database
-    q = select(
-        (i, j)
-        for i in db.Policy
-        for j in i.place
-    )
-
+    # q_tmp = db.Policy.select_by_sql(f'''
+    #     SELECT p.* FROM "policy" p
+    #     JOIN "place_to_policy" p2p ON p2p.place = p.id
+    #     JOIN "place" pl on pl.id = p2p.place
+    #     ORDER BY pl.level ASC
+    #                                 ''')
+    # q = q_tmp
     ordering.reverse()
-    print(ordering)
-    for field, direction in ordering:
-        print(field)
-        print(direction)
-        if direction == 'desc':
-            q = q.order_by(desc(getattr(db.Policy, field)))
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(str(getattr(i.place, field)))
+                )
+            else:
+                q = q.order_by(
+                    lambda i: str(getattr(i.place, field))
+                )
         else:
-            q = q.order_by(getattr(db.Policy, field))
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Policy, field)))
+            else:
+                q = q.order_by(getattr(db.Policy, field))
 
     # apply filters if any
     if filters is not None:
@@ -979,6 +989,14 @@ def apply_policy_filters(q, filters: dict = dict()):
         # if no values were specified, assume no filter is applied
         # and continue
         if len(allowed_values) == 0:
+            continue
+
+        if field == '_text':
+            text = allowed_values[0].lower()
+            q = select(
+                i for i in q
+                if text in i.desc.lower()
+            )
             continue
 
         # if it is a date field, handle it specially
