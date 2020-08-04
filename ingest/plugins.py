@@ -988,12 +988,16 @@ class CovidPolicyPlugin(IngestPlugin):
                     set_data,
                 )
                 place.loc = get_place_loc(place)
-                place.policies = p.policies
-                place.plans = p.plans
+                place.policies += p.policies
+                place.plans += p.plans
+                if len(p.policies) == 0:
+                    pp.pprint(p)
+                    input('Press enter to continue.')
+                commit()
                 upserted_places.append(place)
             pp.pprint([d.to_dict() for d in upserted_places])
-            commit()
         places_to_split_area2.delete()
+        commit()
 
     @db_session
     def create_auth_entities_and_places(self, db):

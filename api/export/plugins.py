@@ -380,16 +380,15 @@ class CovidPolicyExportPlugin(ExcelExport):
                             values = list()
                             if dd.field not in formatters:
                                 values = "; ".join(
-                                    [getattr(ddd, dd.field) for ddd in joined_entity
-                                        if getattr(ddd, dd.field) is not None]
+                                    set([getattr(ddd, dd.field) for ddd in joined_entity
+                                         if getattr(ddd, dd.field) is not None])
                                 )
                             else:
                                 func = formatters[dd.field]
                                 values = "; ".join(
-                                    [func(ddd, getattr(ddd, dd.field))
-                                     for ddd in joined_entity]
+                                    set([func(ddd, getattr(ddd, dd.field))
+                                         for ddd in joined_entity])
                                 )
-
                             row[dd.colgroup][dd.display_name] = values
                             continue
                         # SINGLE ENTITY #--------------------------------------#
