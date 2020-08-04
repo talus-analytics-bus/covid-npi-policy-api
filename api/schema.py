@@ -332,7 +332,10 @@ def get_policy(
     # get ordered policies from database
     q = select(i for i in db.Policy)
     ordering.reverse()
+    print(ordering)
     for field, direction in ordering:
+        print(field)
+        print(direction)
         if direction == 'desc':
             q = q.order_by(desc(getattr(db.Policy, field)))
         else:

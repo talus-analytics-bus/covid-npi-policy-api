@@ -237,7 +237,7 @@ async def post_policy(
     """
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=by_category,
-        page=page, pagesize=pagesize
+        page=page, pagesize=pagesize, ordering=body.ordering
     )
 
 
