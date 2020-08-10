@@ -14,7 +14,7 @@ if __name__ == "__main__":
     plugin = CovidPolicyPlugin()
 
     # update core policy data
-    # plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
+    plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
 
     # post-process places
     plugin.post_process_places(db)
