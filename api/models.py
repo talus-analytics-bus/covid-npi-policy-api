@@ -19,6 +19,7 @@ class Response(BaseModel):
     success: bool
     message: str
     next_page_url: str = None
+    n: int = None
 
 
 class ListResponse(Response):
