@@ -127,7 +127,7 @@ class PolicyStatus(BaseModel):
 
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
-    ordering: List[list]
+    ordering: List[list] = None
 
 
 class PolicyList(Response):
