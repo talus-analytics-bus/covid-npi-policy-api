@@ -8,7 +8,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -329,14 +329,12 @@ def get_policy(
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
-    # get ordered policies from database
-    # q_tmp = db.Policy.select_by_sql(f'''
-    #     SELECT p.* FROM "policy" p
-    #     JOIN "place_to_policy" p2p ON p2p.place = p.id
-    #     JOIN "place" pl on pl.id = p2p.place
-    #     ORDER BY pl.level ASC
-    #                                 ''')
-    # q = q_tmp
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
+
+    # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
         if 'place.' in field_tmp:
@@ -355,10 +353,6 @@ def get_policy(
                 q = q.order_by(desc(getattr(db.Policy, field)))
             else:
                 q = q.order_by(getattr(db.Policy, field))
-
-    # apply filters if any
-    if filters is not None:
-        q = apply_policy_filters(q, filters)
 
     # get len of query
     n = count(q) if use_pagination else None
@@ -410,7 +404,8 @@ def get_policy(
                 data=data_by_category,
                 success=True,
                 message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url
+                next_page_url=next_page_url,
+                n=n
             )
         else:
             # create response from output list
@@ -418,7 +413,8 @@ def get_policy(
                 data=data,
                 success=True,
                 message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url
+                next_page_url=next_page_url,
+                n=n
             )
         return res
 
@@ -1071,10 +1067,12 @@ def apply_policy_filters(q, filters: dict = dict()):
 
         # otherwise, apply the filter to the linked entity
         elif join:
-            q = select(
-                i
-                for i in q
-                if i.place.filter(lambda x: getattr(x, field) in allowed_values)
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.place
+                        if getattr(t, field) in allowed_values
+                    )
             )
 
     # return the filtered query instance
