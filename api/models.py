@@ -19,6 +19,7 @@ class Response(BaseModel):
     success: bool
     message: str
     next_page_url: str = None
+    n: int = None
 
 
 class ListResponse(Response):
@@ -126,6 +127,7 @@ class PolicyStatus(BaseModel):
 
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
+    ordering: List[list] = None
 
 
 class PolicyList(Response):

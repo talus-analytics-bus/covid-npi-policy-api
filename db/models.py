@@ -125,7 +125,7 @@ class Plan(db.Entity):
     desc = Optional(str)
     org_name = Optional(str)
     org_type = Optional(str)
-    name = Optional(str)
+    search_text = Optional(str)
 
     # dates
     date_issued = Optional(date)
@@ -267,6 +267,7 @@ class Policy(db.Entity):
     subtarget = Optional(str)  # multiselect, concat
     policy_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
+    search_text = Optional(str)
     # enum_test = Optional(State, column='enum_test_str')
 
     # authority data
