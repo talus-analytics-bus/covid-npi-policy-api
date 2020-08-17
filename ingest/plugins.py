@@ -2363,6 +2363,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     else:
                         print('Could not download file at URL ' +
                               str(file_url))
+                        file.delete()
+                        commit()
                         could_not_download.add(file_url)
                         n_failed += 1
             else:
