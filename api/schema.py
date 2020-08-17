@@ -284,11 +284,11 @@ def get_file(id: int):
 @cached
 def get_policy(
     filters: dict = None,
-    ordering: list = [],
     fields: list = None,
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
     by_category: str = None,
+    ordering: list = [],
     page: int = None,
     pagesize: int = 100
 ):
