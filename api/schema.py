@@ -1298,7 +1298,7 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 
 
 @db_session
-def debug_add_search_text():
+def add_search_text_to_polices_and_plans():
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():

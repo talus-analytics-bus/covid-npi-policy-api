@@ -325,8 +325,8 @@ async def get_test(test_param: str = 'GET successful'):
 ##
 # Debug endpoints
 ##
-@app.get("/debug_add_search_text")
-async def debug_add_search_text(test_param: str = 'GET successful'):
+@app.get("/add_search_text_to_polices_and_plans")
+async def add_search_text_to_polices_and_plans(test_param: str = 'GET successful'):
     """Test GET endpoint.
 
     Parameters
@@ -341,5 +341,5 @@ async def debug_add_search_text(test_param: str = 'GET successful'):
         successful.
 
     """
-    schema.debug_add_search_text()
+    schema.add_search_text_to_polices_and_plans()
     return 'Done'
