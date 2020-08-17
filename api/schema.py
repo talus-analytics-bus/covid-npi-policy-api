@@ -1138,6 +1138,65 @@ def get_policy_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
+@db_session
+def get_plan_search_text(i):
+    """Given Plan instance `i`, returns the search text string that should
+    be checked against by plain text search.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'name',
+                'desc',
+                'primary_loc',
+                'org_name',
+                'org_type',
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'reqs_essential',
+                'reqs_private',
+                'reqs_school',
+                'reqs_social',
+                'reqs_hospital',
+                'reqs_public',
+                'reqs_other',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'place',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'level',
+                'loc',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
 def get_search_text(i, fields_by_type, linked_fields_by_type):
     """Short summary.
 
@@ -1179,12 +1238,14 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 
         # string type fields are concatenated directly
         if linked_type == list:
-            for linked_instance in getattr(i, linked_field):
-                if field_type == str:
-                    for field in field_group['fields']:
-                        search_text_list.append(
-                            getattr(linked_instance, field).lower()
-                        )
+            linked_instances = getattr(i, linked_field)
+            if linked_instances is not None and len(linked_instances) > 0:
+                for linked_instance in linked_instances:
+                    if field_type == str:
+                        for field in field_group['fields']:
+                            search_text_list.append(
+                                getattr(linked_instance, field).lower()
+                            )
 
     # return joined text string
     search_text = ' - '.join(search_text_list)
@@ -1195,3 +1256,5 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 def debug_add_search_text():
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
+    for i in db.Plan.select():
+        i.search_text = get_plan_search_text(i)

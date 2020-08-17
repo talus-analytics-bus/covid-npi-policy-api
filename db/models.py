@@ -125,7 +125,7 @@ class Plan(db.Entity):
     desc = Optional(str)
     org_name = Optional(str)
     org_type = Optional(str)
-    name = Optional(str)
+    search_text = Optional(str)
 
     # dates
     date_issued = Optional(date)
