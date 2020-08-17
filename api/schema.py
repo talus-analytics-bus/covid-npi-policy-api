@@ -8,7 +8,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists, group_concat
 from fastapi.responses import FileResponse, Response
 
 # local modules
@@ -327,10 +327,6 @@ def get_policy(
         page = 1
     q = select(i for i in db.Policy)
 
-    # apply filters if any
-    if filters is not None:
-        q = apply_policy_filters(q, filters)
-
     # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
@@ -338,11 +334,17 @@ def get_policy(
             field = field_tmp.split('.')[1]
             if direction == 'desc':
                 q = q.order_by(
-                    lambda i: desc(str(getattr(i.place, field)))
+                    lambda i: desc(
+                        group_concat(getattr(p, field) for p in i.place)
+                    )
+                    # lambda i: desc(str(getattr(i.place, field)))
                 )
             else:
                 q = q.order_by(
-                    lambda i: str(getattr(i.place, field))
+                    lambda i:
+                        group_concat(getattr(p, field) for p in i.place)
+
+                    # lambda i: str(getattr(i.place, field))
                 )
         else:
             field = field_tmp
@@ -351,8 +353,13 @@ def get_policy(
             else:
                 q = q.order_by(getattr(db.Policy, field))
 
+    # apply filters if any
+    if filters is not None:
+        q = apply_policy_filters(q, filters)
+
     # get len of query
     n = count(q) if use_pagination else None
+    # n = count(q) if use_pagination else None
 
     # apply pagination if using
     if use_pagination:
