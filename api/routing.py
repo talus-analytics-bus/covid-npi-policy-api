@@ -142,7 +142,11 @@ async def get_policy(
 
 
 @app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
-async def get_plan(fields: List[str] = Query(None)):
+async def get_plan(
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
     """Return Plan data.
 
     Parameters
@@ -156,7 +160,7 @@ async def get_plan(fields: List[str] = Query(None)):
         Plan response dictionary.
 
     """
-    return schema.get_plan(fields=fields)
+    return schema.get_plan(fields=fields, page=page, pagesize=pagesize)
 
 
 @app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
@@ -246,6 +250,8 @@ async def post_plan(
     body: PolicyFilters,
     by_category: str = None,
     fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
 ):
     """Return Plan data with filters applied.
 
@@ -263,7 +269,8 @@ async def post_plan(
 
     """
     return schema.get_plan(
-        filters=body.filters, fields=fields, by_category=by_category
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize
     )
 
 

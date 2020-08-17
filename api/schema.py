@@ -285,7 +285,6 @@ def get_file(id: int):
 def get_policy(
     filters: dict = None,
     ordering: list = [],
-    # ordering: list = [['policy_name', 'asc'], ['date_start_effective', 'desc']],
     fields: list = None,
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
@@ -323,8 +322,6 @@ def get_policy(
 
     # use pagination if all fields are requested, and set value for `page` if
     # none was provided in the URL query args
-    # TODO use pagination in all cases with a URL param arg-definable
-    # page size
     use_pagination = (all or page is not None) and not return_db_instances
     if use_pagination and (page is None or page == 0):
         page = 1
@@ -423,10 +420,13 @@ def get_policy(
 @cached
 def get_plan(
     filters: dict = None,
+    ordering: list = [],
     fields: list = None,
     order_by_field: str = 'date_issued',
     return_db_instances: bool = False,
     by_category: str = None,
+    page: int = None,
+    pagesize: int = 100
 ):
     """Returns Plan instance data that match the provided filters.
 
@@ -456,13 +456,43 @@ def get_plan(
     # return all fields?
     all = fields is None
 
-    # get ordered policies from database
-    q = select(i for i in db.Plan).order_by(
-        desc(getattr(db.Plan, order_by_field)))
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    use_pagination = (all or page is not None) and not return_db_instances
+    if use_pagination and (page is None or page == 0):
+        page = 1
+    q = select(i for i in db.Plan)
 
     # apply filters if any
     if filters is not None:
         q = apply_policy_filters(q, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(str(getattr(i.place, field)))
+                )
+            else:
+                q = q.order_by(
+                    lambda i: str(getattr(i.place, field))
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Plan, field)))
+            else:
+                q = q.order_by(getattr(db.Plan, field))
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
 
     # return query object if arguments requested it
     if return_db_instances:
@@ -495,6 +525,12 @@ def get_plan(
             # add it to the output list
             data.append(d_dict)
 
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages else \
+            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Policy
         if by_category is not None:
@@ -513,7 +549,9 @@ def get_plan(
             res = PlanList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} plans found'''
+                message=f'''{len(q)} plans found''',
+                next_page_url=next_page_url,
+                n=n
             )
         return res
 
