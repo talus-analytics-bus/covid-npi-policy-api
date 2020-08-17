@@ -1096,6 +1096,7 @@ def get_policy_search_text(i):
         Description of returned object.
 
     """
+
     # Define fields on entity class to concatenate
     fields_by_type = [
         {
@@ -1134,6 +1135,27 @@ def get_policy_search_text(i):
         }
     ]
 
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
+def get_search_text(i, fields_by_type, linked_fields_by_type):
+    """Short summary.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+    fields_by_type : type
+        Description of parameter `fields_by_type`.
+    linked_fields_by_type : type
+        Description of parameter `linked_fields_by_type`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
     # for each field on the entity class, concatenate it to the search text
     search_text_list = list()
     for field_group in fields_by_type:
