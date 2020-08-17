@@ -987,11 +987,12 @@ def apply_policy_filters(q, filters: dict = dict()):
         if len(allowed_values) == 0:
             continue
 
+        # custom text search
         if field == '_text':
             text = allowed_values[0].lower()
             q = select(
                 i for i in q
-                if text in i.desc.lower()
+                if text in i.search_text
             )
             continue
 
@@ -1077,3 +1078,98 @@ def apply_policy_filters(q, filters: dict = dict()):
 
     # return the filtered query instance
     return q
+
+
+@db_session
+def get_policy_search_text(i):
+    """Given Policy instance `i`, returns the search text string that should
+    be checked against by plain text search.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'policy_name',
+                'desc',
+                'primary_ph_measure',
+                'ph_measure_details',
+                'subtarget',
+                'relaxing_or_restricting',
+                'authority_name',
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'primary_impact',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'place',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'level',
+                'loc',
+                # 'country_name',
+                # 'area1',
+                # 'area2',
+            ]
+        }
+    ]
+
+    # for each field on the entity class, concatenate it to the search text
+    search_text_list = list()
+    for field_group in fields_by_type:
+        field_type = field_group['type']
+        # string type fields are concatenated directly
+        if field_type == str:
+            for field in field_group['fields']:
+                search_text_list.append(getattr(i, field).lower())
+
+        # list type fields - each element concatenated
+        elif field_type == list:
+            for field in field_group['fields']:
+                for d in getattr(i, field):
+                    search_text_list.append(d.lower())
+
+    # for each linked entity field, do the same
+    for field_group in linked_fields_by_type:
+        field_type = field_group['type']
+        linked_type = field_group['linked_type']
+        linked_field = field_group['linked_field']
+
+        # string type fields are concatenated directly
+        if linked_type == list:
+            for linked_instance in getattr(i, linked_field):
+                if field_type == str:
+                    for field in field_group['fields']:
+                        search_text_list.append(
+                            getattr(linked_instance, field).lower()
+                        )
+
+    # return joined text string
+    search_text = ' - '.join(search_text_list)
+    return search_text
+
+
+@db_session
+def debug_add_search_text():
+    for i in db.Policy.select():
+        i.search_text = get_policy_search_text(i)

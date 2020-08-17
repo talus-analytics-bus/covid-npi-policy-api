@@ -314,3 +314,25 @@ async def get_test(test_param: str = 'GET successful'):
 
     """
     return [{'success': True, 'message': 'GET test', 'data': [test_param]}]
+
+##
+# Debug endpoints
+##
+@app.get("/debug_add_search_text")
+async def debug_add_search_text(test_param: str = 'GET successful'):
+    """Test GET endpoint.
+
+    Parameters
+    ----------
+    test_param : str
+        A message to be returned in the response if GET was successful.
+
+    Returns
+    -------
+    list[dict]
+        A message containing the value of `test_param` indicating the GET was
+        successful.
+
+    """
+    schema.debug_add_search_text()
+    return 'Done'
