@@ -10,6 +10,7 @@ from collections import defaultdict
 import boto3
 from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists, group_concat
 from fastapi.responses import FileResponse, Response
+from fuzzywuzzy import fuzz
 
 # local modules
 from .export import CovidPolicyExportPlugin
@@ -298,7 +299,7 @@ def get_policy(
     ----------
     filters : dict
         Dictionary of filters to be applied to policy data (see function
-        `apply_policy_filters` below).
+        `apply_entity_filters` below).
     fields : list
         List of Policy instance fields that should be returned. If None, then
         all fields are returned.
@@ -327,6 +328,10 @@ def get_policy(
         page = 1
     q = select(i for i in db.Policy)
 
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, db.Policy, filters)
+
     # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
@@ -337,14 +342,12 @@ def get_policy(
                     lambda i: desc(
                         group_concat(getattr(p, field) for p in i.place)
                     )
-                    # lambda i: desc(str(getattr(i.place, field)))
                 )
             else:
                 q = q.order_by(
                     lambda i:
                         group_concat(getattr(p, field) for p in i.place)
 
-                    # lambda i: str(getattr(i.place, field))
                 )
         else:
             field = field_tmp
@@ -353,13 +356,8 @@ def get_policy(
             else:
                 q = q.order_by(getattr(db.Policy, field))
 
-    # apply filters if any
-    if filters is not None:
-        q = apply_policy_filters(q, filters)
-
     # get len of query
     n = count(q) if use_pagination else None
-    # n = count(q) if use_pagination else None
 
     # apply pagination if using
     if use_pagination:
@@ -371,7 +369,6 @@ def get_policy(
 
     # otherwise prepare list of dictionaries to return
     else:
-
         return_fields_by_entity = defaultdict(list)
         if fields is not None:
             return_fields_by_entity['policy'] = fields
@@ -441,7 +438,7 @@ def get_plan(
     ----------
     filters : dict
         Dictionary of filters to be applied to plan data (see function
-        `apply_policy_filters` below).
+        `apply_entity_filters` below).
     fields : list
         List of Plan instance fields that should be returned. If None, then
         all fields are returned.
@@ -472,7 +469,7 @@ def get_plan(
 
     # apply filters if any
     if filters is not None:
-        q = apply_policy_filters(q, filters)
+        q = apply_entity_filters(q, db.Plan, filters)
 
     # apply ordering
     ordering.reverse()
@@ -666,7 +663,7 @@ def get_policy_status(
         # Case B: Any other category
         # apply filters if any
         if filters is not None:
-            q = apply_policy_filters(q, filters)
+            q = apply_entity_filters(q, filters)
 
         loc_field = 'area1'
         if geo_res == 'country':
@@ -1004,7 +1001,7 @@ def get_label_from_value(field, value):
 
 
 @db_session
-def apply_policy_filters(q, filters: dict = dict()):
+def apply_entity_filters(q, entity_class, filters: dict = dict()):
     """Given the PonyORM query for policies and relevant filters, applies
     filters with AND logic.
 
@@ -1032,13 +1029,36 @@ def apply_policy_filters(q, filters: dict = dict()):
         if len(allowed_values) == 0:
             continue
 
-        # custom text search
+        # custom text search with fuzzy matching
         if field == '_text':
             text = allowed_values[0].lower()
+            thresh = 80
+            new_q_ids = []
+            q_search_text_only = select((i.id, i.search_text) for i in q)
+
+            for id, search_text in q_search_text_only:
+
+                # return exact match - if no exact match return partial match
+                exact_match = text in search_text
+                if exact_match:
+                    new_q_ids.append(id)
+                else:
+                    ratio = fuzz.partial_ratio(
+                        text, search_text)
+                    partial_match = ratio >= thresh
+                    if partial_match:
+                        new_q_ids.append(id)
             q = select(
-                i for i in q
-                if text in i.search_text
+                i
+                for i in entity_class
+                if i.id in new_q_ids
             )
+
+            # # Text match with direct case insensitive matches only
+            # q = select(
+            #     i for i in q
+            #     if text in i.search_text
+            # )
             continue
 
         # if it is a date field, handle it specially
@@ -1097,7 +1117,7 @@ def apply_policy_filters(q, filters: dict = dict()):
 
         # is the filter applied by joining a policy instance to a
         # different entity?
-        # TODO generalize this and rename function `apply_policy_filters`
+        # TODO generalize this and rename function `apply_entity_filters`
         join = field in ('level', 'loc', 'area1',
                          'iso3', 'country_name', 'area2')
 

@@ -215,11 +215,34 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
     headers = headers_raw[0:4] + dates
     skip = ('Lat', 'Long', 'Province/State')
 
+    # keep dictionary of special row lists that need to be summed
+    special_country_rows = defaultdict(list)
     row_lists = list()
     for row in rows:
         row_list = row.split(',')
+        if row_list[1] in ('Australia', 'China', 'Canada',):
+            special_country_rows[row_list[1]].append(row_list)
+        else:
+            row_lists.append(row_list)
 
-        row_lists.append(row_list)
+    # condense special country rows into single rows
+    new_row_lists = list()
+    for place_name in special_country_rows:
+        row_list = ['', place_name, 'lat', 'lon']
+        L = special_country_rows[place_name]
+
+        # Using naive method to sum list of lists
+        # Source: https://www.geeksforgeeks.org/python-ways-to-sum-list-of-lists-and-return-sum-list/
+        res = list()
+        for j in range(0, len(L[0][4:])):
+            tmp = 0
+            for i in range(0, len(L)):
+                tmp = tmp + int(L[i][4:][j])
+            res.append(tmp)
+        row_list += res
+        new_row_lists.append(row_list)
+
+    row_lists += new_row_lists
 
     missing_names = set()
     data = list()
@@ -270,7 +293,7 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
 
     print('\ndata')
     pp.pprint(data)
-    # input('Press enter to continue.')
+    input('Press enter to continue.')
 
     # return output
     return data
