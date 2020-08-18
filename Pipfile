@@ -55,6 +55,8 @@ pyOpenSSL = "==19.1.0"
 XlsxWriter = "==1.2.8"
 airtable-python-wrapper = "==0.13.0"
 gunicorn = "==20.0.4"
+fuzzywuzzy = {extras = ["speedup"],version = "*"}
+rapidfuzz = "*"
 
 [requires]
 python_version = "3.7"

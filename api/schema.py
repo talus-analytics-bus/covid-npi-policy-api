@@ -8,8 +8,9 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql
+from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists, group_concat
 from fastapi.responses import FileResponse, Response
+from fuzzywuzzy import fuzz
 
 # local modules
 from .export import CovidPolicyExportPlugin
@@ -288,6 +289,7 @@ def get_policy(
     order_by_field: str = 'date_start_effective',
     return_db_instances: bool = False,
     by_category: str = None,
+    ordering: list = [],
     page: int = None,
     pagesize: int = 100
 ):
@@ -297,7 +299,7 @@ def get_policy(
     ----------
     filters : dict
         Dictionary of filters to be applied to policy data (see function
-        `apply_policy_filters` below).
+        `apply_entity_filters` below).
     fields : list
         List of Policy instance fields that should be returned. If None, then
         all fields are returned.
@@ -321,19 +323,38 @@ def get_policy(
 
     # use pagination if all fields are requested, and set value for `page` if
     # none was provided in the URL query args
-    # TODO use pagination in all cases with a URL param arg-definable
-    # page size
     use_pagination = (all or page is not None) and not return_db_instances
     if use_pagination and (page is None or page == 0):
         page = 1
-
-    # get ordered policies from database
-    q = select(i for i in db.Policy).order_by(
-        desc(getattr(db.Policy, order_by_field)))
+    q = select(i for i in db.Policy)
 
     # apply filters if any
     if filters is not None:
-        q = apply_policy_filters(q, filters)
+        q = apply_entity_filters(q, db.Policy, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(
+                        group_concat(getattr(p, field) for p in i.place)
+                    )
+                )
+            else:
+                q = q.order_by(
+                    lambda i:
+                        group_concat(getattr(p, field) for p in i.place)
+
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Policy, field)))
+            else:
+                q = q.order_by(getattr(db.Policy, field))
 
     # get len of query
     n = count(q) if use_pagination else None
@@ -348,7 +369,6 @@ def get_policy(
 
     # otherwise prepare list of dictionaries to return
     else:
-
         return_fields_by_entity = defaultdict(list)
         if fields is not None:
             return_fields_by_entity['policy'] = fields
@@ -385,7 +405,8 @@ def get_policy(
                 data=data_by_category,
                 success=True,
                 message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url
+                next_page_url=next_page_url,
+                n=n
             )
         else:
             # create response from output list
@@ -393,7 +414,8 @@ def get_policy(
                 data=data,
                 success=True,
                 message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url
+                next_page_url=next_page_url,
+                n=n
             )
         return res
 
@@ -402,10 +424,13 @@ def get_policy(
 @cached
 def get_plan(
     filters: dict = None,
+    ordering: list = [],
     fields: list = None,
     order_by_field: str = 'date_issued',
     return_db_instances: bool = False,
     by_category: str = None,
+    page: int = None,
+    pagesize: int = 100
 ):
     """Returns Plan instance data that match the provided filters.
 
@@ -413,7 +438,7 @@ def get_plan(
     ----------
     filters : dict
         Dictionary of filters to be applied to plan data (see function
-        `apply_policy_filters` below).
+        `apply_entity_filters` below).
     fields : list
         List of Plan instance fields that should be returned. If None, then
         all fields are returned.
@@ -435,13 +460,43 @@ def get_plan(
     # return all fields?
     all = fields is None
 
-    # get ordered policies from database
-    q = select(i for i in db.Plan).order_by(
-        desc(getattr(db.Plan, order_by_field)))
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    use_pagination = (all or page is not None) and not return_db_instances
+    if use_pagination and (page is None or page == 0):
+        page = 1
+    q = select(i for i in db.Plan)
 
     # apply filters if any
     if filters is not None:
-        q = apply_policy_filters(q, filters)
+        q = apply_entity_filters(q, db.Plan, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(str(getattr(i.place, field)))
+                )
+            else:
+                q = q.order_by(
+                    lambda i: str(getattr(i.place, field))
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Plan, field)))
+            else:
+                q = q.order_by(getattr(db.Plan, field))
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
 
     # return query object if arguments requested it
     if return_db_instances:
@@ -474,6 +529,12 @@ def get_plan(
             # add it to the output list
             data.append(d_dict)
 
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages else \
+            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Policy
         if by_category is not None:
@@ -492,7 +553,9 @@ def get_plan(
             res = PlanList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} plans found'''
+                message=f'''{len(q)} plans found''',
+                next_page_url=next_page_url,
+                n=n
             )
         return res
 
@@ -600,7 +663,7 @@ def get_policy_status(
         # Case B: Any other category
         # apply filters if any
         if filters is not None:
-            q = apply_policy_filters(q, filters)
+            q = apply_entity_filters(q, filters)
 
         loc_field = 'area1'
         if geo_res == 'country':
@@ -938,7 +1001,7 @@ def get_label_from_value(field, value):
 
 
 @db_session
-def apply_policy_filters(q, filters: dict = dict()):
+def apply_entity_filters(q, entity_class, filters: dict = dict()):
     """Given the PonyORM query for policies and relevant filters, applies
     filters with AND logic.
 
@@ -964,6 +1027,38 @@ def apply_policy_filters(q, filters: dict = dict()):
         # if no values were specified, assume no filter is applied
         # and continue
         if len(allowed_values) == 0:
+            continue
+
+        # custom text search with fuzzy matching
+        if field == '_text':
+            text = allowed_values[0].lower()
+            thresh = 80
+            new_q_ids = []
+            q_search_text_only = select((i.id, i.search_text) for i in q)
+
+            for id, search_text in q_search_text_only:
+
+                # return exact match - if no exact match return partial match
+                exact_match = text in search_text
+                if exact_match:
+                    new_q_ids.append(id)
+                else:
+                    ratio = fuzz.partial_ratio(
+                        text, search_text)
+                    partial_match = ratio >= thresh
+                    if partial_match:
+                        new_q_ids.append(id)
+            q = select(
+                i
+                for i in entity_class
+                if i.id in new_q_ids
+            )
+
+            # # Text match with direct case insensitive matches only
+            # q = select(
+            #     i for i in q
+            #     if text in i.search_text
+            # )
             continue
 
         # if it is a date field, handle it specially
@@ -1022,7 +1117,7 @@ def apply_policy_filters(q, filters: dict = dict()):
 
         # is the filter applied by joining a policy instance to a
         # different entity?
-        # TODO generalize this and rename function `apply_policy_filters`
+        # TODO generalize this and rename function `apply_entity_filters`
         join = field in ('level', 'loc', 'area1',
                          'iso3', 'country_name', 'area2')
 
@@ -1038,11 +1133,193 @@ def apply_policy_filters(q, filters: dict = dict()):
 
         # otherwise, apply the filter to the linked entity
         elif join:
-            q = select(
-                i
-                for i in q
-                if i.place.filter(lambda x: getattr(x, field) in allowed_values)
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.place
+                        if getattr(t, field) in allowed_values
+                    )
             )
 
     # return the filtered query instance
     return q
+
+
+@db_session
+def get_policy_search_text(i):
+    """Given Policy instance `i`, returns the search text string that should
+    be checked against by plain text search.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'policy_name',
+                'desc',
+                'primary_ph_measure',
+                'ph_measure_details',
+                'subtarget',
+                'relaxing_or_restricting',
+                'authority_name',
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'primary_impact',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'place',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'level',
+                'loc',
+                # 'country_name',
+                # 'area1',
+                # 'area2',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
+@db_session
+def get_plan_search_text(i):
+    """Given Plan instance `i`, returns the search text string that should
+    be checked against by plain text search.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'name',
+                'desc',
+                'primary_loc',
+                'org_name',
+                'org_type',
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'reqs_essential',
+                'reqs_private',
+                'reqs_school',
+                'reqs_social',
+                'reqs_hospital',
+                'reqs_public',
+                'reqs_other',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'place',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'level',
+                'loc',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
+def get_search_text(i, fields_by_type, linked_fields_by_type):
+    """Short summary.
+
+    Parameters
+    ----------
+    i : type
+        Description of parameter `i`.
+    fields_by_type : type
+        Description of parameter `fields_by_type`.
+    linked_fields_by_type : type
+        Description of parameter `linked_fields_by_type`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    # for each field on the entity class, concatenate it to the search text
+    search_text_list = list()
+    for field_group in fields_by_type:
+        field_type = field_group['type']
+        # string type fields are concatenated directly
+        if field_type == str:
+            for field in field_group['fields']:
+                search_text_list.append(getattr(i, field).lower())
+
+        # list type fields - each element concatenated
+        elif field_type == list:
+            for field in field_group['fields']:
+                for d in getattr(i, field):
+                    search_text_list.append(d.lower())
+
+    # for each linked entity field, do the same
+    for field_group in linked_fields_by_type:
+        field_type = field_group['type']
+        linked_type = field_group['linked_type']
+        linked_field = field_group['linked_field']
+
+        # string type fields are concatenated directly
+        if linked_type == list:
+            linked_instances = getattr(i, linked_field)
+            if linked_instances is not None and len(linked_instances) > 0:
+                for linked_instance in linked_instances:
+                    if field_type == str:
+                        for field in field_group['fields']:
+                            search_text_list.append(
+                                getattr(linked_instance, field).lower()
+                            )
+
+    # return joined text string
+    search_text = ' - '.join(search_text_list)
+    return search_text
+
+
+@db_session
+def add_search_text_to_polices_and_plans():
+    for i in db.Policy.select():
+        i.search_text = get_policy_search_text(i)
+    for i in db.Plan.select():
+        i.search_text = get_plan_search_text(i)

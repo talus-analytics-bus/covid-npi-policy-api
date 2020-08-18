@@ -19,6 +19,7 @@ if __name__ == "__main__":
     # post-process places
     plugin.post_process_places(db)
     plugin.post_process_policies(db)
+    schema.add_search_text_to_polices_and_plans()
 
     # Update observations of lockdown level
     if ingest_lockdown_levels:

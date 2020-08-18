@@ -142,7 +142,11 @@ async def get_policy(
 
 
 @app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
-async def get_plan(fields: List[str] = Query(None)):
+async def get_plan(
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
     """Return Plan data.
 
     Parameters
@@ -156,7 +160,7 @@ async def get_plan(fields: List[str] = Query(None)):
         Plan response dictionary.
 
     """
-    return schema.get_plan(fields=fields)
+    return schema.get_plan(fields=fields, page=page, pagesize=pagesize)
 
 
 @app.get("/get/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
@@ -217,6 +221,8 @@ async def post_policy(
     body: PolicyFilters,
     by_category: str = None,
     fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
 ):
     """Return Policy data with filters applied.
 
@@ -234,7 +240,8 @@ async def post_policy(
 
     """
     return schema.get_policy(
-        filters=body.filters, fields=fields, by_category=by_category
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize, ordering=body.ordering
     )
 
 
@@ -243,6 +250,8 @@ async def post_plan(
     body: PolicyFilters,
     by_category: str = None,
     fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
 ):
     """Return Plan data with filters applied.
 
@@ -260,7 +269,8 @@ async def post_plan(
 
     """
     return schema.get_plan(
-        filters=body.filters, fields=fields, by_category=by_category
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize
     )
 
 
@@ -311,3 +321,25 @@ async def get_test(test_param: str = 'GET successful'):
 
     """
     return [{'success': True, 'message': 'GET test', 'data': [test_param]}]
+
+##
+# Debug endpoints
+##
+@app.get("/add_search_text_to_polices_and_plans")
+async def add_search_text_to_polices_and_plans(test_param: str = 'GET successful'):
+    """Test GET endpoint.
+
+    Parameters
+    ----------
+    test_param : str
+        A message to be returned in the response if GET was successful.
+
+    Returns
+    -------
+    list[dict]
+        A message containing the value of `test_param` indicating the GET was
+        successful.
+
+    """
+    schema.add_search_text_to_polices_and_plans()
+    return 'Done'
