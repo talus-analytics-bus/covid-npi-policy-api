@@ -1027,11 +1027,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 upserted_places.append(place)
         places_to_split_area2.delete()
 
-        places_to_split_area2 = select(
-            i for i in db.Place
-            if ';' in i.area2
-        )
-
         places_to_split_iso3 = select(
             i for i in db.Place
             if ';' in i.iso3
@@ -1061,7 +1056,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 place.plans += p.plans
                 commit()
                 upserted_places.append(place)
-        places_to_split_area2.delete()
         places_to_split_iso3.delete()
         commit()
 
