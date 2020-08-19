@@ -707,8 +707,7 @@ def get_lockdown_level(
     data = list()
 
     # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
-    distinct_clause = \
-        'distinct on (place)' if end_date is None else \
+    distinct_clause = 'distinct on (place)' if end_date is None else \
         'distinct on (place, date)'
     q = db.Observation.select_by_sql(
         f'''
@@ -815,8 +814,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
 
     # get all glossary terms if needed
     need_glossary_terms = any(d_str in fields_using_groups for d_str in fields)
-    glossary_terms = \
-        select(i for i in db.Glossary)[:][:] if need_glossary_terms \
+    glossary_terms = select(i for i in db.Glossary)[:][:] if need_glossary_terms \
         else list()
 
     # check places relevant only for the entity of `class_name`
@@ -825,12 +823,11 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
 
     # get all places if needed
     need_places = any(d_str in fields_using_geo_groups for d_str in fields)
-    place_instances = \
-        select(
-            (i.area1, i.area2, i.country_name)
-            for i in db.Place
-            if len(getattr(i, class_name_field)) > 0
-        )[:][:] if need_places \
+    place_instances = select(
+        (i.area1, i.area2, i.country_name)
+        for i in db.Place
+        if len(getattr(i, class_name_field)) > 0
+    )[:][:] if need_places \
         else list()
 
     # for each field to get optionset values for:

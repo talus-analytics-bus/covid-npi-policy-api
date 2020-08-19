@@ -57,11 +57,12 @@ class Policy(BaseModel):
     id: int
 
     # descriptive information
+    policy_name: str = None
     desc: str = None
+    name_and_desc: str = None
     primary_ph_measure: str = None
     ph_measure_details: str = None
     policy_type: str = None
-    policy_name: str = None
     authority_name: str = None
 
     # key dates
@@ -84,8 +85,9 @@ class Plan(BaseModel):
 
     # descriptive information
     name: str = None
-    primary_loc: str = None
     desc: str = None
+    name_and_desc: str = None
+    primary_loc: str = None
     org_name: str = None
     org_type: str = None
     name: str = None

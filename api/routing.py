@@ -270,7 +270,7 @@ async def post_plan(
     """
     return schema.get_plan(
         filters=body.filters, fields=fields, by_category=by_category,
-        page=page, pagesize=pagesize
+        page=page, pagesize=pagesize, ordering=body.ordering
     )
 
 

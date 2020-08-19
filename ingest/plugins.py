@@ -93,7 +93,10 @@ def get_place_loc(i):
         Well-known location string
 
     """
-    if i.level == 'Tribal nation':
+    if i.level == 'Country' and ';' not in i.iso3 and \
+            i.country_name is not None:
+        return i.country_name
+    elif i.level == 'Tribal nation':
         return i.area1
     elif i.area2.lower() not in ('unspecified', 'n/a', ''):
         return f'''{i.area2}, {i.area1}, {i.country_name}'''
@@ -648,10 +651,6 @@ class CovidPolicyPlugin(IngestPlugin):
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
-        # load data to get country names from ISO3 codes
-        country_data = pd.read_json('./ingest/data/country.json') \
-            .to_dict(orient='records')
-
         # add new observations
         skipped = 0
         for page in airtable_iter:
@@ -664,8 +663,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 if not d['Date'].startswith('2020'):
                     skipped += 1
                     continue
-                print('\n')
-                print(d)
 
                 place = None
                 if d['Location type'] == 'State':
@@ -692,8 +689,6 @@ class CovidPolicyPlugin(IngestPlugin):
                                 'loc': f'''{d['Name']}, USA'''
                             }
                         )
-                        print('\naction')
-                        print(action)
 
                 else:
                     # TODO
@@ -718,8 +713,6 @@ class CovidPolicyPlugin(IngestPlugin):
                                 'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
                             }
                         )
-                        print('\naction')
-                        print(action)
 
                 if place is None:
                     print('[FATAL ERROR] Missing place')
@@ -829,6 +822,10 @@ class CovidPolicyPlugin(IngestPlugin):
                         to_replace=to_replace,
                         value=value
                     )
+
+            # # DEBUG write data to CSV file
+            # self.data.to_csv('data.csv')
+            # input('Wrote CSV. Press enter to continue.')
 
             def assign_standardized_local_areas():
                 """Overwrite values for local areas in free text column with
@@ -1006,11 +1003,9 @@ class CovidPolicyPlugin(IngestPlugin):
             if ';' in i.area2
         )
         for p in places_to_split_area2:
-            print('\n\n')
             places_to_upsert = p.area2.split('; ')
             upserted_places = list()
             for p2 in places_to_upsert:
-                print(p2)
                 instance = p.to_dict()
                 instance['area2'] = p2
 
@@ -1030,7 +1025,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 place.plans += p.plans
                 commit()
                 upserted_places.append(place)
-            pp.pprint([d.to_dict() for d in upserted_places])
         places_to_split_area2.delete()
 
         places_to_split_area2 = select(
@@ -1044,11 +1038,9 @@ class CovidPolicyPlugin(IngestPlugin):
             or i.loc == 'Multiple countries'
         )
         for p in places_to_split_iso3:
-            print('\n\n')
             places_to_upsert = p.iso3.split('; ')
             upserted_places = list()
             for p2 in places_to_upsert:
-                print(p2)
                 instance = p.to_dict()
                 instance['iso3'] = p2
                 instance['country_name'] = get_name_from_iso3(p2)
@@ -1081,11 +1073,8 @@ class CovidPolicyPlugin(IngestPlugin):
             if i.primary_ph_measure == 'Travel restrictions'
         )
         for p in policies:
-            print('Updated: ' + p.policy_name)
             all_country = all(ae.place.level ==
                               'Country' for ae in p.auth_entity)
-            print('all_country')
-            print(all_country)
             p.place = set()
             for ae in p.auth_entity:
                 p.place.add(ae.place)
@@ -1164,30 +1153,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     return 'Unspecified'
             else:
                 return d[key]
-
-        def get_name_from_iso3(iso3: str):
-            """Given the 3-character ISO code of a country, returns its name
-            plus the code in parentheses, or `None` if no match.
-
-            Parameters
-            ----------
-            iso3 : str
-                3-char iso code
-
-            Returns
-            -------
-            type
-                Name or `None`
-
-            """
-            if iso3 == 'Unspecified':
-                return 'N/A'
-            try:
-                country = next(d for d in country_data if d['alpha-3'] == iso3)
-                return country['name'] + ' (' + iso3 + ')'
-            except:
-                print('Found no country match for: ' + str(iso3))
-                return None
 
         # Main #################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
@@ -1450,34 +1415,6 @@ class CovidPolicyPlugin(IngestPlugin):
                     return 'Unspecified'
             else:
                 return d[key]
-
-        # load data to get country names from ISO3 codes
-        country_data = pd.read_json('./ingest/data/country.json') \
-            .to_dict(orient='records')
-
-        def get_name_from_iso3(iso3: str):
-            """Given the 3-character ISO code of a country, returns its name
-            plus the code in parentheses, or `None` if no match.
-
-            Parameters
-            ----------
-            iso3 : str
-                3-char iso code
-
-            Returns
-            -------
-            type
-                Name or `None`
-
-            """
-            if iso3 == 'Unspecified':
-                return 'N/A'
-            try:
-                country = next(d for d in country_data if d['alpha-3'] == iso3)
-                return country['name'] + ' (' + iso3 + ')'
-            except:
-                print('Found no country match for: ' + str(iso3))
-                return None
 
         # Main #################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and

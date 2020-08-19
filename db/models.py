@@ -121,9 +121,10 @@ class Plan(db.Entity):
 
     # descriptive information
     name = Optional(str)
-    primary_loc = Optional(str)
     desc = Optional(str)
+    name_and_desc = Optional(str)
     org_name = Optional(str)
+    primary_loc = Optional(str)
     org_type = Optional(str)
     search_text = Optional(str)
 
@@ -257,6 +258,7 @@ class Policy(db.Entity):
     # descriptive information
     policy_name = Optional(str)
     desc = Optional(str)
+    name_and_desc = Optional(str)
     primary_ph_measure = Optional(str)
     ph_measure_details = Optional(str)
     policy_type = Optional(str)
