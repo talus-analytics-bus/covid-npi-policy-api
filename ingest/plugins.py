@@ -763,6 +763,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # remove records without a unique ID and other features
             # TODO using a loop
+            self.data = self.data.loc[self.data['Flag for Review'] != True, :]
             self.data = self.data.loc[self.data['Unique ID'] != '', :]
             self.data = self.data.loc[
                 self.data['Authorizing level of government'] != '', :
