@@ -663,7 +663,7 @@ def get_policy_status(
         # Case B: Any other category
         # apply filters if any
         if filters is not None:
-            q = apply_entity_filters(q, filters)
+            q = apply_entity_filters(q, db.Policy, filters)
 
         loc_field = 'area1'
         if geo_res == 'country':
