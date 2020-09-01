@@ -762,7 +762,6 @@ class CovidPolicyPlugin(IngestPlugin):
             self.data.sort_values('Unique ID')
 
             # remove records without a unique ID and other features
-            # TODO using a loop
             self.data = self.data.loc[self.data['Flag for Review'] != True, :]
             self.data = self.data.loc[self.data['Unique ID'] != '', :]
             self.data = self.data.loc[
@@ -817,7 +816,9 @@ class CovidPolicyPlugin(IngestPlugin):
                     ('State/Province (Intermediate area)', 'State / Province'),
                     ('Local area (county, city)', 'Local'),
                     ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-                     'Multiple countries / Global policy'),
+                     'Country'),
+                    ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policies)',
+                     'Country'),
                 ):
                     self.data[col] = self.data[col].replace(
                         to_replace=to_replace,
