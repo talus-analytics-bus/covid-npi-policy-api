@@ -8,22 +8,30 @@ from db import db
 from ingest import CovidPolicyPlugin
 
 if __name__ == "__main__":
+    # ingest policies?
+    ingest_policies = False
+
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
     db.generate_mapping(create_tables=True)
     plugin = CovidPolicyPlugin()
 
-    # update core policy data
-    plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
+    # update core policy data, if appropriate
+    if ingest_policies:
+        plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
 
-    # post-process places
-    plugin.post_process_places(db)
-    plugin.post_process_policies(db)
-    schema.add_search_text_to_polices_and_plans()
+        # post-process places
+        plugin.post_process_places(db)
+        plugin.post_process_policies(db)
+        schema.add_search_text_to_polices_and_plans()
+    else:
+        print('\n\nSkipping policy ingest.\n')
 
-    # Update observations of lockdown level
+    # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+    else:
+        print('\n\nSkipping distancing level ingest.\n')
 
     sys.exit(0)
 

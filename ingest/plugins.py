@@ -651,6 +651,11 @@ class CovidPolicyPlugin(IngestPlugin):
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
+        # delete existing observations
+        print('\n\nDeleting existing observations...')
+        delete(i for i in db.Observation if i.metric == 0)
+        print('Existing observations deleted.\n')
+
         # add new observations
         skipped = 0
         for page in airtable_iter:
