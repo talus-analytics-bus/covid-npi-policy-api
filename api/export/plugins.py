@@ -118,6 +118,10 @@ class CovidPolicyExportPlugin(ExcelExport):
                 {
                     's': 'Plan',
                     'p': 'Plans'
+                },
+                {
+                    's': 'Court_Challenge',
+                    'p': 'Court challenges for policies'
                 }
             )
             for tab in tabs:
@@ -258,6 +262,8 @@ class CovidPolicyExportPlugin(ExcelExport):
             policies = schema.get_plan(
                 filters=self.filters, return_db_instances=True
             )
+        elif class_name == 'Court_Challenge':
+            policies = select(i for i in db.Court_Challenge)
 
         # init export data list
         rows = list()
@@ -318,7 +324,8 @@ class CovidPolicyExportPlugin(ExcelExport):
 
                 # check whether it is a policy or a joined entity
                 join = dd.entity_name != 'Policy' and \
-                    dd.entity_name != 'Plan'
+                    dd.entity_name != 'Plan' and \
+                    dd.entity_name != 'Court_Challenge'
 
                 # if it is not a join (data field entity is Policy)
                 if not join:

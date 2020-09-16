@@ -1973,7 +1973,7 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[XX] Ingesting court challenge data...')
 
         # skip linked fields and assign them later
-        linked_fields = ('policies', 'matter_number')
+        linked_fields = ('policies', 'matter_numbers')
         set_fields = ('id',)
 
         # retrieve data field keys for court challenge
@@ -2089,6 +2089,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # join matter numbers to court challenges
         print('\n\nAdding matter numbers to court challenges...')
+
         for i, d in self.data_matter_numbers.iterrows():
             if d['Court challenge link'] == '':
                 continue
@@ -2102,7 +2103,10 @@ class CovidPolicyPlugin(IngestPlugin):
                     if dd.matter_numbers is None:
                         dd.matter_numbers = [matter_number]
                     else:
-                        dd.matter_numbers.add(matter_number)
+                        new_matter_numbers = set(
+                            dd.matter_numbers)
+                        new_matter_numbers.add(matter_number)
+                        dd.matter_numbers = list(new_matter_numbers)
         print('Done.')
         return self
 

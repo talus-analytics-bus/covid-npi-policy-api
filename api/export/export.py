@@ -213,12 +213,16 @@ class SheetSettings():
             icol_start = icol_end
             for colname in row[colgroup]:
                 icol_end = icol_end + 1
-                if (icol_end - icol_start + 1) == len(row[colgroup]):
-                    worksheet.merge_range(
-                        irow, icol_start, irow, icol_end,
-                        colgroup,
-                        self.formats.colgroup()
-                    )
+                if len(row[colgroup]) == 1:
+                    worksheet.write(irow, icol_start, colgroup,
+                                    self.formats.colgroup())
+                else:
+                    if (icol_end - icol_start + 1) == len(row[colgroup]):
+                        worksheet.merge_range(
+                            irow, icol_start, irow, icol_end,
+                            colgroup,
+                            self.formats.colgroup()
+                        )
 
     def write_legend_labels(self, worksheet):
         """For legend sheets: add the left-hand column defining what each of
