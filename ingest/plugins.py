@@ -202,13 +202,6 @@ def reject(x):
 
     """
     no_desc = x['desc'] == ''
-    # country_level_with_prov = False
-    # if x['id'] != '46010':
-    #     return True
-    #
-    # # pp.pprint('x')
-    # # pp.pprint(x)
-    # # input('Press enter to continue')
 
     # reject country-level policies that have a non-blank province or
     # local area
@@ -594,6 +587,43 @@ class CovidPolicyPlugin(IngestPlugin):
         self.client = client
         return self
 
+    def load_metadata(self):
+        """Retrieve data dictionaries from data source and store in instance.
+
+        Returns
+        -------
+        self
+
+        """
+
+        print('\n\n[0] Connecting to Airtable and fetching tables...')
+        self.client.connect()
+
+        # show every row of data dictionary preview in terminal
+        pd.set_option("display.max_rows", None, "display.max_columns", None)
+
+        # policy data dictionary
+        self.data_dictionary = self.client \
+            .worksheet(name='Appendix: Policy data dictionary') \
+            .as_dataframe(view='API ingest')
+
+        # court challenges data dictionary
+        self.data_dictionary_court_challenges = self.client \
+            .worksheet(name='Appendix: Court challenges data dictionary') \
+            .as_dataframe()
+
+        # plan data dictionary
+        self.data_dictionary_plans = self.client \
+            .worksheet(name='Appendix: Plan data dictionary') \
+            .as_dataframe(view='API ingest')
+
+        # glossary
+        self.glossary = self.client \
+            .worksheet(name='Appendix: glossary') \
+            .as_dataframe(view='API ingest')
+
+        return self
+
     def load_data(self):
         """Retrieve dataframes from Airtable base for datasets and
         data dictionary.
@@ -607,42 +637,42 @@ class CovidPolicyPlugin(IngestPlugin):
         print('\n\n[0] Connecting to Airtable and fetching tables...')
         self.client.connect()
 
-        # local area database
-        self.local_areas = self.client \
-            .worksheet(name='Local Area Database') \
-            .as_dataframe()
+        # # local area database
+        # self.local_areas = self.client \
+        #     .worksheet(name='Local Area Database') \
+        #     .as_dataframe()
 
         # s3 bucket file keys
         self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
 
-        # policy data
-        self.data = self.client \
-            .worksheet(name='Policy Database') \
-            .as_dataframe()
+        # # policy data
+        # self.data = self.client \
+        #     .worksheet(name='Policy Database') \
+        #     .as_dataframe()
+        #
 
-        # policy data dictionary
-        self.data_dictionary = self.client \
-            .worksheet(name='Appendix: Policy data dictionary') \
-            .as_dataframe(view='API ingest')
-
-        # plan data
-        self.data_plans = self.client \
-            .worksheet(name='Plan database') \
-            .as_dataframe()
-
-        # plan data dictionary
-        self.data_dictionary_plans = self.client \
-            .worksheet(name='Appendix: Plan data dictionary') \
-            .as_dataframe(view='API ingest')
-
-        # glossary
-        self.glossary = self.client \
-            .worksheet(name='Appendix: glossary') \
-            .as_dataframe(view='API ingest')
-
-        pd.set_option("display.max_rows", None, "display.max_columns", None)
+        # # plan data
+        # self.data_plans = self.client \
+        #     .worksheet(name='Plan database') \
+        #     .as_dataframe()
+        #
 
         return self
+
+    def load_court_challenge_data(self):
+        """Load court challenge and matter number data into the ingest
+        system instance.
+
+        """
+        # court challenges
+        self.data_court_challenges = self.client \
+            .worksheet(name='Court challenges') \
+            .as_dataframe()
+
+        # court challenges data dictionary
+        self.data_dictionary_court_challenges = self.client \
+            .worksheet(name='Appendix: Court challenges data dictionary') \
+            .as_dataframe()
 
     @db_session
     def load_observations(self, db):
@@ -740,6 +770,31 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
+    def process_metadata(self, db):
+        """Create `metadata` table in database based on all data dictionaries
+        ingested from the data source.
+
+        """
+        # assign dd type to each dd
+        self.data_dictionary.loc[:, 'Type'] = 'Policy'
+        self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
+        self.data_dictionary_court_challenges.loc[:,
+                                                  'Type'] = 'Court_Challenge'
+
+        full_dd = pd.concat(
+            [
+                self.data_dictionary,
+                self.data_dictionary_plans,
+                self.data_dictionary_court_challenges,
+            ]
+        )
+
+        # upsert metadata records
+        self.create_metadata(db, full_dd)
+
+        return self
+
+    @db_session
     def process_data(self, db):
         """Perform data validation and create database entity instances
         corresponding to the data records.
@@ -754,9 +809,6 @@ class CovidPolicyPlugin(IngestPlugin):
         self
 
         """
-
-        # upsert metadata records
-        self.create_metadata(db)
 
         # upsert glossary terms
         self.create_glossary(db)
@@ -829,10 +881,6 @@ class CovidPolicyPlugin(IngestPlugin):
                         to_replace=to_replace,
                         value=value
                     )
-
-            # # DEBUG write data to CSV file
-            # self.data.to_csv('data.csv')
-            # input('Wrote CSV. Press enter to continue.')
 
             def assign_standardized_local_areas():
                 """Overwrite values for local areas in free text column with
@@ -1825,7 +1873,7 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Deleted: ' + str(n_deleted))
 
     @db_session
-    def create_metadata(self, db):
+    def create_metadata(self, db, full_dd):
         """Create metadata instances if they do not exist. If they do exist,
         update them.
 
@@ -1846,14 +1894,6 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        # assign dd type to each dd
-        self.data_dictionary.loc[:, 'Type'] = 'Policy'
-        self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
-
-        full_dd = pd.concat([self.data_dictionary, self.data_dictionary_plans])
-        print('full_dd')
-        print(full_dd)
-
         for i, d in full_dd.iterrows():
             if d['Category'] != '':
                 colgroup = d['Category']
@@ -1865,7 +1905,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': colgroup,
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
-                'notes': d['Notes'],
+                'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
                 'order': d['Order'],
                 'export': d['Export?'] == True,
             }

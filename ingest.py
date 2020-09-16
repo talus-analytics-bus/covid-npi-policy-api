@@ -26,8 +26,13 @@ if __name__ == "__main__":
     plugin = CovidPolicyPlugin()
 
     # update core policy data, if appropriate
+    client = plugin.load_client(airtable_key)
+
+    # load and process metadata
+    client.load_metadata().process_metadata(db)
+
     if ingest_policies:
-        plugin.load_client(airtable_key).load_data().process_data(db)
+        client.load_data().process_data(db)
 
         # post-process places
         plugin.post_process_places(db)
@@ -38,7 +43,8 @@ if __name__ == "__main__":
 
     # ingest court challenges and matter number info, if appropriate
     if ingest_court:
-        print('\n\nIngest of court challenges and matter numbers not yet implemented, skipping.')
+        print('\n\nIngesting court challenges and matter numbers data...')
+        client.load_court_challenge_data()
     else:
         print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
