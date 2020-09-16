@@ -263,8 +263,12 @@ class Policy(db.Entity):
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Set('Place', table="place_to_policy")
     prior_policy = Set('Policy', table="policy_to_prior_policy")
-    _prior_policy = Set('Policy')
+    _prior_policy = Set('Policy', reverse='prior_policy')
     plan = Optional('Plan')
+    court_challenges = Set(
+        'Court_Challenge',
+        table="policies_to_court_challenges"
+    )
 
     # Currently unused attributes
     # policy_number = Optional(int)
@@ -427,3 +431,53 @@ class File(db.Entity):
     # relationships
     policies = Set('Policy')
     plans = Set('Plan')
+
+
+class Court_Challenge(db.Entity):
+    """Court challenges for policies."""
+    _table_ = "court_challenge"
+
+    # Standard fields
+    id = PrimaryKey(int, auto=True)
+    jurisdiction = Optional(str)
+    court = Optional(str)
+    legal_authority_challenged = Optional(str)
+    parties = Optional(str)
+    date_of_complaint = Optional(date)
+    date_of_decision = Optional(date)
+    case_number = Optional(str)
+    legal_citation = Optional(str)
+    filed_in_state_or_federal_court = Optional(str)
+    summary_of_action = Optional(str)
+    complaint_category = Optional(StrArray, nullable=True)
+    legal_challenge = Optional(bool)
+    case_name = Optional(str)
+    procedural_history = Optional(str)
+    holding = Optional(str)
+    government_order_upheld_or_enjoined = Optional(str)
+    subsequent_action_or_current_status = Optional(str)
+    did_doj_file_statement_of_interest = Optional(str)
+    summary_of_doj_statement_of_interest = Optional(str)
+    data_source_for_complaint = Optional(str)
+    data_source_for_decision = Optional(str)
+    data_source_for_doj_statement_of_interest = Optional(str)
+    pdf_documentation = Optional(StrArray, nullable=True)  # TODO grab files
+    policy_or_law_name = Optional(str)
+
+    # Relationships
+    policies = Set('Policy', table="policies_to_court_challenges")
+    matter_number = Set(
+        'Matter_Number', table="court_challenges_to_matter_numbers")
+
+
+class Matter_Number(db.Entity):
+    """Matter numbers organizing court challenges into groups."""
+    # Standard
+    id = PrimaryKey(int, auto=True)
+    ids = Optional(StrArray, nullable=True)
+    parties = Optional(StrArray, nullable=True)
+    case_numbers = Optional(StrArray, nullable=True)
+
+    # Relationships
+    court_challenges = Set(
+        'Court_Challenge', table="court_challenges_to_matter_numbers")

@@ -8,8 +8,17 @@ from db import db
 from ingest import CovidPolicyPlugin
 
 if __name__ == "__main__":
+    # constants
+    # define red and green airtable keys and pick the one to use
+    red_airtable_key = 'appOtKBVJRyuH83wf'
+    green_airtable_key = 'appoXaOlIgpiHK3I2'
+    airtable_key = green_airtable_key
+
     # ingest policies?
     ingest_policies = False
+
+    # ingest court challenges and matter numbers?
+    ingest_court = True
 
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
@@ -18,7 +27,7 @@ if __name__ == "__main__":
 
     # update core policy data, if appropriate
     if ingest_policies:
-        plugin.load_client('appOtKBVJRyuH83wf').load_data().process_data(db)
+        plugin.load_client(airtable_key).load_data().process_data(db)
 
         # post-process places
         plugin.post_process_places(db)
@@ -26,6 +35,12 @@ if __name__ == "__main__":
         schema.add_search_text_to_polices_and_plans()
     else:
         print('\n\nSkipping policy ingest.\n')
+
+    # ingest court challenges and matter number info, if appropriate
+    if ingest_court:
+        print('\n\nIngest of court challenges and matter numbers not yet implemented, skipping.')
+    else:
+        print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
