@@ -12,10 +12,11 @@ if __name__ == "__main__":
     # define red and green airtable keys and pick the one to use
     red_airtable_key = 'appOtKBVJRyuH83wf'
     green_airtable_key = 'appoXaOlIgpiHK3I2'
+    # airtable_key = red_airtable_key
     airtable_key = green_airtable_key
 
     # ingest policies?
-    ingest_policies = False
+    ingest_policies = True
 
     # ingest court challenges and matter numbers?
     ingest_court = True
@@ -31,22 +32,22 @@ if __name__ == "__main__":
     # load and process metadata
     client.load_metadata().process_metadata(db)
 
+    # ingest court challenges and matter number info, if appropriate
+    if ingest_court:
+        print('\n\nIngesting court challenges and matter numbers data...')
+        client.load_court_challenge_data().process_court_challenge_data(db)
+    else:
+        print('\n\nSkipping court challenges and matter numbers data ingest.\n')
+
     if ingest_policies:
-        client.load_data().process_data(db)
+        # client.load_data().process_data(db)
 
         # post-process places
-        plugin.post_process_places(db)
+        # plugin.post_process_places(db)
         plugin.post_process_policies(db)
         schema.add_search_text_to_polices_and_plans()
     else:
         print('\n\nSkipping policy ingest.\n')
-
-    # ingest court challenges and matter number info, if appropriate
-    if ingest_court:
-        print('\n\nIngesting court challenges and matter numbers data...')
-        client.load_court_challenge_data()
-    else:
-        print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:

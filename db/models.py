@@ -4,7 +4,8 @@ import datetime
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, \
+    StrArray, select, db_session, IntArray
 
 # local modules
 from .config import db
@@ -450,7 +451,7 @@ class Court_Challenge(db.Entity):
     filed_in_state_or_federal_court = Optional(str)
     summary_of_action = Optional(str)
     complaint_category = Optional(StrArray, nullable=True)
-    legal_challenge = Optional(bool)
+    legal_challenge = Optional(bool, nullable=True)
     case_name = Optional(str)
     procedural_history = Optional(str)
     holding = Optional(str)
@@ -463,21 +464,29 @@ class Court_Challenge(db.Entity):
     data_source_for_doj_statement_of_interest = Optional(str)
     pdf_documentation = Optional(StrArray, nullable=True)  # TODO grab files
     policy_or_law_name = Optional(str)
+    source_id = Required(str)
 
     # Relationships
     policies = Set('Policy', table="policies_to_court_challenges")
-    matter_number = Set(
-        'Matter_Number', table="court_challenges_to_matter_numbers")
+    matter_numbers = Optional(IntArray, nullable=True)
+
+    def delete_2(records):
+        """Custom delete function for Court_Challenge class.
+
+        See `custom_delete` definition for more information.
+
+        """
+        return custom_delete(db.Court_Challenge, records)
 
 
-class Matter_Number(db.Entity):
-    """Matter numbers organizing court challenges into groups."""
-    # Standard
-    id = PrimaryKey(int, auto=True)
-    ids = Optional(StrArray, nullable=True)
-    parties = Optional(StrArray, nullable=True)
-    case_numbers = Optional(StrArray, nullable=True)
-
-    # Relationships
-    court_challenges = Set(
-        'Court_Challenge', table="court_challenges_to_matter_numbers")
+# class Matter_Number(db.Entity):
+#     """Matter numbers organizing court challenges into groups."""
+#     # Standard
+#     id = PrimaryKey(int, auto=True)
+#     ids = Optional(StrArray, nullable=True)
+#     parties = Optional(StrArray, nullable=True)
+#     case_numbers = Optional(StrArray, nullable=True)
+#
+#     # Relationships
+#     court_challenges = Set(
+#         'Court_Challenge', table="court_challenges_to_matter_numbers")
