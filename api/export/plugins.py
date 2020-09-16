@@ -62,54 +62,21 @@ class CovidPolicyExportPlugin(ExcelExport):
         # If class_name is all, then export policies and plans, otherwise
         # export whichever is defined in `class_name`
         export_policies_and_plans = class_name == 'all'
+        tabs = None
         if not export_policies_and_plans:
-            nouns = {
+            tabs = [{
                 's': 'Policy',
                 'p': 'Policies'
-            } if class_name == 'Policy' else \
+            },
                 {
-                's': 'Plan',
-                'p': 'Plans'
-            }
-            self.sheet_settings = [
-                SheetSettings(
-                    name=nouns['p'],
-                    type='data',
-                    intro_text=f'''The table below lists {nouns['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
-                    init_irow={
-                        'logo': 0,
-                        'title': 1,
-                        'subtitle': 2,
-                        'intro_text': 3,
-                        'gap': 4,
-                        'colgroups': 5,
-                        'colnames': 6,
-                        'data': 7
-                    },
-                    data_getter=self.default_data_getter,
-                    class_name=class_name
-                ),
-                SheetSettings(
-                    name='Legend',
-                    type='legend',
-                    intro_text=f'''A description for each data column in the "{nouns['p']}" tab and its possible values is provided below.''',
-                    init_irow={
-                        'logo': 0,
-                        'title': 1,
-                        'subtitle': 2,
-                        'intro_text': 3,
-                        'gap': 4,
-                        'colgroups': 5,
-                        'colnames': 6,
-                        'data': 7
-                    },
-                    data_getter=self.default_data_getter_legend,
-                    class_name=class_name
-                )
-            ]
+                's': 'Court_Challenge',
+                'p': 'Court challenges'
+            }] if class_name == 'Policy' else \
+                [{
+                    's': 'Plan',
+                    'p': 'Plans'
+                }]
         else:
-
-            self.sheet_settings = []
             tabs = (
                 {
                     's': 'Policy',
@@ -121,46 +88,49 @@ class CovidPolicyExportPlugin(ExcelExport):
                 },
                 {
                     's': 'Court_Challenge',
-                    'p': 'Court challenges for policies'
+                    'p': 'Court challenges'
                 }
             )
-            for tab in tabs:
-                self.sheet_settings += [
-                    SheetSettings(
-                        name=tab['p'],
-                        type='data',
-                        intro_text=f'''The table below lists {tab['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
-                        init_irow={
-                            'logo': 0,
-                            'title': 1,
-                            'subtitle': 2,
-                            'intro_text': 3,
-                            'gap': 4,
-                            'colgroups': 5,
-                            'colnames': 6,
-                            'data': 7
-                        },
-                        data_getter=self.default_data_getter,
-                        class_name=tab['s']
-                    ),
-                    SheetSettings(
-                        name='Legend - ' + tab['p'],
-                        type='legend',
-                        intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
-                        init_irow={
-                            'logo': 0,
-                            'title': 1,
-                            'subtitle': 2,
-                            'intro_text': 3,
-                            'gap': 4,
-                            'colgroups': 5,
-                            'colnames': 6,
-                            'data': 7
-                        },
-                        data_getter=self.default_data_getter_legend,
-                        class_name=tab['s']
-                    )
-                ]
+
+        self.sheet_settings = []
+
+        for tab in tabs:
+            self.sheet_settings += [
+                SheetSettings(
+                    name=tab['p'],
+                    type='data',
+                    intro_text=f'''The table below lists {tab['p'].lower()}{'' if tab['s'] != 'Court_Challenge' else ' for policies'} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter,
+                    class_name=tab['s']
+                ),
+                SheetSettings(
+                    name='Legend - ' + tab['p'],
+                    type='legend',
+                    intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
+                    init_irow={
+                        'logo': 0,
+                        'title': 1,
+                        'subtitle': 2,
+                        'intro_text': 3,
+                        'gap': 4,
+                        'colgroups': 5,
+                        'colnames': 6,
+                        'data': 7
+                    },
+                    data_getter=self.default_data_getter_legend,
+                    class_name=tab['s']
+                )
+            ]
 
     def add_content(self, workbook):
         """Add content, e.g., the tab containing the exported data.
@@ -263,7 +233,18 @@ class CovidPolicyExportPlugin(ExcelExport):
                 filters=self.filters, return_db_instances=True
             )
         elif class_name == 'Court_Challenge':
-            policies = select(i for i in db.Court_Challenge)
+            policies_with_challenges = schema.get_policy(
+                filters=self.filters, return_db_instances=True
+            )
+            challenge_ids = set()
+            for d in policies_with_challenges:
+                if len(d.court_challenges) > 0:
+                    for dd in d.court_challenges:
+                        challenge_ids.add(dd.id)
+            policies = select(
+                i for i in db.Court_Challenge
+                if i.id in challenge_ids
+            )
 
         # init export data list
         rows = list()
