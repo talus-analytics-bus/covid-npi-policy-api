@@ -5,33 +5,9 @@ from datetime import date
 
 # 3rd party modules
 from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
-# from enum import Enum
-# from pony.orm.dbapiprovider import StrConverter
 
 # local modules
 from .config import db
-
-# # Define enum type support
-# class State(Enum):
-#     mv = 'mv'
-#     jk = 'jk'
-#     ac = 'ac'
-#
-#
-# # Adapted from:
-# # https://stackoverflow.com/questions/31395663/how-can-i-store-a-python-enum-using-pony-orm
-# class EnumConverter(StrConverter):
-#     def validate(self, val):
-#         if not isinstance(val, Enum):
-#             raise ValueError('Must be an Enum.  Got {}'.format(type(val)))
-#         return val
-#
-#     def py2sql(self, val):
-#         return val.name
-#
-#     def sql2py(self, value):
-#         return self.py_type[value].name
-# db.provider.converter_classes.append((Enum, EnumConverter))
 
 
 @db_session
@@ -270,7 +246,6 @@ class Policy(db.Entity):
     policy_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
     search_text = Optional(str)
-    # enum_test = Optional(State, column='enum_test_str')
 
     # authority data
     auth_entity_has_authority = Optional(str)
