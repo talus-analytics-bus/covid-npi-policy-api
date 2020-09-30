@@ -64,19 +64,29 @@ class CovidPolicyExportPlugin(ExcelExport):
         export_policies_and_plans = class_name == 'all'
         tabs = None
         if not export_policies_and_plans:
-            tabs = [{
-                's': 'Policy',
-                'p': 'Policies'
-            },
-                {
-                's': 'Court_Challenge',
-                'p': 'Court challenges'
-            }] if class_name == 'Policy' else \
-                [{
+            if class_name == 'Policy':
+                tabs = [
+                    {
+                        's': 'Policy',
+                        'p': 'Policies'
+                    },
+                    {
+                        's': 'Court_Challenge',
+                        'p': 'Court challenges'
+                    }
+                ]
+            elif class_name == 'Plan':
+                tabs = [{
                     's': 'Plan',
                     'p': 'Plans'
                 }]
+            elif class_name == 'Court_Challenge':
+                tabs = [{
+                    's': 'Court_Challenge',
+                    'p': 'Court challenges'
+                }]
         else:
+            # export all data
             tabs = (
                 {
                     's': 'Policy',
@@ -93,7 +103,7 @@ class CovidPolicyExportPlugin(ExcelExport):
             )
 
         self.sheet_settings = []
-
+        print(tabs)
         for tab in tabs:
             self.sheet_settings += [
                 SheetSettings(
@@ -146,7 +156,14 @@ class CovidPolicyExportPlugin(ExcelExport):
             Description of returned object.
 
         """
+        # track which sheets were skipped so their legends can be omitted
+        skipped = set()
         for settings in self.sheet_settings:
+            # Skip empty tabs
+            if len(settings.data) == 0 or any(settings.name.endswith(name) for name in skipped):
+                skipped.add(settings.name)
+                continue
+
             worksheet = workbook.add_worksheet(settings.name)
 
             # hide gridlines
