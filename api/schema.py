@@ -15,7 +15,7 @@ from fuzzywuzzy import fuzz
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File, PlanList
+    Auth_Entity, Place, File, PlanList, ChallengeList
 from .util import str_to_date, find, download_file
 from db import db
 
@@ -422,6 +422,146 @@ def get_policy(
 
 @db_session
 @cached
+def get_challenge(
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_of_complaint',
+    return_db_instances: bool = False,
+    by_category: str = None,
+    ordering: list = [],
+    page: int = None,
+    pagesize: int = 100
+):
+    """Returns Challenge instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to data (see function
+        `apply_entity_filters` below).
+    fields : list
+        List of instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered instances, otherwise returns the list of dictionaries
+        containing the instance data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
+    all = fields is None
+
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    use_pagination = (all or page is not None) and not return_db_instances
+    if use_pagination and (page is None or page == 0):
+        page = 1
+    q = select(i for i in db.Court_Challenge)
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, db.Court_Challenge, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(
+                        group_concat(getattr(p, field) for p in i.place)
+                    )
+                )
+            else:
+                q = q.order_by(
+                    lambda i:
+                        group_concat(getattr(p, field) for p in i.place)
+
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Court_Challenge, field)))
+            else:
+                q = q.order_by(getattr(db.Court_Challenge, field))
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+        return_fields_by_entity = defaultdict(list)
+        if fields is not None:
+            return_fields_by_entity['court_challenge'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc']
+
+        # define list of instances to return
+        data = []
+        # for each policy
+        for d in q:
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                return_fields_by_entity=return_fields_by_entity)
+            # add it to the output list
+            data.append(d_dict)
+
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages else \
+            f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
+        if by_category is not None:
+            return []
+            # data_by_category = defaultdict(list)
+            # for i in data:
+            #     data_by_category[i[by_category]].append(i)
+            #
+            # res = PolicyDict(
+            #     data=data_by_category,
+            #     success=True,
+            #     message=f'''{len(q)} challenges found''',
+            #     next_page_url=next_page_url,
+            #     n=n
+            # )
+        else:
+            # create response from output list
+            res = ChallengeList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} challenges found''',
+                next_page_url=next_page_url,
+                n=n
+            )
+        return res
+
+
+@db_session
+@cached
 def get_plan(
     filters: dict = None,
     ordering: list = [],
@@ -536,7 +676,7 @@ def get_plan(
             f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
 
         # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Policy
+        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
         if by_category is not None:
             pass
             # data_by_category = defaultdict(list)

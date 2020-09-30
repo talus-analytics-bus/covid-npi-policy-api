@@ -1184,7 +1184,7 @@ class CovidPolicyPlugin(IngestPlugin):
         commit()
 
     @db_session
-    def post_process_policies(self, db):
+    def post_process_policies(self, db, include_court_challenges=False):
         # for travel restriction policies, set aff to auth
         policies = select(
             i for i in db.Policy
@@ -1198,18 +1198,19 @@ class CovidPolicyPlugin(IngestPlugin):
                 p.place.add(ae.place)
 
         # link policies to court challenges
-        for i, d in self.data_court_challenges.iterrows():
-            if d['policies'] == '':
-                continue
-            else:
-                court_challenge_id = int(d['id'])
-                court_challenge = db.Court_Challenge[court_challenge_id]
-                policies = select(
-                    i for i in db.Policy
-                    if i.source_id in d['policies']
-                )
-                for d in policies:
-                    d.court_challenges.add(court_challenge)
+        if include_court_challenges:
+            for i, d in self.data_court_challenges.iterrows():
+                if d['policies'] == '':
+                    continue
+                else:
+                    court_challenge_id = int(d['id'])
+                    court_challenge = db.Court_Challenge[court_challenge_id]
+                    policies = select(
+                        i for i in db.Policy
+                        if i.source_id in d['policies']
+                    )
+                    for d in policies:
+                        d.court_challenges.add(court_challenge)
 
     @db_session
     def create_auth_entities_and_places(self, db):

@@ -1,6 +1,7 @@
 """Define database models."""
 # standard modules
 import datetime
+import json
 from datetime import date
 
 # 3rd party modules
@@ -470,6 +471,21 @@ class Court_Challenge(db.Entity):
     policies = Set('Policy', table="policies_to_court_challenges")
     matter_numbers = Optional(IntArray, nullable=True)
 
+    def to_dict_2(self, **kwargs):
+
+        # get fields to return
+        only = kwargs['return_fields_by_entity']['court_challenge'] if 'return_fields_by_entity' in kwargs else ['id']
+        i_dict = Court_Challenge.to_dict(
+            self,
+            with_collections=True,
+            related_objects=True,
+            # only=only
+            # **kwargs
+        )
+        # if len(i_dict['policies']) == 0:
+        #     i_dict.pop('policies')
+        return json.loads(json.dumps(i_dict, default=jsonify_custom))
+
     def delete_2(records):
         """Custom delete function for Court_Challenge class.
 
@@ -490,3 +506,35 @@ class Court_Challenge(db.Entity):
 #     # Relationships
 #     court_challenges = Set(
 #         'Court_Challenge', table="court_challenges_to_matter_numbers")
+
+only = {
+    'Policy': [
+        'id',
+        'policy_name',
+    ]
+}
+
+
+def jsonify_custom(obj):
+    """Define how related entities should be represented as JSON.
+
+    Parameters
+    ----------
+    obj : type
+        Description of parameter `obj`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    to_check = only.keys()
+
+    if isinstance(obj, set):
+        return list(obj)
+        raise TypeError
+    else:
+        for entity_name in to_check:
+            if isinstance(obj, getattr(db, entity_name)):
+                return obj.to_dict(only=only[entity_name])

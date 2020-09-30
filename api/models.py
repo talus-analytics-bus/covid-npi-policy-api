@@ -135,6 +135,24 @@ class PolicyFilters(BaseModel):
 class PolicyList(Response):
     data: List[Policy]
 
+class Court_Challenge(BaseModel):
+    id: int
+    court: str = None
+    jurisdiction: str = None
+    legal_citation: str = None
+    case_number: str = None
+    summary_of_action: str = None
+    holding: str = None
+    date_of_decision: date = None
+    date_of_complaint: date = None
+    data_source_for_decision: str = None
+
+    # related entities
+    policies: List[Policy] = None
+
+class ChallengeList(Response):
+    data: List[Court_Challenge]
+
 
 class PlanList(Response):
     data: List[Plan]

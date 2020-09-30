@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ingest_policies = True
 
     # ingest court challenges and matter numbers?
-    ingest_court = True
+    ingest_court = False
 
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
@@ -40,10 +40,10 @@ if __name__ == "__main__":
         print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
     if ingest_policies:
-        # client.load_data().process_data(db)
+        client.load_data().process_data(db)
 
         # post-process places
-        # plugin.post_process_places(db)
+        plugin.post_process_places(db)
         plugin.post_process_policies(db)
         schema.add_search_text_to_polices_and_plans()
     else:
