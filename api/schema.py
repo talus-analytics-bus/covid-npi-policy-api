@@ -1254,6 +1254,38 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
+             # if it's the special "dates_in_effect" filter, handle it
+            # and continue
+            if field == 'date_of_decision':
+                # return instances where `date_of_decision` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_decision is not None
+                    and i.date_of_decision <= end
+                    and i.date_of_decision >= start
+                )
+                continue
+
+
+            if field == 'date_of_complaint':
+                # return instances where `date_of_complaint` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_complaint is not None
+                    and i.date_of_complaint <= end
+                    and i.date_of_complaint >= start
+                )
+                continue
+
+
             elif field == 'date_issued':
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
