@@ -991,6 +991,9 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                 getattr(i, field) for i in entity_class
             ).filter(lambda x: x is not None)[:][:]
 
+        if isinstance(options[0], list):
+            options = list(set([item for sublist in options for item in sublist]))
+
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
