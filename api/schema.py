@@ -1201,6 +1201,19 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # )
             continue
 
+        # Complaint category field needs to be handled separately
+        # because the field contains arrays instead of strings
+        if field == 'complaint_category':
+
+            for value in allowed_values:
+                print(allowed_values)
+                q = select(
+                    i for i in q if value in i.complaint_category
+                )
+
+            continue
+
+
         # if it is a date field, handle it specially
         if field.startswith('date'):
 
