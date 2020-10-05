@@ -534,6 +534,8 @@ def jsonify_custom(obj):
     if isinstance(obj, set):
         return list(obj)
         raise TypeError
+    elif isinstance(obj, date):
+        return str(obj)
     else:
         for entity_name in to_check:
             if isinstance(obj, getattr(db, entity_name)):
