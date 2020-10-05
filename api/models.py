@@ -141,6 +141,8 @@ class Court_Challenge(BaseModel):
     jurisdiction: str = None
     legal_citation: str = None
     case_number: str = None
+    case_name: str = None
+    parties: str = None
     summary_of_action: str = None
     holding: str = None
     date_of_decision: date = None
