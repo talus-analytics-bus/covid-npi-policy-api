@@ -973,6 +973,14 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # for each field to get optionset values for:
     for d_str in fields:
 
+        if d_str == 'Court_Challenge.holding':
+            data['holding'] = [
+                {'id': 1, 'value': 'Pending', 'label': 'Pending'}, 
+                {'id': 2, 'value': 'Decided', 'label': 'Decided'}
+            ]
+
+            continue
+
         # split into entity class name and field
         entity_name, field = d_str.split('.')
         entity_class = getattr(db, entity_name)
@@ -1254,8 +1262,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
-             # if it's the special "dates_in_effect" filter, handle it
-            # and continue
+
             if field == 'date_of_decision':
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
@@ -1299,6 +1306,23 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     and i.date_issued >= start
                 )
                 continue
+
+        # This should act as a status filter, showing whether 
+        # or not a court case is pending. 
+        print(field)
+        if field == 'holding':
+            for string in allowed_values:
+                print(f'holding string is {string}')
+
+                if string == 'Pending':
+                    print('Pending records')
+                    q = select(i for i in q if i.holding.strip() == '')
+                else: 
+                    print('Decided records')
+                    q = select(i for i in q if i.holding.strip() != '')
+
+            continue
+
 
         # is the filter applied by joining a policy instance to a
         # different entity?
