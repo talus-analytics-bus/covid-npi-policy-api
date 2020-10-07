@@ -973,6 +973,14 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # for each field to get optionset values for:
     for d_str in fields:
 
+        if d_str == 'Court_Challenge.holding':
+            data['holding'] = [
+                {'id': 1, 'value': 'Pending', 'label': 'Pending'}, 
+                {'id': 2, 'value': 'Decided', 'label': 'Decided'}
+            ]
+
+            continue
+
         # split into entity class name and field
         entity_name, field = d_str.split('.')
         entity_class = getattr(db, entity_name)
@@ -990,6 +998,9 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             options = select(
                 getattr(i, field) for i in entity_class
             ).filter(lambda x: x is not None)[:][:]
+
+        if isinstance(options[0], list):
+            options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
@@ -1198,6 +1209,19 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # )
             continue
 
+        # Complaint category field needs to be handled separately
+        # because the field contains arrays instead of strings
+        if field == 'complaint_category':
+
+            for value in allowed_values:
+                print(allowed_values)
+                q = select(
+                    i for i in q if value in i.complaint_category
+                )
+
+            continue
+
+
         # if it is a date field, handle it specially
         if field.startswith('date'):
 
@@ -1238,6 +1262,37 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
+
+            if field == 'date_of_decision':
+                # return instances where `date_of_decision` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_decision is not None
+                    and i.date_of_decision <= end
+                    and i.date_of_decision >= start
+                )
+                continue
+
+
+            if field == 'date_of_complaint':
+                # return instances where `date_of_complaint` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_complaint is not None
+                    and i.date_of_complaint <= end
+                    and i.date_of_complaint >= start
+                )
+                continue
+
+
             elif field == 'date_issued':
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
@@ -1251,6 +1306,23 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     and i.date_issued >= start
                 )
                 continue
+
+        # This should act as a status filter, showing whether 
+        # or not a court case is pending. 
+        print(field)
+        if field == 'holding':
+            for string in allowed_values:
+                print(f'holding string is {string}')
+
+                if string == 'Pending':
+                    print('Pending records')
+                    q = select(i for i in q if i.holding.strip() == '')
+                else: 
+                    print('Decided records')
+                    q = select(i for i in q if i.holding.strip() != '')
+
+            continue
+
 
         # is the filter applied by joining a policy instance to a
         # different entity?
