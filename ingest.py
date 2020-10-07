@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ingest_policies = True
 
     # ingest court challenges and matter numbers?
-    ingest_court = False
+    ingest_court = True
 
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
