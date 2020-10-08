@@ -1094,7 +1094,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data[field].append(datum)
             id = id + 1
 
-        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined': 
+        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined':
             data['government_order_upheld_or_enjoined'].append(
                 {'id': -1, 'value': 'Pending', 'label': 'Pending'},
             )
@@ -1229,7 +1229,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     or getattr(i, field) == ''
                 )
 
-            else: 
+            else:
                 q = select(
                     i
                     for i in q

@@ -13,11 +13,26 @@ import pprint
 
 # local modules
 from .formats import WorkbookFormats
-from .export import ExcelExport, SheetSettings
+from .export import ExcelExport, WorkbookTab
 from api import schema
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
+
+class CovidPolicyTab(WorkbookTab):
+    """Add a specific parameter denoting whether a tab for court challenges
+    is part of a workbook containing court challenges only. Note: Workbooks
+    containing court challenges only will contain any court challenges that
+    pass filters provided, whereas workbooks containing policies as well will
+    containing any court challenges associated with those policies.
+
+    """
+    def __init__(self, challenges_only=False, **kwargs):
+        # assign project-specific parameter `challenges_only`
+        self.challenges_only = challenges_only
+
+        # inherit superclass WorkbookTab
+        super().__init__(**kwargs)
 
 
 class CovidPolicyExportPlugin(ExcelExport):
@@ -106,7 +121,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         print(tabs)
         for tab in tabs:
             self.sheet_settings += [
-                SheetSettings(
+                CovidPolicyTab(
                     name=tab['p'],
                     type='data',
                     intro_text=f'''The table below lists {tab['p'].lower()}{'' if tab['s'] != 'Court_Challenge' else ' for policies'} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
@@ -121,9 +136,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                         'data': 7
                     },
                     data_getter=self.default_data_getter,
-                    class_name=tab['s']
+                    class_name=tab['s'],
+
+                    # Does this workbook contain court challenges only?
+                    challenges_only=tab['s'] == 'Court_Challenge' and \
+                        len(tabs) == 1
                 ),
-                SheetSettings(
+                CovidPolicyTab(
                     name='Legend - ' + tab['p'],
                     type='legend',
                     intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
@@ -202,7 +221,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         return self
 
-    def default_data_getter(self, class_name: str = 'Policy'):
+    def default_data_getter(self, tab, class_name: str = 'Policy'):
 
         def get_joined_entity(main_entity, joined_entity_string):
             """Given a main entity class and a string of joined entities like
@@ -250,18 +269,23 @@ class CovidPolicyExportPlugin(ExcelExport):
                 filters=self.filters, return_db_instances=True
             )
         elif class_name == 'Court_Challenge':
-            policies_with_challenges = schema.get_policy(
-                filters=self.filters, return_db_instances=True
-            )
-            challenge_ids = set()
-            for d in policies_with_challenges:
-                if len(d.court_challenges) > 0:
-                    for dd in d.court_challenges:
-                        challenge_ids.add(dd.id)
-            policies = select(
-                i for i in db.Court_Challenge
-                if i.id in challenge_ids
-            )
+            if tab.challenges_only:
+                policies = schema.get_challenge(
+                    filters=self.filters, return_db_instances=True
+                )
+            else:
+                policies_with_challenges = schema.get_policy(
+                    filters=self.filters, return_db_instances=True
+                )
+                challenge_ids = set()
+                for d in policies_with_challenges:
+                    if len(d.court_challenges) > 0:
+                        for dd in d.court_challenges:
+                            challenge_ids.add(dd.id)
+                policies = select(
+                    i for i in db.Court_Challenge
+                    if i.id in challenge_ids
+                )
 
         # init export data list
         rows = list()
@@ -412,7 +436,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         # return list of rows
         return rows
 
-    def default_data_getter_legend(self, class_name: str = 'Policy'):
+    def default_data_getter_legend(self, tab, class_name: str = 'Policy'):
         # get all metadata
         db = self.db
         metadata = select(
