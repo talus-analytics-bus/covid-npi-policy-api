@@ -45,7 +45,7 @@ if __name__ == "__main__":
         # post-process places
         plugin.post_process_places(db)
         plugin.post_process_policies(db)
-        schema.add_search_text_to_polices_and_plans()
+        schema.add_search_text()
     else:
         print('\n\nSkipping policy ingest.\n')
 

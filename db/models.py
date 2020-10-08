@@ -466,6 +466,7 @@ class Court_Challenge(db.Entity):
     pdf_documentation = Optional(StrArray, nullable=True)  # TODO grab files
     policy_or_law_name = Optional(str)
     source_id = Required(str)
+    search_text = Optional(str)
 
     # Relationships
     policies = Set('Policy', table="policies_to_court_challenges")

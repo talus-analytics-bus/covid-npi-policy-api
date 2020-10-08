@@ -1470,6 +1470,64 @@ def get_plan_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
+@db_session
+def get_challenge_search_text(i):
+    """Given Court_Challenge instance `i`, returns the search text string that
+    should be checked against by plain text search.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'jurisdiction',
+                'court',
+                'legal_authority_challenged',
+                'parties',
+                'case_number',
+                'legal_citation',
+                'filed_in_state_or_federal_court',
+                'summary_of_action',
+                'case_name',
+                'procedural_history',
+                'holding',
+                'government_order_upheld_or_enjoined',
+                'subsequent_action_or_current_status',
+                'did_doj_file_statement_of_interest',
+                'summary_of_doj_statement_of_interest',
+                'data_source_for_complaint',
+                'data_source_for_decision',
+                'data_source_for_doj_statement_of_interest',
+                'policy_or_law_name',
+                'source_id',
+                'search_text'
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'complaint_category',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'policies',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'policy_name',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
 def get_search_text(i, fields_by_type, linked_fields_by_type):
     """Short summary.
 
@@ -1495,13 +1553,16 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
         # string type fields are concatenated directly
         if field_type == str:
             for field in field_group['fields']:
-                search_text_list.append(getattr(i, field).lower())
+                value = getattr(i, field)
+                if value is not None:
+                    search_text_list.append(value.lower())
 
         # list type fields - each element concatenated
         elif field_type == list:
             for field in field_group['fields']:
                 for d in getattr(i, field):
-                    search_text_list.append(d.lower())
+                    if d is not None:
+                        search_text_list.append(d.lower())
 
     # for each linked entity field, do the same
     for field_group in linked_fields_by_type:
@@ -1516,9 +1577,11 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
                 for linked_instance in linked_instances:
                     if field_type == str:
                         for field in field_group['fields']:
-                            search_text_list.append(
-                                getattr(linked_instance, field).lower()
-                            )
+                            value = getattr(linked_instance, field)
+                            if value is not None:
+                                search_text_list.append(
+                                    value.lower()
+                                )
 
     # return joined text string
     search_text = ' - '.join(search_text_list)
@@ -1526,8 +1589,13 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 
 
 @db_session
-def add_search_text_to_polices_and_plans():
+def add_search_text():
+    """Add searchable text strings to instances.
+
+    """
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
         i.search_text = get_plan_search_text(i)
+    for i in db.Court_Challenge.select():
+        i.search_text = get_challenge_search_text(i)
