@@ -973,14 +973,6 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # for each field to get optionset values for:
     for d_str in fields:
 
-        if d_str == 'Court_Challenge.holding':
-            data['holding'] = [
-                {'id': 1, 'value': 'Pending', 'label': 'Pending'}, 
-                {'id': 2, 'value': 'Decided', 'label': 'Decided'}
-            ]
-
-            continue
-
         # split into entity class name and field
         entity_name, field = d_str.split('.')
         entity_class = getattr(db, entity_name)
@@ -1102,6 +1094,11 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data[field].append(datum)
             id = id + 1
 
+        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined': 
+            data['government_order_upheld_or_enjoined'].append(
+                {'id': -1, 'value': 'Pending', 'label': 'Pending'},
+            )
+
     # # Disable profiling
     # p.disable()
     #
@@ -1111,6 +1108,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # p2.sort_stats('cumulative').print_stats(10)
 
     # return all optionset values
+
     return {
         'data': data,
         'success': True,
@@ -1221,6 +1219,24 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
             continue
 
+        if field == 'government_order_upheld_or_enjoined':
+            print(allowed_values)
+            if 'Pending' in allowed_values:
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                    or getattr(i, field) == ''
+                )
+
+            else: 
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                )
+
+            continue
 
         # if it is a date field, handle it specially
         if field.startswith('date'):
@@ -1306,23 +1322,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     and i.date_issued >= start
                 )
                 continue
-
-        # This should act as a status filter, showing whether 
-        # or not a court case is pending. 
-        print(field)
-        if field == 'holding':
-            for string in allowed_values:
-                print(f'holding string is {string}')
-
-                if string == 'Pending':
-                    print('Pending records')
-                    q = select(i for i in q if i.holding.strip() == '')
-                else: 
-                    print('Decided records')
-                    q = select(i for i in q if i.holding.strip() != '')
-
-            continue
-
 
         # is the filter applied by joining a policy instance to a
         # different entity?
