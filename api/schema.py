@@ -991,6 +991,9 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                 getattr(i, field) for i in entity_class
             ).filter(lambda x: x is not None)[:][:]
 
+        if isinstance(options[0], list):
+            options = list(set([item for sublist in options for item in sublist]))
+
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
@@ -1091,6 +1094,11 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data[field].append(datum)
             id = id + 1
 
+        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined':
+            data['government_order_upheld_or_enjoined'].append(
+                {'id': -1, 'value': 'Pending', 'label': 'Pending'},
+            )
+
     # # Disable profiling
     # p.disable()
     #
@@ -1100,6 +1108,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # p2.sort_stats('cumulative').print_stats(10)
 
     # return all optionset values
+
     return {
         'data': data,
         'success': True,
@@ -1198,6 +1207,37 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # )
             continue
 
+        # Complaint category field needs to be handled separately
+        # because the field contains arrays instead of strings
+        if field == 'complaint_category':
+
+            for value in allowed_values:
+                print(allowed_values)
+                q = select(
+                    i for i in q if value in i.complaint_category
+                )
+
+            continue
+
+        if field == 'government_order_upheld_or_enjoined':
+            print(allowed_values)
+            if 'Pending' in allowed_values:
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                    or getattr(i, field) == ''
+                )
+
+            else:
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                )
+
+            continue
+
         # if it is a date field, handle it specially
         if field.startswith('date'):
 
@@ -1237,6 +1277,37 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
                 )
                 continue
+
+
+            if field == 'date_of_decision':
+                # return instances where `date_of_decision` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_decision is not None
+                    and i.date_of_decision <= end
+                    and i.date_of_decision >= start
+                )
+                continue
+
+
+            if field == 'date_of_complaint':
+                # return instances where `date_of_complaint` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_complaint is not None
+                    and i.date_of_complaint <= end
+                    and i.date_of_complaint >= start
+                )
+                continue
+
 
             elif field == 'date_issued':
                 # return instances where `date_issued` falls within the
@@ -1399,6 +1470,64 @@ def get_plan_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
+@db_session
+def get_challenge_search_text(i):
+    """Given Court_Challenge instance `i`, returns the search text string that
+    should be checked against by plain text search.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'jurisdiction',
+                'court',
+                'legal_authority_challenged',
+                'parties',
+                'case_number',
+                'legal_citation',
+                'filed_in_state_or_federal_court',
+                'summary_of_action',
+                'case_name',
+                'procedural_history',
+                'holding',
+                'government_order_upheld_or_enjoined',
+                'subsequent_action_or_current_status',
+                'did_doj_file_statement_of_interest',
+                'summary_of_doj_statement_of_interest',
+                'data_source_for_complaint',
+                'data_source_for_decision',
+                'data_source_for_doj_statement_of_interest',
+                'policy_or_law_name',
+                'source_id',
+                'search_text'
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'complaint_category',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'policies',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'policy_name',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
 def get_search_text(i, fields_by_type, linked_fields_by_type):
     """Short summary.
 
@@ -1424,13 +1553,16 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
         # string type fields are concatenated directly
         if field_type == str:
             for field in field_group['fields']:
-                search_text_list.append(getattr(i, field).lower())
+                value = getattr(i, field)
+                if value is not None:
+                    search_text_list.append(value.lower())
 
         # list type fields - each element concatenated
         elif field_type == list:
             for field in field_group['fields']:
                 for d in getattr(i, field):
-                    search_text_list.append(d.lower())
+                    if d is not None:
+                        search_text_list.append(d.lower())
 
     # for each linked entity field, do the same
     for field_group in linked_fields_by_type:
@@ -1445,9 +1577,11 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
                 for linked_instance in linked_instances:
                     if field_type == str:
                         for field in field_group['fields']:
-                            search_text_list.append(
-                                getattr(linked_instance, field).lower()
-                            )
+                            value = getattr(linked_instance, field)
+                            if value is not None:
+                                search_text_list.append(
+                                    value.lower()
+                                )
 
     # return joined text string
     search_text = ' - '.join(search_text_list)
@@ -1455,8 +1589,13 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 
 
 @db_session
-def add_search_text_to_polices_and_plans():
+def add_search_text():
+    """Add searchable text strings to instances.
+
+    """
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
         i.search_text = get_plan_search_text(i)
+    for i in db.Court_Challenge.select():
+        i.search_text = get_challenge_search_text(i)

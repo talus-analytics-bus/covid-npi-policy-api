@@ -49,7 +49,7 @@ class ExcelExport():
         return False
 
 
-class SheetSettings():
+class WorkbookTab():
     """Define settings for a workbook sheet to be written to an XLSX file.
 
     Parameters
@@ -89,7 +89,7 @@ class SheetSettings():
         self.intro_text = intro_text
         self.init_irow = init_irow
         self.class_name = class_name
-        self.data = data_getter(class_name=class_name)
+        self.data = data_getter(tab=self, class_name=class_name)
         self.num_cols = 0
 
     def get_init_icol(self):
@@ -414,7 +414,7 @@ class GenericExcelExport(ExcelExport):
 
         # Define a sheet settings instance for each tab of the XLSX
         self.sheet_settings = [
-            SheetSettings(
+            WorkbookTab(
                 name='Exported data',
                 type='data',
                 intro_text='This is placeholder intro text for the main data sheet of the workbook. It can be edited by changing the `text` argument to the function `write_intro_text` in module `~/py/api/excel.py`.',
@@ -430,7 +430,7 @@ class GenericExcelExport(ExcelExport):
                 },
                 data_getter=self.default_data_getter
             ),
-            SheetSettings(
+            WorkbookTab(
                 name='Legend',
                 type='legend',
                 intro_text='This is a placeholder for a legend sheet.',
