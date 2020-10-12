@@ -891,6 +891,9 @@ class CovidPolicyPlugin(IngestPlugin):
             self.data = self.data.loc[self.data['Flag for Review'] != True, :]
             self.data = self.data.loc[self.data['Unique ID'] != '', :]
             self.data = self.data.loc[
+                self.data['Policy/law type'] != 'Non-policy guidance', :
+            ]
+            self.data = self.data.loc[
                 self.data['Authorizing level of government'] != '', :
             ]
 
