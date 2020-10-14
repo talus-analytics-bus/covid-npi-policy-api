@@ -475,16 +475,15 @@ class Court_Challenge(db.Entity):
     def to_dict_2(self, **kwargs):
 
         # get fields to return
-        only = kwargs['return_fields_by_entity']['court_challenge'] if 'return_fields_by_entity' in kwargs else ['id']
+        only = kwargs['return_fields_by_entity']['court_challenge'] \
+            if 'return_fields_by_entity' in kwargs else None
+
         i_dict = Court_Challenge.to_dict(
             self,
             with_collections=True,
             related_objects=True,
-            # only=only
-            # **kwargs
+            only=only
         )
-        # if len(i_dict['policies']) == 0:
-        #     i_dict.pop('policies')
         return json.loads(json.dumps(i_dict, default=jsonify_custom))
 
     def delete_2(records):

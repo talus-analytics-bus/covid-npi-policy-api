@@ -509,8 +509,7 @@ def get_challenge(
     # otherwise prepare list of dictionaries to return
     else:
         return_fields_by_entity = defaultdict(list)
-        if fields is not None:
-            return_fields_by_entity['court_challenge'] = fields
+        return_fields_by_entity['court_challenge'] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
@@ -1326,27 +1325,36 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_entity_filters`
-        join = field in ('level', 'loc', 'area1',
+        join_place = field in ('level', 'loc', 'area1',
                          'iso3', 'country_name', 'area2')
 
-        # if the filter is not a join, i.e., is on policy native fields
-        if not join:
+        join_policy = not join_place and field in ('policy.policy_number',)
 
-            # apply the filter
-            q = select(
-                i
-                for i in q
-                if getattr(i, field) in allowed_values
-            )
-
-        # otherwise, apply the filter to the linked entity
-        elif join:
+        # if filter is a join, apply the filter to the linked entity
+        # joined to place entity
+        if join_place:
             q = q.filter(
                 lambda i:
                     exists(
                         t for t in i.place
                         if getattr(t, field) in allowed_values
                     )
+            )
+        # joined to policy entity
+        elif join_policy:
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.policies
+                        if t.policy_number in allowed_values
+                    )
+            )
+        else:
+            # if the filter is not a join, i.e., is on policy native fields
+            q = select(
+                i
+                for i in q
+                if getattr(i, field) in allowed_values
             )
 
     # return the filtered query instance
