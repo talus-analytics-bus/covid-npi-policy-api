@@ -351,7 +351,12 @@ class Policy(db.Entity):
                 instances = list()
                 for id in v:
                     try:
-                        instances.append(Auth_Entity[id].to_dict())
+                        only = return_fields_by_entity['auth_entity'] if \
+                            'auth_entity' in return_fields_by_entity else \
+                            None
+                        instances.append(
+                            Auth_Entity[id].to_dict_2(only=only)
+                        )
                     except:
                         pass
                 instance_dict[k] = instances
@@ -417,6 +422,19 @@ class Auth_Entity(db.Entity):
     policies = Set('Policy')
     plans = Set('Plan')
     place = Optional('Place')
+
+    def to_dict_2(self, only=None, **kwargs):
+        # get basic dict
+        d = self.to_dict(
+            with_collections=True,
+            related_objects=True,
+            only=only
+        )
+
+        # process place
+        if 'place' in d:
+            d['place'] = d['place'].to_dict()
+        return d
 
 
 class File(db.Entity):

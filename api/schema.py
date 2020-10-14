@@ -376,7 +376,11 @@ def get_policy(
         # TODO dynamically set fields returned for Place and other
         # linked entities
         return_fields_by_entity['place'] = [
-            'id', 'level', 'loc']
+            'id', 'level', 'loc'
+        ]
+        return_fields_by_entity['auth_entity'] = [
+            'id', 'place', 'office', 'name'
+        ]
 
         # define list of instances to return
         data = []
