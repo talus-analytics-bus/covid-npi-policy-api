@@ -35,6 +35,8 @@ class Place(BaseModel):
     area1: str = None
     area2: str = None
     loc: str = None
+    home_rule: str = None
+    dillons_rule: str = None
 
 
 class Auth_Entity(BaseModel):
