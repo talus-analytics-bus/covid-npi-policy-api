@@ -45,6 +45,7 @@ class Auth_Entity(BaseModel):
     # descriptive information
     name: str
     office: str
+    official: str = None
     place: Place = None
 
 
