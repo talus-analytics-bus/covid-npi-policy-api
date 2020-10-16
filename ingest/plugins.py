@@ -1432,7 +1432,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 auth_entity_instance_data['place'] = place_auth
 
                 # perform upsert using get and set data fields
-                get_keys = ['name', 'office', 'place']
+                get_keys = ['name', 'office', 'place', 'official']
                 action, auth_entity = upsert(
                     db.Auth_Entity,
                     {k: auth_entity_instance_data[k]
