@@ -8,22 +8,52 @@ from db import db
 from ingest import CovidPolicyPlugin
 
 if __name__ == "__main__":
+    # constants
+    # define red and green airtable keys and pick the one to use
+    red_airtable_key = 'appOtKBVJRyuH83wf'
+    green_airtable_key = 'appoXaOlIgpiHK3I2'
+    # airtable_key = red_airtable_key
+    airtable_key = green_airtable_key
+
+    # ingest policies?
+    ingest_policies = True
+
+    # ingest court challenges and matter numbers?
+    ingest_court = True
+
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
     db.generate_mapping(create_tables=True)
     plugin = CovidPolicyPlugin()
 
-    # update core policy data
-    plugin.load_client('appoXaOlIgpiHK3I2').load_data().process_data(db)
+    # update core policy data, if appropriate
+    client = plugin.load_client(airtable_key)
 
-    # post-process places
-    plugin.post_process_places(db)
-    plugin.post_process_policies(db)
-    schema.add_search_text_to_polices_and_plans()
+    # load and process metadata
+    client.load_metadata().process_metadata(db)
 
-    # Update observations of lockdown level
+    # ingest court challenges and matter number info, if appropriate
+    if ingest_court:
+        print('\n\nIngesting court challenges and matter numbers data...')
+        client.load_court_challenge_data().process_court_challenge_data(db)
+    else:
+        print('\n\nSkipping court challenges and matter numbers data ingest.\n')
+
+    if ingest_policies:
+        client.load_data().process_data(db)
+
+        # post-process places
+        plugin.post_process_places(db)
+        plugin.post_process_policies(db)
+        schema.add_search_text()
+    else:
+        print('\n\nSkipping policy ingest.\n')
+
+    # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+    else:
+        print('\n\nSkipping distancing level ingest.\n')
 
     sys.exit(0)
 

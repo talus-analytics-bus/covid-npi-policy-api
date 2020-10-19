@@ -15,7 +15,7 @@ from fuzzywuzzy import fuzz
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File, PlanList
+    Auth_Entity, Place, File, PlanList, ChallengeList
 from .util import str_to_date, find, download_file
 from db import db
 
@@ -376,7 +376,11 @@ def get_policy(
         # TODO dynamically set fields returned for Place and other
         # linked entities
         return_fields_by_entity['place'] = [
-            'id', 'level', 'loc']
+            'id', 'level', 'loc'
+        ]
+        return_fields_by_entity['auth_entity'] = [
+            'id', 'place', 'office', 'name', 'official'
+        ]
 
         # define list of instances to return
         data = []
@@ -414,6 +418,145 @@ def get_policy(
                 data=data,
                 success=True,
                 message=f'''{len(q)} policies found''',
+                next_page_url=next_page_url,
+                n=n
+            )
+        return res
+
+
+@db_session
+@cached
+def get_challenge(
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_of_complaint',
+    return_db_instances: bool = False,
+    by_category: str = None,
+    ordering: list = [],
+    page: int = None,
+    pagesize: int = 100
+):
+    """Returns Challenge instance data that match the provided filters.
+
+    Parameters
+    ----------
+    filters : dict
+        Dictionary of filters to be applied to data (see function
+        `apply_entity_filters` below).
+    fields : list
+        List of instance fields that should be returned. If None, then
+        all fields are returned.
+    order_by_field : type
+        String defining the field in the class that is used to
+        order the policies returned.
+    return_db_instances : bool
+        If true, returns the PonyORM database query object containing the
+        filtered instances, otherwise returns the list of dictionaries
+        containing the instance data as part of a response dictionary
+
+    Returns
+    -------
+    pony.orm.Query **or** dict
+        Query instance if `return_db_instances` is true, otherwise a list of
+        dictionaries in a response dictionary
+
+    """
+    # return all fields?
+    all = fields is None
+
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    use_pagination = (all or page is not None) and not return_db_instances
+    if use_pagination and (page is None or page == 0):
+        page = 1
+    q = select(i for i in db.Court_Challenge)
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, db.Court_Challenge, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(
+                        group_concat(getattr(p, field) for p in i.place)
+                    )
+                )
+            else:
+                q = q.order_by(
+                    lambda i:
+                        group_concat(getattr(p, field) for p in i.place)
+
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(db.Court_Challenge, field)))
+            else:
+                q = q.order_by(getattr(db.Court_Challenge, field))
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+        return_fields_by_entity = defaultdict(list)
+        return_fields_by_entity['court_challenge'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc']
+
+        # define list of instances to return
+        data = []
+        # for each policy
+        for d in q:
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                return_fields_by_entity=return_fields_by_entity)
+            # add it to the output list
+            data.append(d_dict)
+
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages else \
+            f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
+        if by_category is not None:
+            return []
+            # data_by_category = defaultdict(list)
+            # for i in data:
+            #     data_by_category[i[by_category]].append(i)
+            #
+            # res = PolicyDict(
+            #     data=data_by_category,
+            #     success=True,
+            #     message=f'''{len(q)} challenges found''',
+            #     next_page_url=next_page_url,
+            #     n=n
+            # )
+        else:
+            # create response from output list
+            res = ChallengeList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} challenges found''',
                 next_page_url=next_page_url,
                 n=n
             )
@@ -536,7 +679,7 @@ def get_plan(
             f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
 
         # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Policy
+        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
         if by_category is not None:
             pass
             # data_by_category = defaultdict(list)
@@ -731,6 +874,8 @@ def get_lockdown_level(
                     datum['place_name'] = i.place.iso3
                 elif i.place.iso3 != iso3:
                     continue
+                else:
+                    datum['place_name'] = i.place.iso3
             else:
                 if name is None:
                     datum['place_name'] = i.place.area1
@@ -851,6 +996,9 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
                 getattr(i, field) for i in entity_class
             ).filter(lambda x: x is not None)[:][:]
 
+        if isinstance(options[0], list):
+            options = list(set([item for sublist in options for item in sublist]))
+
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
@@ -951,6 +1099,11 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data[field].append(datum)
             id = id + 1
 
+        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined':
+            data['government_order_upheld_or_enjoined'].append(
+                {'id': -1, 'value': 'Pending', 'label': 'Pending'},
+            )
+
     # # Disable profiling
     # p.disable()
     #
@@ -960,6 +1113,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # p2.sort_stats('cumulative').print_stats(10)
 
     # return all optionset values
+
     return {
         'data': data,
         'success': True,
@@ -1058,6 +1212,37 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # )
             continue
 
+        # Complaint category field needs to be handled separately
+        # because the field contains arrays instead of strings
+        if field == 'complaint_category':
+
+            for value in allowed_values:
+                print(allowed_values)
+                q = select(
+                    i for i in q if value in i.complaint_category
+                )
+
+            continue
+
+        if field == 'government_order_upheld_or_enjoined':
+            print(allowed_values)
+            if 'Pending' in allowed_values:
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                    or getattr(i, field) == ''
+                )
+
+            else:
+                q = select(
+                    i
+                    for i in q
+                    if getattr(i, field) in allowed_values
+                )
+
+            continue
+
         # if it is a date field, handle it specially
         if field.startswith('date'):
 
@@ -1098,6 +1283,37 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
+
+            if field == 'date_of_decision':
+                # return instances where `date_of_decision` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_decision is not None
+                    and i.date_of_decision <= end
+                    and i.date_of_decision >= start
+                )
+                continue
+
+
+            if field == 'date_of_complaint':
+                # return instances where `date_of_complaint` falls within the
+                # specified range, inclusive
+                start = allowed_values[0]
+                end = allowed_values[1]
+
+                q = select(
+                    i for i in q
+                    if i.date_of_complaint is not None
+                    and i.date_of_complaint <= end
+                    and i.date_of_complaint >= start
+                )
+                continue
+
+
             elif field == 'date_issued':
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
@@ -1115,27 +1331,36 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_entity_filters`
-        join = field in ('level', 'loc', 'area1',
+        join_place = field in ('level', 'loc', 'area1',
                          'iso3', 'country_name', 'area2')
 
-        # if the filter is not a join, i.e., is on policy native fields
-        if not join:
+        join_policy = not join_place and field in ('policy.policy_number',)
 
-            # apply the filter
-            q = select(
-                i
-                for i in q
-                if getattr(i, field) in allowed_values
-            )
-
-        # otherwise, apply the filter to the linked entity
-        elif join:
+        # if filter is a join, apply the filter to the linked entity
+        # joined to place entity
+        if join_place:
             q = q.filter(
                 lambda i:
                     exists(
                         t for t in i.place
                         if getattr(t, field) in allowed_values
                     )
+            )
+        # joined to policy entity
+        elif join_policy:
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.policies
+                        if t.policy_number in allowed_values
+                    )
+            )
+        else:
+            # if the filter is not a join, i.e., is on policy native fields
+            q = select(
+                i
+                for i in q
+                if getattr(i, field) in allowed_values
             )
 
     # return the filtered query instance
@@ -1259,6 +1484,64 @@ def get_plan_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
+@db_session
+def get_challenge_search_text(i):
+    """Given Court_Challenge instance `i`, returns the search text string that
+    should be checked against by plain text search.
+
+    """
+
+    # Define fields on entity class to concatenate
+    fields_by_type = [
+        {
+            'type': str,
+            'fields': [
+                'jurisdiction',
+                'court',
+                'legal_authority_challenged',
+                'parties',
+                'case_number',
+                'legal_citation',
+                'filed_in_state_or_federal_court',
+                'summary_of_action',
+                'case_name',
+                'procedural_history',
+                'holding',
+                'government_order_upheld_or_enjoined',
+                'subsequent_action_or_current_status',
+                'did_doj_file_statement_of_interest',
+                'summary_of_doj_statement_of_interest',
+                'data_source_for_complaint',
+                'data_source_for_decision',
+                'data_source_for_doj_statement_of_interest',
+                'policy_or_law_name',
+                'source_id',
+                'search_text'
+            ]
+        },
+        {
+            'type': list,
+            'fields': [
+                'complaint_category',
+            ]
+        },
+    ]
+
+    # Define the same but for linked entities
+    linked_fields_by_type = [
+        {
+            'linked_field': 'policies',
+            'linked_type': list,
+            'type': str,
+            'fields': [
+                'policy_name',
+            ]
+        }
+    ]
+
+    return get_search_text(i, fields_by_type, linked_fields_by_type)
+
+
 def get_search_text(i, fields_by_type, linked_fields_by_type):
     """Short summary.
 
@@ -1284,13 +1567,16 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
         # string type fields are concatenated directly
         if field_type == str:
             for field in field_group['fields']:
-                search_text_list.append(getattr(i, field).lower())
+                value = getattr(i, field)
+                if value is not None:
+                    search_text_list.append(value.lower())
 
         # list type fields - each element concatenated
         elif field_type == list:
             for field in field_group['fields']:
                 for d in getattr(i, field):
-                    search_text_list.append(d.lower())
+                    if d is not None:
+                        search_text_list.append(d.lower())
 
     # for each linked entity field, do the same
     for field_group in linked_fields_by_type:
@@ -1305,9 +1591,11 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
                 for linked_instance in linked_instances:
                     if field_type == str:
                         for field in field_group['fields']:
-                            search_text_list.append(
-                                getattr(linked_instance, field).lower()
-                            )
+                            value = getattr(linked_instance, field)
+                            if value is not None:
+                                search_text_list.append(
+                                    value.lower()
+                                )
 
     # return joined text string
     search_text = ' - '.join(search_text_list)
@@ -1315,8 +1603,13 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
 
 
 @db_session
-def add_search_text_to_polices_and_plans():
+def add_search_text():
+    """Add searchable text strings to instances.
+
+    """
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
         i.search_text = get_plan_search_text(i)
+    for i in db.Court_Challenge.select():
+        i.search_text = get_challenge_search_text(i)

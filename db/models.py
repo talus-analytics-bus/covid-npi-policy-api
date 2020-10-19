@@ -1,37 +1,15 @@
 """Define database models."""
 # standard modules
 import datetime
+import json
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
-# from enum import Enum
-# from pony.orm.dbapiprovider import StrConverter
+from pony.orm import PrimaryKey, Required, Optional, Optional, Set, \
+    StrArray, select, db_session, IntArray
 
 # local modules
 from .config import db
-
-# # Define enum type support
-# class State(Enum):
-#     mv = 'mv'
-#     jk = 'jk'
-#     ac = 'ac'
-#
-#
-# # Adapted from:
-# # https://stackoverflow.com/questions/31395663/how-can-i-store-a-python-enum-using-pony-orm
-# class EnumConverter(StrConverter):
-#     def validate(self, val):
-#         if not isinstance(val, Enum):
-#             raise ValueError('Must be an Enum.  Got {}'.format(type(val)))
-#         return val
-#
-#     def py2sql(self, val):
-#         return val.name
-#
-#     def sql2py(self, value):
-#         return self.py_type[value].name
-# db.provider.converter_classes.append((Enum, EnumConverter))
 
 
 @db_session
@@ -270,7 +248,6 @@ class Policy(db.Entity):
     policy_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
     search_text = Optional(str)
-    # enum_test = Optional(State, column='enum_test_str')
 
     # authority data
     auth_entity_has_authority = Optional(str)
@@ -288,8 +265,12 @@ class Policy(db.Entity):
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Set('Place', table="place_to_policy")
     prior_policy = Set('Policy', table="policy_to_prior_policy")
-    _prior_policy = Set('Policy')
+    _prior_policy = Set('Policy', reverse='prior_policy')
     plan = Optional('Plan')
+    court_challenges = Set(
+        'Court_Challenge',
+        table="policies_to_court_challenges"
+    )
 
     # Currently unused attributes
     # policy_number = Optional(int)
@@ -370,7 +351,12 @@ class Policy(db.Entity):
                 instances = list()
                 for id in v:
                     try:
-                        instances.append(Auth_Entity[id].to_dict())
+                        only = return_fields_by_entity['auth_entity'] if \
+                            'auth_entity' in return_fields_by_entity else \
+                            None
+                        instances.append(
+                            Auth_Entity[id].to_dict_2(only=only)
+                        )
                     except:
                         pass
                 instance_dict[k] = instances
@@ -431,11 +417,25 @@ class Auth_Entity(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
     office = Optional(str)
+    official = Optional(str)
 
     # relationships
     policies = Set('Policy')
     plans = Set('Plan')
     place = Optional('Place')
+
+    def to_dict_2(self, only=None, **kwargs):
+        # get basic dict
+        d = self.to_dict(
+            with_collections=True,
+            related_objects=True,
+            only=only
+        )
+
+        # process place
+        if 'place' in d:
+            d['place'] = d['place'].to_dict()
+        return d
 
 
 class File(db.Entity):
@@ -452,3 +452,110 @@ class File(db.Entity):
     # relationships
     policies = Set('Policy')
     plans = Set('Plan')
+
+
+class Court_Challenge(db.Entity):
+    """Court challenges for policies."""
+    _table_ = "court_challenge"
+
+    # Standard fields
+    id = PrimaryKey(int, auto=True)
+    jurisdiction = Optional(str)
+    court = Optional(str)
+    legal_authority_challenged = Optional(str)
+    parties = Optional(str)
+    date_of_complaint = Optional(date)
+    date_of_decision = Optional(date)
+    case_number = Optional(str)
+    legal_citation = Optional(str)
+    filed_in_state_or_federal_court = Optional(str)
+    summary_of_action = Optional(str)
+    complaint_category = Optional(StrArray, nullable=True)
+    legal_challenge = Optional(bool, nullable=True)
+    case_name = Optional(str)
+    procedural_history = Optional(str)
+    holding = Optional(str)
+    government_order_upheld_or_enjoined = Optional(str)
+    subsequent_action_or_current_status = Optional(str)
+    did_doj_file_statement_of_interest = Optional(str)
+    summary_of_doj_statement_of_interest = Optional(str)
+    data_source_for_complaint = Optional(str)
+    data_source_for_decision = Optional(str)
+    data_source_for_doj_statement_of_interest = Optional(str)
+    pdf_documentation = Optional(StrArray, nullable=True)  # TODO grab files
+    policy_or_law_name = Optional(str)
+    source_id = Required(str)
+    search_text = Optional(str)
+
+    # Relationships
+    policies = Set('Policy', table="policies_to_court_challenges")
+    matter_numbers = Optional(IntArray, nullable=True)
+
+    def to_dict_2(self, **kwargs):
+
+        # get fields to return
+        only = kwargs['return_fields_by_entity']['court_challenge'] \
+            if 'return_fields_by_entity' in kwargs else None
+
+        i_dict = Court_Challenge.to_dict(
+            self,
+            with_collections=True,
+            related_objects=True,
+            only=only
+        )
+        return json.loads(json.dumps(i_dict, default=jsonify_custom))
+
+    def delete_2(records):
+        """Custom delete function for Court_Challenge class.
+
+        See `custom_delete` definition for more information.
+
+        """
+        return custom_delete(db.Court_Challenge, records)
+
+
+# class Matter_Number(db.Entity):
+#     """Matter numbers organizing court challenges into groups."""
+#     # Standard
+#     id = PrimaryKey(int, auto=True)
+#     ids = Optional(StrArray, nullable=True)
+#     parties = Optional(StrArray, nullable=True)
+#     case_numbers = Optional(StrArray, nullable=True)
+#
+#     # Relationships
+#     court_challenges = Set(
+#         'Court_Challenge', table="court_challenges_to_matter_numbers")
+
+only = {
+    'Policy': [
+        'id',
+        'policy_name',
+    ]
+}
+
+
+def jsonify_custom(obj):
+    """Define how related entities should be represented as JSON.
+
+    Parameters
+    ----------
+    obj : type
+        Description of parameter `obj`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    to_check = only.keys()
+
+    if isinstance(obj, set):
+        return list(obj)
+        raise TypeError
+    elif isinstance(obj, date):
+        return str(obj)
+    else:
+        for entity_name in to_check:
+            if isinstance(obj, getattr(db, entity_name)):
+                return obj.to_dict(only=only[entity_name])

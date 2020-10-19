@@ -13,11 +13,26 @@ import pprint
 
 # local modules
 from .formats import WorkbookFormats
-from .export import ExcelExport, SheetSettings
+from .export import ExcelExport, WorkbookTab
 from api import schema
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
+
+class CovidPolicyTab(WorkbookTab):
+    """Add a specific parameter denoting whether a tab for court challenges
+    is part of a workbook containing court challenges only. Note: Workbooks
+    containing court challenges only will contain any court challenges that
+    pass filters provided, whereas workbooks containing policies as well will
+    containing any court challenges associated with those policies.
+
+    """
+    def __init__(self, challenges_only=False, **kwargs):
+        # assign project-specific parameter `challenges_only`
+        self.challenges_only = challenges_only
+
+        # inherit superclass WorkbookTab
+        super().__init__(**kwargs)
 
 
 class CovidPolicyExportPlugin(ExcelExport):
@@ -62,20 +77,54 @@ class CovidPolicyExportPlugin(ExcelExport):
         # If class_name is all, then export policies and plans, otherwise
         # export whichever is defined in `class_name`
         export_policies_and_plans = class_name == 'all'
+        tabs = None
         if not export_policies_and_plans:
-            nouns = {
-                's': 'Policy',
-                'p': 'Policies'
-            } if class_name == 'Policy' else \
+            if class_name == 'Policy':
+                tabs = [
+                    {
+                        's': 'Policy',
+                        'p': 'Policies'
+                    },
+                    {
+                        's': 'Court_Challenge',
+                        'p': 'Court challenges'
+                    }
+                ]
+            elif class_name == 'Plan':
+                tabs = [{
+                    's': 'Plan',
+                    'p': 'Plans'
+                }]
+            elif class_name == 'Court_Challenge':
+                tabs = [{
+                    's': 'Court_Challenge',
+                    'p': 'Court challenges'
+                }]
+        else:
+            # export all data
+            tabs = (
                 {
-                's': 'Plan',
-                'p': 'Plans'
-            }
-            self.sheet_settings = [
-                SheetSettings(
-                    name=nouns['p'],
+                    's': 'Policy',
+                    'p': 'Policies'
+                },
+                {
+                    's': 'Plan',
+                    'p': 'Plans'
+                },
+                {
+                    's': 'Court_Challenge',
+                    'p': 'Court challenges'
+                }
+            )
+
+        self.sheet_settings = []
+        print(tabs)
+        for tab in tabs:
+            self.sheet_settings += [
+                CovidPolicyTab(
+                    name=tab['p'],
                     type='data',
-                    intro_text=f'''The table below lists {nouns['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
+                    intro_text=f'''The table below lists {tab['p'].lower()}{'' if tab['s'] != 'Court_Challenge' else ' for policies'} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
                     init_irow={
                         'logo': 0,
                         'title': 1,
@@ -87,12 +136,16 @@ class CovidPolicyExportPlugin(ExcelExport):
                         'data': 7
                     },
                     data_getter=self.default_data_getter,
-                    class_name=class_name
+                    class_name=tab['s'],
+
+                    # Does this workbook contain court challenges only?
+                    challenges_only=tab['s'] == 'Court_Challenge' and \
+                        len(tabs) == 1
                 ),
-                SheetSettings(
-                    name='Legend',
+                CovidPolicyTab(
+                    name='Legend - ' + tab['p'],
                     type='legend',
-                    intro_text=f'''A description for each data column in the "{nouns['p']}" tab and its possible values is provided below.''',
+                    intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
                     init_irow={
                         'logo': 0,
                         'title': 1,
@@ -104,59 +157,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                         'data': 7
                     },
                     data_getter=self.default_data_getter_legend,
-                    class_name=class_name
+                    class_name=tab['s']
                 )
             ]
-        else:
-
-            self.sheet_settings = []
-            tabs = (
-                {
-                    's': 'Policy',
-                    'p': 'Policies'
-                },
-                {
-                    's': 'Plan',
-                    'p': 'Plans'
-                }
-            )
-            for tab in tabs:
-                self.sheet_settings += [
-                    SheetSettings(
-                        name=tab['p'],
-                        type='data',
-                        intro_text=f'''The table below lists {tab['p'].lower()} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.''',
-                        init_irow={
-                            'logo': 0,
-                            'title': 1,
-                            'subtitle': 2,
-                            'intro_text': 3,
-                            'gap': 4,
-                            'colgroups': 5,
-                            'colnames': 6,
-                            'data': 7
-                        },
-                        data_getter=self.default_data_getter,
-                        class_name=tab['s']
-                    ),
-                    SheetSettings(
-                        name='Legend - ' + tab['p'],
-                        type='legend',
-                        intro_text=f'''A description for each data column in the "{tab['p']}" tab and its possible values is provided below.''',
-                        init_irow={
-                            'logo': 0,
-                            'title': 1,
-                            'subtitle': 2,
-                            'intro_text': 3,
-                            'gap': 4,
-                            'colgroups': 5,
-                            'colnames': 6,
-                            'data': 7
-                        },
-                        data_getter=self.default_data_getter_legend,
-                        class_name=tab['s']
-                    )
-                ]
 
     def add_content(self, workbook):
         """Add content, e.g., the tab containing the exported data.
@@ -172,7 +175,14 @@ class CovidPolicyExportPlugin(ExcelExport):
             Description of returned object.
 
         """
+        # track which sheets were skipped so their legends can be omitted
+        skipped = set()
         for settings in self.sheet_settings:
+            # Skip empty tabs
+            if len(settings.data) == 0 or any(settings.name.endswith(name) for name in skipped):
+                skipped.add(settings.name)
+                continue
+
             worksheet = workbook.add_worksheet(settings.name)
 
             # hide gridlines
@@ -211,7 +221,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         return self
 
-    def default_data_getter(self, class_name: str = 'Policy'):
+    def default_data_getter(self, tab, class_name: str = 'Policy'):
 
         def get_joined_entity(main_entity, joined_entity_string):
             """Given a main entity class and a string of joined entities like
@@ -258,6 +268,24 @@ class CovidPolicyExportPlugin(ExcelExport):
             policies = schema.get_plan(
                 filters=self.filters, return_db_instances=True
             )
+        elif class_name == 'Court_Challenge':
+            if tab.challenges_only:
+                policies = schema.get_challenge(
+                    filters=self.filters, return_db_instances=True
+                )
+            else:
+                policies_with_challenges = schema.get_policy(
+                    filters=self.filters, return_db_instances=True
+                )
+                challenge_ids = set()
+                for d in policies_with_challenges:
+                    if len(d.court_challenges) > 0:
+                        for dd in d.court_challenges:
+                            challenge_ids.add(dd.id)
+                policies = select(
+                    i for i in db.Court_Challenge
+                    if i.id in challenge_ids
+                )
 
         # init export data list
         rows = list()
@@ -318,7 +346,8 @@ class CovidPolicyExportPlugin(ExcelExport):
 
                 # check whether it is a policy or a joined entity
                 join = dd.entity_name != 'Policy' and \
-                    dd.entity_name != 'Plan'
+                    dd.entity_name != 'Plan' and \
+                    dd.entity_name != 'Court_Challenge'
 
                 # if it is not a join (data field entity is Policy)
                 if not join:
@@ -407,7 +436,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         # return list of rows
         return rows
 
-    def default_data_getter_legend(self, class_name: str = 'Policy'):
+    def default_data_getter_legend(self, tab, class_name: str = 'Policy'):
         # get all metadata
         db = self.db
         metadata = select(

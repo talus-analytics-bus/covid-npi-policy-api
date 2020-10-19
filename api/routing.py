@@ -141,6 +141,28 @@ async def get_policy(
     return schema.get_policy(fields=fields, page=page, pagesize=pagesize)
 
 
+@app.get("/get/challenge", response_model=ListResponse, response_model_exclude_unset=True)
+async def get_challenge(
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
+    """Return Court_Challenge data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Challenge response dictionary.
+
+    """
+    return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+
+
 @app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True)
 async def get_plan(
     fields: List[str] = Query(None),
@@ -186,7 +208,14 @@ async def get_lockdown_level_model(iso3=str, geo_res=str, end_date=str, name=str
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(geo_res=geo_res, name=name, end_date=end_date)
+    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, name=name, end_date=end_date)
+
+@app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level_country(iso3=str, end_date=str):
+    """Get lockdown level of a location by date.
+
+    """
+    return schema.get_lockdown_level(iso3=iso3, geo_res='country', end_date=end_date)
 
 
 @app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
@@ -240,6 +269,34 @@ async def post_policy(
 
     """
     return schema.get_policy(
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize, ordering=body.ordering
+    )
+
+@app.post("/post/challenge", response_model=ListResponse, response_model_exclude_unset=True)
+async def post_challenge(
+    body: PolicyFilters,
+    by_category: str = None,
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
+    """Return Challenge data with filters applied.
+
+    Parameters
+    ----------
+    body : PolicyFilters
+        Filters to apply.
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Challenge response dictionaries
+
+    """
+    return schema.get_challenge(
         filters=body.filters, fields=fields, by_category=by_category,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
@@ -325,8 +382,8 @@ async def get_test(test_param: str = 'GET successful'):
 ##
 # Debug endpoints
 ##
-@app.get("/add_search_text_to_polices_and_plans")
-async def add_search_text_to_polices_and_plans(test_param: str = 'GET successful'):
+@app.get("/add_search_text")
+async def add_search_text(test_param: str = 'GET successful'):
     """Test GET endpoint.
 
     Parameters
@@ -341,5 +398,5 @@ async def add_search_text_to_polices_and_plans(test_param: str = 'GET successful
         successful.
 
     """
-    schema.add_search_text_to_polices_and_plans()
+    schema.add_search_text()
     return 'Done'

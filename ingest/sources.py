@@ -70,7 +70,7 @@ class AirtableSource(DataSource):
 
             # remove NaN values
             df = df.replace(pd.np.nan, '', regex=True)
-            print(df)
+            # print(df)
             return df
         except Exception as e:
             print(e)

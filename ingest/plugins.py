@@ -9,7 +9,7 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, commit, get, select, delete
+from pony.orm import db_session, commit, get, select, delete, StrArray
 from pony.orm.core import CacheIndexError, ObjectNotFound
 import pprint
 
@@ -41,12 +41,28 @@ show_in_progress = (
 
 
 def iterable(obj):
+    """Return True if `obj` is iterable, like a string, set, or list,
+    False otherwise.
+
+    """
     try:
         iter(obj)
     except Exception:
         return False
     else:
         return True
+
+
+def str_to_bool(x):
+    """Convert yes/no val `x` to True/False, or None otherwise.
+
+    """
+    if x == 'Yes':
+        return True
+    elif x == 'No':
+        return False
+    else:
+        return None
 
 
 # load data to get country names from ISO3 codes
@@ -201,14 +217,7 @@ def reject(x):
         Description of returned object.
 
     """
-    no_desc = x['desc'] == ''
-    # country_level_with_prov = False
-    # if x['id'] != '46010':
-    #     return True
-    #
-    # # pp.pprint('x')
-    # # pp.pprint(x)
-    # # input('Press enter to continue')
+    no_desc = 'desc' in x and x['desc'] == ''
 
     # reject country-level policies that have a non-blank province or
     # local area
@@ -594,6 +603,43 @@ class CovidPolicyPlugin(IngestPlugin):
         self.client = client
         return self
 
+    def load_metadata(self):
+        """Retrieve data dictionaries from data source and store in instance.
+
+        Returns
+        -------
+        self
+
+        """
+
+        print('\n\n[0] Connecting to Airtable and fetching tables...')
+        self.client.connect()
+
+        # show every row of data dictionary preview in terminal
+        pd.set_option("display.max_rows", None, "display.max_columns", None)
+
+        # policy data dictionary
+        self.data_dictionary = self.client \
+            .worksheet(name='Appendix: Policy data dictionary') \
+            .as_dataframe(view='API ingest')
+
+        # court challenges data dictionary
+        self.data_dictionary_court_challenges = self.client \
+            .worksheet(name='Appendix: Court challenges data dictionary') \
+            .as_dataframe()
+
+        # plan data dictionary
+        self.data_dictionary_plans = self.client \
+            .worksheet(name='Appendix: Plan data dictionary') \
+            .as_dataframe(view='API ingest')
+
+        # glossary
+        self.glossary = self.client \
+            .worksheet(name='Appendix: glossary') \
+            .as_dataframe(view='API ingest')
+
+        return self
+
     def load_data(self):
         """Retrieve dataframes from Airtable base for datasets and
         data dictionary.
@@ -620,27 +666,80 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='Policy Database') \
             .as_dataframe()
 
-        # policy data dictionary
-        self.data_dictionary = self.client \
-            .worksheet(name='Appendix: Policy data dictionary') \
-            .as_dataframe(view='API ingest')
-
         # plan data
         self.data_plans = self.client \
             .worksheet(name='Plan database') \
             .as_dataframe()
 
-        # plan data dictionary
-        self.data_dictionary_plans = self.client \
-            .worksheet(name='Appendix: Plan data dictionary') \
-            .as_dataframe(view='API ingest')
+        return self
 
-        # glossary
-        self.glossary = self.client \
-            .worksheet(name='Appendix: glossary') \
-            .as_dataframe(view='API ingest')
+    def load_court_challenge_data(self):
+        """Load court challenge and matter number data into the ingest
+        system instance.
 
-        pd.set_option("display.max_rows", None, "display.max_columns", None)
+        """
+        # court challenges
+        self.data_court_challenges = self.client \
+            .worksheet(name='Court challenges') \
+            .as_dataframe()
+
+        # court challenges data dictionary
+        self.data_dictionary_court_challenges = self.client \
+            .worksheet(name='Appendix: Court challenges data dictionary') \
+            .as_dataframe()
+
+        # matter numbers
+        self.data_matter_numbers = self.client \
+            .worksheet(name='Matter number database (court challenges)') \
+            .as_dataframe()
+
+        return self
+
+    @db_session
+    def process_court_challenge_data(self, db):
+        """Add court challenge records to the database.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+
+        # define data
+        data = self.data_court_challenges
+
+        # sort by unique ID
+        data.sort_values('Entry ID')
+
+        # remove records without a unique ID and other features
+        data = data.loc[data['Entry ID'] != '', :]
+
+        # analyze for QA/QC and quit if errors detected
+        # TODO
+
+        # set column names to database field names
+        all_keys = select(
+            (
+                i.ingest_field,
+                i.display_name,
+                i.field
+            )
+            for i in db.Metadata
+            if i.class_name == 'Court_Challenge'
+        )[:]
+
+        # use field names instead of column headers for core dataset
+        # TODO do this for future data tables as needed
+        columns = dict()
+        for ingest_field, display_name, db_field in all_keys:
+            field = ingest_field if ingest_field != '' else db_field
+            columns[display_name] = field
+        data = data.rename(columns=columns)
+        self.data_court_challenges = data
+
+        # create entity instances
+        self.create_court_challenges(db)
 
         return self
 
@@ -650,6 +749,11 @@ class CovidPolicyPlugin(IngestPlugin):
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
+
+        # delete existing observations
+        print('\n\nDeleting existing observations...')
+        delete(i for i in db.Observation if i.metric == 0)
+        print('Existing observations deleted.\n')
 
         # add new observations
         skipped = 0
@@ -735,6 +839,31 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
+    def process_metadata(self, db):
+        """Create `metadata` table in database based on all data dictionaries
+        ingested from the data source.
+
+        """
+        # assign dd type to each dd
+        self.data_dictionary.loc[:, 'Type'] = 'Policy'
+        self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
+        self.data_dictionary_court_challenges.loc[:,
+                                                  'Type'] = 'Court_Challenge'
+
+        full_dd = pd.concat(
+            [
+                self.data_dictionary,
+                self.data_dictionary_plans,
+                self.data_dictionary_court_challenges,
+            ]
+        )
+
+        # upsert metadata records
+        self.create_metadata(db, full_dd)
+
+        return self
+
+    @db_session
     def process_data(self, db):
         """Perform data validation and create database entity instances
         corresponding to the data records.
@@ -750,9 +879,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        # upsert metadata records
-        self.create_metadata(db)
-
         # upsert glossary terms
         self.create_glossary(db)
 
@@ -762,7 +888,6 @@ class CovidPolicyPlugin(IngestPlugin):
             self.data.sort_values('Unique ID')
 
             # remove records without a unique ID and other features
-            # TODO using a loop
             self.data = self.data.loc[self.data['Flag for Review'] != True, :]
             self.data = self.data.loc[self.data['Unique ID'] != '', :]
             self.data = self.data.loc[
@@ -820,16 +945,14 @@ class CovidPolicyPlugin(IngestPlugin):
                     ('State/Province (Intermediate area)', 'State / Province'),
                     ('Local area (county, city)', 'Local'),
                     ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)',
-                     'Multiple countries / Global policy'),
+                     'Country'),
+                    ('Multiple countries/Global policy (e.g., UN, WHO, treaty organization policies)',
+                     'Country'),
                 ):
                     self.data[col] = self.data[col].replace(
                         to_replace=to_replace,
                         value=value
                     )
-
-            # # DEBUG write data to CSV file
-            # self.data.to_csv('data.csv')
-            # input('Wrote CSV. Press enter to continue.')
 
             def assign_standardized_local_areas():
                 """Overwrite values for local areas in free text column with
@@ -1064,7 +1187,7 @@ class CovidPolicyPlugin(IngestPlugin):
         commit()
 
     @db_session
-    def post_process_policies(self, db):
+    def post_process_policies(self, db, include_court_challenges=False):
         # for travel restriction policies, set aff to auth
         policies = select(
             i for i in db.Policy
@@ -1076,6 +1199,21 @@ class CovidPolicyPlugin(IngestPlugin):
             p.place = set()
             for ae in p.auth_entity:
                 p.place.add(ae.place)
+
+        # link policies to court challenges
+        if include_court_challenges:
+            for i, d in self.data_court_challenges.iterrows():
+                if d['policies'] == '':
+                    continue
+                else:
+                    court_challenge_id = int(d['id'])
+                    court_challenge = db.Court_Challenge[court_challenge_id]
+                    policies = select(
+                        i for i in db.Policy
+                        if i.source_id in d['policies']
+                    )
+                    for d in policies:
+                        d.court_challenges.add(court_challenge)
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -1294,11 +1432,18 @@ class CovidPolicyPlugin(IngestPlugin):
                 auth_entity_instance_data['place'] = place_auth
 
                 # perform upsert using get and set data fields
-                get_keys = ['name', 'office', 'place']
+                get_keys = ['name', 'office', 'place', 'official']
+
+                # define "get" data for upsert, adding blank fields as
+                # "Unspecified" if necessary
+                get_data = dict()
+                for k in get_keys:
+                    get_data[k] = auth_entity_instance_data[k] if k in auth_entity_instance_data else 'Unspecified'
+                pp.pprint(get_data)
+
                 action, auth_entity = upsert(
                     db.Auth_Entity,
-                    {k: auth_entity_instance_data[k]
-                        for k in get_keys if k in auth_entity_instance_data},
+                    get_data,
                     {},
                 )
                 if action == 'update':
@@ -1822,7 +1967,174 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Deleted: ' + str(n_deleted))
 
     @db_session
-    def create_metadata(self, db):
+    def create_court_challenges(self, db):
+        """Create court challenge instances.
+
+        Parameters
+        ----------
+        db : type
+            Description of parameter `db`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        print('\n\n[XX] Ingesting court challenge data...')
+
+        # skip linked fields and assign them later
+        linked_fields = ('policies', 'matter_numbers')
+        set_fields = ('id',)
+
+        # retrieve data field keys for court challenge
+        get_fields = select(
+            i.field for i in db.Metadata
+            if i.entity_name == 'Court_Challenge'
+            and i.ingest_field != ''
+            and i.class_name == 'Court_Challenge'
+            and i.field not in linked_fields
+            and i.field not in set_fields
+            and i.export is True
+            or i.field == 'source_id'
+        )[:]
+
+        # maintain dict of attributes to set post-creation
+        post_creation_attrs = defaultdict(dict)
+
+        def formatter(key, d):
+
+            # define keys that, if sets, should be converted to strings or bool
+            set_to_str = ('policy_or_law_name', 'case_name')
+            set_to_bool = ('legal_challenge',)
+            # correct errors in date entry
+            if key.startswith('date_'):
+                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
+                    return None
+                elif len(d[key].split('/')) == 2:
+                    print(f'''Unexpected format for `{key}`: {d[key]}\n''')
+                    return unspec_val
+                else:
+                    return d[key]
+            # parse IDs as integers
+            elif key == 'id':
+                return int(d[key])
+            # set certain fields to empty text strings if they contain
+            # certain symbols
+            elif key == 'government_order_upheld_or_enjoined':
+                if d[key] == '' or \
+                        d[key] is None or \
+                        d[key] == 'N/A' or d[key] == 'NA':
+                    return ''
+                elif '*' in d[key]:
+                    return ''
+                else:
+                    return ''
+
+            # parse sets, including sets of strs that should be bools
+            elif type(d[key]) != str and iterable(d[key]):
+                if key in set_to_str:
+                    if len(d[key]) > 0:
+                        return "; ".join(list(set(d[key])))
+                    else:
+                        return None
+                elif key in set_to_bool:
+                    if len(d[key]) > 0:
+                        bool_list = list(
+                            map(
+                                str_to_bool,
+                                d[key]
+                            )
+                        )
+                        # use first item in `bool_list` because
+                        # `legal_challenge` field should be unary
+                        return bool_list[0]
+                    else:
+                        return None
+                elif len(d[key]) > 0:
+                    return list(set(d[key]))
+                else:
+                    return None
+            elif key in set_to_bool:
+                return None
+            else:
+                # if data are blank, return empty array or None, as appropriate
+                if d[key] == '':
+                    is_nullable = getattr(db.Court_Challenge, key).nullable
+                    if is_nullable:
+                        is_str_arr = getattr(db.Court_Challenge, key).py_type \
+                            == StrArray
+                        if is_str_arr:
+                            return list()
+                        else:
+                            return None
+                return d[key]
+
+        # track upserted records
+        upserted = set()
+        n_inserted = 0
+        n_updated = 0
+
+        # define data
+        data = self.data_court_challenges
+
+        for i, d in data.iterrows():
+
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d['id'])
+            except:
+                continue
+
+            if reject(d):
+                continue
+
+            # upsert instances: court challenges
+            action, instance = upsert(
+                db.Court_Challenge,
+                {'id': d['id']},
+                {field: formatter(field, d)
+                 for field in get_fields if field in d},
+            )
+            if action == 'update':
+                n_updated += 1
+            elif action == 'insert':
+                n_inserted += 1
+            upserted.add(instance)
+
+        # delete all records in table but not in ingest dataset
+        n_deleted = db.Court_Challenge.delete_2(upserted)
+        commit()
+        print('Inserted: ' + str(n_inserted))
+        print('Updated: ' + str(n_updated))
+        print('Deleted: ' + str(n_deleted))
+
+        # join matter numbers to court challenges
+        print('\n\nAdding matter numbers to court challenges...')
+
+        for i, d in self.data_matter_numbers.iterrows():
+            if d['Court challenge link'] == '':
+                continue
+            else:
+                court_challenges = select(
+                    i for i in db.Court_Challenge
+                    if i.source_id in d['Court challenge link']
+                )
+                for dd in court_challenges:
+                    matter_number = int(d['Matter number'])
+                    if dd.matter_numbers is None:
+                        dd.matter_numbers = [matter_number]
+                    else:
+                        new_matter_numbers = set(
+                            dd.matter_numbers)
+                        new_matter_numbers.add(matter_number)
+                        dd.matter_numbers = list(new_matter_numbers)
+        print('Done.')
+        return self
+
+    @db_session
+    def create_metadata(self, db, full_dd):
         """Create metadata instances if they do not exist. If they do exist,
         update them.
 
@@ -1843,14 +2155,6 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        # assign dd type to each dd
-        self.data_dictionary.loc[:, 'Type'] = 'Policy'
-        self.data_dictionary_plans.loc[:, 'Type'] = 'Plan'
-
-        full_dd = pd.concat([self.data_dictionary, self.data_dictionary_plans])
-        print('full_dd')
-        print(full_dd)
-
         for i, d in full_dd.iterrows():
             if d['Category'] != '':
                 colgroup = d['Category']
@@ -1862,11 +2166,10 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': colgroup,
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
-                'notes': d['Notes'],
+                'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
                 'order': d['Order'],
                 'export': d['Export?'] == True,
             }
-
             action, instance = upsert(db.Metadata, {
                 'field': d['Database field name'],
                 'entity_name': d['Database entity'],
@@ -1923,6 +2226,19 @@ class CovidPolicyPlugin(IngestPlugin):
                 'field': 'source_id',
                 'entity_name': 'Plan',
                 'class_name': 'Plan',
+            }, {
+                'ingest_field': 'source_id',
+                'display_name': 'Source ID',
+                'colgroup': '',
+                'definition': 'The unique ID of the record in the original dataset',
+                'possible_values': 'Any text',
+                'order': 0,
+                'notes': '',
+                'export': False,
+            }), ({
+                'field': 'source_id',
+                'entity_name': 'Court_Challenge',
+                'class_name': 'Court_Challenge',
             }, {
                 'ingest_field': 'source_id',
                 'display_name': 'Source ID',
@@ -2298,7 +2614,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     else:
                         print('Could not download file at URL ' +
                               str(file_url))
-                        file.delete()
+                        if file is not None:
+                            file.delete()
                         commit()
                         could_not_download.add(file_url)
                         n_failed += 1
