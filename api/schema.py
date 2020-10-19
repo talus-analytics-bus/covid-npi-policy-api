@@ -874,6 +874,8 @@ def get_lockdown_level(
                     datum['place_name'] = i.place.iso3
                 elif i.place.iso3 != iso3:
                     continue
+                else:
+                    datum['place_name'] = i.place.iso3
             else:
                 if name is None:
                     datum['place_name'] = i.place.area1
