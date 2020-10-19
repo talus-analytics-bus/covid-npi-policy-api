@@ -2019,6 +2019,18 @@ class CovidPolicyPlugin(IngestPlugin):
             # parse IDs as integers
             elif key == 'id':
                 return int(d[key])
+            # set certain fields to empty text strings if they contain
+            # certain symbols
+            elif key == 'government_order_upheld_or_enjoined':
+                if d[key] == '' or \
+                        d[key] is None or \
+                        d[key] == 'N/A' or d[key] == 'NA':
+                    return ''
+                elif '*' in d[key]:
+                    return ''
+                else:
+                    return ''
+
             # parse sets, including sets of strs that should be bools
             elif type(d[key]) != str and iterable(d[key]):
                 if key in set_to_str:
