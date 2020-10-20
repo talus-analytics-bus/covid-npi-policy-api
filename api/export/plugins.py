@@ -280,7 +280,6 @@ class CovidPolicyExportPlugin(ExcelExport):
                 n_all_policies = db.Policy.select().count()
                 filter_challenges = policies_with_challenges.count() != n_all_policies
                 if filter_challenges:
-                    print('Filtering challenges.')
                     challenge_ids = set()
                     for d in policies_with_challenges:
                         if len(d.court_challenges) > 0:
@@ -291,7 +290,6 @@ class CovidPolicyExportPlugin(ExcelExport):
                         if i.id in challenge_ids
                     )
                 else:
-                    print('NOT filtering challenges.')
                     policies = schema.get_challenge(
                         filters=self.filters, return_db_instances=True
                     )
