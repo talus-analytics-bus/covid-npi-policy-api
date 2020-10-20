@@ -32,10 +32,12 @@ if __name__ == "__main__":
     # load and process metadata
     client.load_metadata().process_metadata(db)
 
+
     # ingest court challenges and matter number info, if appropriate
     if ingest_court:
         print('\n\nIngesting court challenges and matter numbers data...')
         client.load_court_challenge_data().process_court_challenge_data(db)
+        sys.exit(0)
     else:
         print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
@@ -55,7 +57,6 @@ if __name__ == "__main__":
     else:
         print('\n\nSkipping distancing level ingest.\n')
 
-    sys.exit(0)
 
     # # Drop all data/tables before ingesting
     # db.generate_mapping(check_tables=False, create_tables=False)

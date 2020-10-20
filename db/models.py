@@ -51,6 +51,7 @@ class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
     field = Required(str)
+    table_name = Optional(str)
     ingest_field = Optional(str)
     order = Required(float)
     display_name = Optional(str)
@@ -486,6 +487,7 @@ class Court_Challenge(db.Entity):
     policy_or_law_name = Optional(str)
     source_id = Required(str)
     search_text = Optional(str)
+    policy_categories = Optional(StrArray)
 
     # Relationships
     policies = Set('Policy', table="policies_to_court_challenges")
