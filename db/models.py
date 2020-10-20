@@ -388,6 +388,7 @@ class Policy_Number(db.Entity):
     id = PrimaryKey(int, auto=False) # the policy number
     names = Optional(StrArray) # list of names of policy sections
     earliest_date_start_effective = Optional(date) # of all sections
+    search_text = Optional(str)
 
     # relationships
     policy = Set('Policy')

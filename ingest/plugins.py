@@ -1218,7 +1218,7 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 policy_number = db.Policy_Number(id=policy_number_value)
 
-            policy_number.policies.add(p)
+            policy_number.policy.add(p)
             commit()
 
         # link policies to court challenges
@@ -1245,12 +1245,14 @@ class CovidPolicyPlugin(IngestPlugin):
             i for i in db.Policy_Number
         )
         for num in policy_numbers:
-            for section in num.policies:
+            # define search text
+            search_text = ''
+            for section in num.policy:
                 # unique auth_entity instances
-                num.auth_entities.add(section.auth_entity)
+                num.auth_entity.add(section.auth_entity)
 
                 # unique place instances
-                num.places.add(section.place)
+                num.place.add(section.place)
 
                 # unique policy_names
                 if section.policy_name is not None:
@@ -1268,9 +1270,15 @@ class CovidPolicyPlugin(IngestPlugin):
                     num.earliest_date_start_effective = \
                         section.date_start_effective
 
+                # concat search text
+                search_text += section.search_text
+
                 # commit to db
                 commit()
 
+            # update search text and commit to db
+            num.search_text = search_text
+            commit()
 
     @db_session
     def create_auth_entities_and_places(self, db):

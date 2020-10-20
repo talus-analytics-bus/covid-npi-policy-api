@@ -1337,17 +1337,19 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             q_search_text_only = select((i.id, i.search_text) for i in q)
 
             for id, search_text in q_search_text_only:
-
-                # return exact match - if no exact match return partial match
-                exact_match = text in search_text
-                if exact_match:
-                    new_q_ids.append(id)
+                if search_text is None:
+                    continue
                 else:
-                    ratio = fuzz.partial_ratio(
-                        text, search_text)
-                    partial_match = ratio >= thresh
-                    if partial_match:
+                    # return exact match - if no exact match return partial match
+                    exact_match = text in search_text
+                    if exact_match:
                         new_q_ids.append(id)
+                    else:
+                        ratio = fuzz.partial_ratio(
+                            text, search_text)
+                        partial_match = ratio >= thresh
+                        if partial_match:
+                            new_q_ids.append(id)
             q = select(
                 i
                 for i in entity_class
