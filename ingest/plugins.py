@@ -1188,17 +1188,38 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
-        # for travel restriction policies, set aff to auth
-        policies = select(
+        policy_sections = select(
             i for i in db.Policy
-            if i.primary_ph_measure == 'Travel restrictions'
         )
-        for p in policies:
-            all_country = all(ae.place.level ==
-                              'Country' for ae in p.auth_entity)
-            p.place = set()
-            for ae in p.auth_entity:
-                p.place.add(ae.place)
+        for p in policy_sections:
+            # for travel restriction policies, set affected place to auth. pl.
+            if p.primary_ph_measure == 'Travel restrictions':
+                all_country = all(ae.place.level ==
+                                  'Country' for ae in p.auth_entity)
+                p.place = set()
+                for ae in p.auth_entity:
+                    p.place.add(ae.place)
+
+            # create or add to policy numbers, which group policies
+            policy_number_value = None
+
+            # if a policy section had no policy number, use its ID instead
+            if p.policy_number in (None, 0):
+                policy_number_value = p.id
+            else:
+                policy_number_value = p.policy_number
+
+            # if a policy number exists, then add the policy section to it,
+            # otherwise create it and add the policy section to it
+            policy_number_exists = \
+                db.Policy_Number.exists(id=policy_number_value)
+            if policy_number_exists:
+                policy_number = db.Policy_Number.get(id=policy_number_value)
+            else:
+                policy_number = db.Policy_Number(id=policy_number_value)
+
+            policy_number.policies.add(p)
+            commit()
 
         # link policies to court challenges
         if include_court_challenges:
