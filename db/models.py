@@ -264,6 +264,7 @@ class Policy(db.Entity):
     file = Set('File', table="file_to_policy")
     auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
     place = Set('Place', table="place_to_policy")
+    policy_numbers = Set('Policy_Number', table="policy_number_to_policy")
     prior_policy = Set('Policy', table="policy_to_prior_policy")
     _prior_policy = Set('Policy', reverse='prior_policy')
     plan = Optional('Plan')
@@ -378,6 +379,16 @@ class Policy(db.Entity):
                         pass
         return instance_dict
 
+
+class Policy_Number(db.Entity):
+    """Policy numbers grouping sets of policies (i.e., policy
+    sections) together.
+
+    """
+    id = PrimaryKey(int, auto=False) # the policy number
+
+    # relationships
+    policies = Set('Policy')
 
 class Place(db.Entity):
     _table_ = "place"
