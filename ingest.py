@@ -37,6 +37,7 @@ if __name__ == "__main__":
     if ingest_court:
         print('\n\nIngesting court challenges and matter numbers data...')
         client.load_court_challenge_data().process_court_challenge_data(db)
+        plugin.post_process_court_challenge_data(db)
         sys.exit(0)
     else:
         print('\n\nSkipping court challenges and matter numbers data ingest.\n')

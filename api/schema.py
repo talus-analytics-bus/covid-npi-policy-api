@@ -496,15 +496,9 @@ def get_challenge(
         else:
             field = field_tmp
             if direction == 'desc':
-                if field == 'date_of_complaint':
-                    q = q.order_by(raw_sql(f'''i.date_of_complaint DESC NULLS LAST'''))
-                else:
-                    q = q.order_by(desc(getattr(db.Court_Challenge, field)))
+                q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
             else:
-                if field == 'date_of_complaint':
-                    q = q.order_by(raw_sql(f'''i.date_of_complaint NULLS LAST'''))
-                else:
-                    q = q.order_by(getattr(db.Court_Challenge, field))
+                q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
 
     # get len of query
     n = count(q) if use_pagination else None

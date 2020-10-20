@@ -156,6 +156,7 @@ class Court_Challenge(BaseModel):
     date_of_decision: date = None
     date_of_complaint: date = None
     government_order_upheld_or_enjoined: str = None
+    parties_or_citation_and_summary_of_action: str = None
 
     # related entities
     policies: List[Policy] = None
