@@ -82,6 +82,17 @@ class Policy(BaseModel):
     file: List = None
 
 
+class PolicyNumber(BaseModel):
+    policy_number: int # aka. `id`
+
+    # descriptive information
+    titles: List[str] = None
+    auth_entity_offices: List[str] = None
+
+    # relationships
+    policies: List[Policy] = None
+
+
 class Plan(BaseModel):
     """Plans. Similar to policies but they lack legal authority."""
     id: int
@@ -138,6 +149,10 @@ class PolicyFilters(BaseModel):
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class PolicyNumberList(Response):
+    data: List[PolicyNumber]
 
 
 class Court_Challenge(BaseModel):

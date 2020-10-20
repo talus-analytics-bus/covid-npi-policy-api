@@ -386,9 +386,86 @@ class Policy_Number(db.Entity):
 
     """
     id = PrimaryKey(int, auto=False) # the policy number
+    names = Optional(StrArray) # list of names of policy sections
+    earliest_date_start_effective = Optional(date) # of all sections
 
     # relationships
-    policies = Set('Policy')
+    policy = Set('Policy')
+    place = Set('Place')
+    auth_entity = Set('Auth_Entity')
+
+    def to_dict_2(self, **kwargs):
+        """TODO
+
+        """
+        # get which fields should be returned by entity name
+        return_fields_by_entity = \
+            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
+            in kwargs else dict()
+
+        # if `only` was specified, use that as the `policy` entity's return
+        # fields, and delete the `return_fields_by_entity` data.
+        if 'only' in kwargs:
+            return_fields_by_entity['policy_number'] = kwargs['only']
+            del kwargs['only']
+        del kwargs['return_fields_by_entity']
+
+        # convert the policy instance to a dictionary, which may contain
+        # various other types of entities in it represented only by their
+        # unique IDs, rather than having their data provided as a dictionary
+        instance_dict = None
+        if 'policy_number' in return_fields_by_entity and \
+                len(return_fields_by_entity['policy_number']) > 0:
+            instance_dict = Policy_Number.to_dict(
+                self,
+                only=return_fields_by_entity['policy_number'],
+                 **kwargs
+            )
+        else:
+            instance_dict = Policy_Number.to_dict(self, **kwargs)
+
+        # iterate over the items in the Policy instance's dictionary in search
+        # for other entity types for which we have unique IDs but need full
+        # data dictionaries
+        for k, v in instance_dict.items():
+            # For each supported entity type, convert its unique ID into a
+            # dictionary of data fields, limited to those defined in
+            # `return_fields_by_entity`, if applicable.
+            #
+            # TODO ensure `return_fields_by_entity` is fully implemented
+            # and flexible
+
+            # Place
+            if k == 'place':
+                instances = list()
+                for id in v:
+                    try:
+                        instances.append(Place[id].to_dict())
+                    except:
+                        pass
+                instance_dict[k] = instances
+
+            # Auth_Entity
+            elif k == 'auth_entity':
+                instances = list()
+                for instance in v:
+                    instances.append(instance)
+                    # instances.append(Auth_Entity[id].to_dict())
+                instance_dict[k] = instances
+
+            # # File
+            # elif k == 'file':
+            #     instance_dict['file'] = list()
+            #     file_fields = ['id']
+            #     for id in v:
+            #         instance = File[id]
+            #         doc_instance_dict = instance.to_dict(only=file_fields)
+            #
+            #         # append file dict to list
+            #         instance_dict['file'].append(
+            #             doc_instance_dict['id']
+            #         )
+        return instance_dict
 
 class Place(db.Entity):
     _table_ = "place"
@@ -407,6 +484,7 @@ class Place(db.Entity):
     plans = Set('Plan')
     auth_entities = Set('Auth_Entity')
     observations = Set('Observation')
+    policy_numbers = Set('Policy_Number')
 
 
 class Observation(db.Entity):
@@ -431,6 +509,7 @@ class Auth_Entity(db.Entity):
 
     # relationships
     policies = Set('Policy')
+    policy_numbers = Set('Policy_Number')
     plans = Set('Plan')
     place = Optional('Place')
 

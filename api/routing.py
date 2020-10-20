@@ -266,6 +266,23 @@ async def post_policy(
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
+
+@app.post("/post/policy_number", response_model=ListResponse, response_model_exclude_unset=True)
+async def post_policy_number(
+    body: PolicyFilters,
+    by_category: str = None,
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
+    """Return Policy number metadata.
+
+    """
+    return schema.get_policy_number(
+        filters=body.filters, fields=fields, by_category=by_category,
+        page=page, pagesize=pagesize, ordering=body.ordering
+    )
+
 @app.post("/post/challenge", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_challenge(
     body: PolicyFilters,

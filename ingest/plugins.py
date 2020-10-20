@@ -1237,6 +1237,42 @@ class CovidPolicyPlugin(IngestPlugin):
                         d.court_challenges.add(court_challenge)
 
     @db_session
+    def post_process_policy_numbers(self, db):
+        """Populate certain data fields for Policy_Number records.
+
+        """
+        policy_numbers = select(
+            i for i in db.Policy_Number
+        )
+        for num in policy_numbers:
+            for section in num.policies:
+                # unique auth_entity instances
+                num.auth_entities.add(section.auth_entity)
+
+                # unique place instances
+                num.places.add(section.place)
+
+                # unique policy_names
+                if section.policy_name is not None:
+                    if num.names is not None:
+                        cur_names = set(num.names)
+                        cur_names.add(section.policy_name)
+                        num.names = list(cur_names)
+                    else:
+                        num.names = [section.policy_name]
+
+                # earliest effective start date
+                if num.earliest_date_start_effective is None or \
+                        num.earliest_date_start_effective > \
+                        section.date_start_effective:
+                    num.earliest_date_start_effective = \
+                        section.date_start_effective
+
+                # commit to db
+                commit()
+
+
+    @db_session
     def create_auth_entities_and_places(self, db):
         """Create authorizing entity instances and place instances.
 
