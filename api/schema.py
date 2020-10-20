@@ -496,9 +496,15 @@ def get_challenge(
         else:
             field = field_tmp
             if direction == 'desc':
-                q = q.order_by(desc(getattr(db.Court_Challenge, field)))
+                if field == 'date_of_complaint':
+                    q = q.order_by(raw_sql(f'''i.date_of_complaint DESC NULLS LAST'''))
+                else:
+                    q = q.order_by(desc(getattr(db.Court_Challenge, field)))
             else:
-                q = q.order_by(getattr(db.Court_Challenge, field))
+                if field == 'date_of_complaint':
+                    q = q.order_by(raw_sql(f'''i.date_of_complaint NULLS LAST'''))
+                else:
+                    q = q.order_by(getattr(db.Court_Challenge, field))
 
     # get len of query
     n = count(q) if use_pagination else None
@@ -1249,7 +1255,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             continue
 
         if field == 'government_order_upheld_or_enjoined':
-            print(allowed_values)
             if 'Pending' in allowed_values:
                 q = select(
                     i

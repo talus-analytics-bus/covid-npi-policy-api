@@ -737,6 +737,7 @@ class CovidPolicyPlugin(IngestPlugin):
             columns[table_name] = field
 
         data = data.rename(columns=columns)
+        input(data.loc[:, 'government_order_upheld_or_enjoined'])
         self.data_court_challenges = data
 
         # create entity instances
@@ -2030,7 +2031,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 elif '*' in d[key]:
                     return ''
                 else:
-                    return ''
+                    return d[key]
 
             # parse sets, including sets of strs that should be bools
             elif type(d[key]) != str and iterable(d[key]):
