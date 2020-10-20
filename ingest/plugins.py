@@ -722,7 +722,7 @@ class CovidPolicyPlugin(IngestPlugin):
         all_keys = select(
             (
                 i.ingest_field,
-                i.display_name,
+                i.table_name,
                 i.field
             )
             for i in db.Metadata
@@ -732,9 +732,10 @@ class CovidPolicyPlugin(IngestPlugin):
         # use field names instead of column headers for core dataset
         # TODO do this for future data tables as needed
         columns = dict()
-        for ingest_field, display_name, db_field in all_keys:
+        for ingest_field, table_name, db_field in all_keys:
             field = ingest_field if ingest_field != '' else db_field
-            columns[display_name] = field
+            columns[table_name] = field
+
         data = data.rename(columns=columns)
         self.data_court_challenges = data
 
@@ -924,7 +925,7 @@ class CovidPolicyPlugin(IngestPlugin):
             all_keys = select(
                 (
                     i.ingest_field,
-                    i.display_name,
+                    i.table_name,
                     i.field
                 )
                 for i in db.Metadata
@@ -1075,7 +1076,7 @@ class CovidPolicyPlugin(IngestPlugin):
             all_keys = select(
                 (
                     i.ingest_field,
-                    i.display_name,
+                    i.table_name,
                     i.field
                 )
                 for i in db.Metadata
@@ -1185,6 +1186,25 @@ class CovidPolicyPlugin(IngestPlugin):
                 upserted_places.append(place)
         places_to_split_iso3.delete()
         commit()
+
+    @db_session
+    def post_process_court_challenge_data(self, db):
+        challenges = select(
+            i for i in db.Court_Challenge
+        )
+        for c in challenges:
+            text = c.summary_of_action
+            title = c.parties if c.parties != '' else c.citation
+            val = None
+            if title != None:
+                if text != None:
+                    val = f'''{title}: {text}'''
+                else:
+                    val = title
+            else:
+                if text != None:
+                    val = text
+            c.parties_or_citation_and_summary_of_action = val
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
@@ -2029,7 +2049,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 elif '*' in d[key]:
                     return ''
                 else:
-                    return ''
+                    return d[key]
 
             # parse sets, including sets of strs that should be bools
             elif type(d[key]) != str and iterable(d[key]):
@@ -2079,6 +2099,8 @@ class CovidPolicyPlugin(IngestPlugin):
         data = self.data_court_challenges
 
         for i, d in data.iterrows():
+            if 'policy_categories' in d:
+                print(d['policy_categories'])
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest
@@ -2162,8 +2184,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
             metadatum_attributes = {
                 'ingest_field': d['Ingest field name'],
-                'display_name': d['Field'],
+                'table_name': d['Field'],
+                'display_name': d['Export column name'] \
+                    if (d['Export column name'] != '' and not pd.isna(d['Export column name'])) else d['Field'],
                 'colgroup': colgroup,
+                'tooltip': d['Descriptive text for site'] if not pd.isna(d['Descriptive text for site']) else '',
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
                 'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
