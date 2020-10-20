@@ -506,6 +506,7 @@ class Auth_Entity(db.Entity):
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
     office = Optional(str)
+    official = Optional(str)
 
     # relationships
     policies = Set('Policy')

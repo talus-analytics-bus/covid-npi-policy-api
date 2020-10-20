@@ -530,7 +530,7 @@ def get_policy(
             'id', 'level', 'loc'
         ]
         return_fields_by_entity['auth_entity'] = [
-            'id', 'place', 'office', 'name'
+            'id', 'place', 'office', 'name', 'official'
         ]
 
         # define list of instances to return

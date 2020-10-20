@@ -1489,11 +1489,18 @@ class CovidPolicyPlugin(IngestPlugin):
                 auth_entity_instance_data['place'] = place_auth
 
                 # perform upsert using get and set data fields
-                get_keys = ['name', 'office', 'place']
+                get_keys = ['name', 'office', 'place', 'official']
+
+                # define "get" data for upsert, adding blank fields as
+                # "Unspecified" if necessary
+                get_data = dict()
+                for k in get_keys:
+                    get_data[k] = auth_entity_instance_data[k] if k in auth_entity_instance_data else 'Unspecified'
+                pp.pprint(get_data)
+
                 action, auth_entity = upsert(
                     db.Auth_Entity,
-                    {k: auth_entity_instance_data[k]
-                        for k in get_keys if k in auth_entity_instance_data},
+                    get_data,
                     {},
                 )
                 if action == 'update':
