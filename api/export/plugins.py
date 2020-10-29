@@ -264,10 +264,12 @@ class CovidPolicyExportPlugin(ExcelExport):
             policies = schema.get_policy(
                 filters=self.filters, return_db_instances=True
             )
+            policies = policies.order_by(db.Policy.date_start_effective)
         elif class_name == 'Plan':
             policies = schema.get_plan(
                 filters=self.filters, return_db_instances=True
             )
+            policies = policies.order_by(db.Plan.date_issued)
         elif class_name == 'Court_Challenge':
             if tab.challenges_only:
                 policies = schema.get_challenge(
@@ -293,6 +295,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     policies = schema.get_challenge(
                         filters=self.filters, return_db_instances=True
                     )
+            policies = policies.order_by(db.Court_Challenge.date_of_complaint)
 
         # init export data list
         rows = list()
