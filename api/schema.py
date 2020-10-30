@@ -1029,7 +1029,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
         options.sort(key=lambda x: x in('Unspecified', 'Local'))
 
         # skip blank strings
-        options = filter(lambda x: x.strip() != '', options)
+        options = list(filter(lambda x: x.strip() != '', options))
 
         # assign groups, if applicable
         uses_nongeo_groups = d_str in fields_using_groups
@@ -1137,6 +1137,10 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
     # p2.sort_stats('cumulative').print_stats(10)
 
     # return all optionset values
+
+    # apply special ordering
+    if 'ph_measure_details' in data:
+        data['ph_measure_details'].sort(key=lambda x: 'other' in x['value'].lower())
 
     return {
         'data': data,
