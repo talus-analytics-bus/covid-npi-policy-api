@@ -2398,8 +2398,12 @@ class CovidPolicyPlugin(IngestPlugin):
             attachment_available = d['attachment_for_policy'] is not None and \
                 len(d['attachment_for_policy']) > 0
 
-            if reject(d) or attachment_available:
+            # does URL start with http? If not, consider it invalid and do not
+            # grab the file
+            url_invalid = d['policy_data_source'] is not None and \
+                not d['policy_data_source'].startswith('http')
 
+            if url_invalid or reject(d) or attachment_available:
                 continue
 
             instance_data = {key.split('_', 1)[1]: d[key]
