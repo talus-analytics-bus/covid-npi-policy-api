@@ -204,18 +204,39 @@ async def get_policy_status(geo_res=str):
 
 
 @app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_lockdown_level_model(iso3=str, geo_res=str, end_date=str, name=str):
+async def get_lockdown_level_model(
+    iso3=str,
+    geo_res=str,
+    end_date=str,
+    name=str,
+    deltas_only: bool = False
+):
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, name=name, end_date=end_date)
+    return schema.get_lockdown_level(
+        iso3=iso3,
+        geo_res=geo_res,
+        name=name,
+        end_date=end_date,
+        deltas_only=deltas_only,
+    )
 
 @app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def get_lockdown_level_country(iso3=str, end_date=str):
+async def get_lockdown_level_country(
+    iso3=str,
+    end_date=str,
+    deltas_only: bool = False
+):
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(iso3=iso3, geo_res='country', end_date=end_date)
+    return schema.get_lockdown_level(
+        iso3=iso3,
+        geo_res='country',
+        end_date=end_date,
+        deltas_only=deltas_only
+    )
 
 
 @app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)

@@ -2,6 +2,8 @@
 # standard modules
 import functools
 import math
+import itertools
+# import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -27,8 +29,11 @@ from db import db
 # constants
 s3 = boto3.client('s3')
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
-# IMPLEMENTED_NO_RESTRICTIONS = False
 
+# # pretty printing: for printing JSON objects legibly
+# pp = pprint.PrettyPrinter(indent=4)
+
+# IMPLEMENTED_NO_RESTRICTIONS = False
 
 def cached(func):
     """ Caching """
@@ -863,6 +868,7 @@ def get_lockdown_level(
     name: str = None,
     date: str = None,
     end_date: str = None,
+    deltas_only: bool = False,
 ):
     """TODO"""
 
@@ -888,7 +894,6 @@ def get_lockdown_level(
         if country_only and i.place.level != 'Country':
             continue
         else:
-            # value = parse_lockdown_level(i.value)
             datum = {
                 'value': i.value,
                 'datestamp': i.date,
@@ -898,14 +903,14 @@ def get_lockdown_level(
                     datum['place_name'] = i.place.iso3
                 elif i.place.iso3 != iso3:
                     continue
-                else:
-                    datum['place_name'] = i.place.iso3
+                # else:
+                #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
                     datum['place_name'] = i.place.area1
                 elif i.place.area1 != name:
                     continue
-        data.append(datum)
+            data.append(datum)
 
     # if `end_date` is specified, keep adding data until it is reached
     if end_date is not None and len(data) > 0:
@@ -933,11 +938,36 @@ def get_lockdown_level(
                 prv_date = cur_date
                 cur_date = cur_date + timedelta(days=1)
 
+    # if only the deltas are needed, return one datum representing the date
+    # each different distancing level was entered, instead of all dates
+    message_noun = 'statuses'
+    if deltas_only:
+
+        # create list to hold output
+        deltas_only_data = list()
+
+        # Get iter funcs; assumes sorted by desc. datestamp
+        by_level = itertools.groupby(data, key=lambda x: x['value'])
+
+        # Create iterator to iterate over groups of dates that had a given
+        # continous distancing level and keep only the oldest date
+        for level, items in by_level:
+            items = list(items)
+            deltas_only_data.append(items[len(items) - 1])
+        data = deltas_only_data
+        message_noun = 'status changes'
+
     # create response from output list
+    message_name = None
+    if name is not None:
+        message_name = name
+    elif iso3 is not None:
+        message_name = iso3
+
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+        message=f'''Found {str(len(data))} {message_noun}{'' if message_name is None else ' for ' + message_name}'''
     )
     return res
 
