@@ -28,6 +28,7 @@ from db import db
 # constants
 s3 = boto3.client('s3')
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
+# IMPLEMENTED_NO_RESTRICTIONS = False
 
 
 def cached(func):
@@ -646,9 +647,9 @@ def get_challenge(
         else:
             field = field_tmp
             if direction == 'desc':
-                q = q.order_by(desc(getattr(db.Court_Challenge, field)))
+                q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
             else:
-                q = q.order_by(getattr(db.Court_Challenge, field))
+                q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
 
     # get len of query
     n = count(q) if use_pagination else None
@@ -983,6 +984,28 @@ def get_policy_status(
     return res
 
 
+# def parse_lockdown_level(value_tmp):
+#     """If "No restrictions" has not yet been implemented on the frontend, then
+#     return "new normal" instead of "no restrictions". Otherwise return the val.
+#
+#     Parameters
+#     ----------
+#     value_tmp : type
+#         Description of parameter `value_tmp`.
+#
+#     Returns
+#     -------
+#     type
+#         Description of returned object.
+#
+#     """
+#     if not IMPLEMENTED_NO_RESTRICTIONS:
+#         if value_tmp == 'No restrictions':
+#             return 'New normal'
+#         else:
+#             return value_tmp
+
+
 @cached
 @db_session
 def get_lockdown_level(
@@ -1016,6 +1039,7 @@ def get_lockdown_level(
         if country_only and i.place.level != 'Country':
             continue
         else:
+            # value = parse_lockdown_level(i.value)
             datum = {
                 'value': i.value,
                 'datestamp': i.date,
@@ -1025,6 +1049,8 @@ def get_lockdown_level(
                     datum['place_name'] = i.place.iso3
                 elif i.place.iso3 != iso3:
                     continue
+                else:
+                    datum['place_name'] = i.place.iso3
             else:
                 if name is None:
                     datum['place_name'] = i.place.area1
@@ -1376,7 +1402,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             continue
 
         if field == 'government_order_upheld_or_enjoined':
-            print(allowed_values)
             if 'Pending' in allowed_values:
                 q = select(
                     i
