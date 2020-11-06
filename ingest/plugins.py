@@ -2016,7 +2016,7 @@ class CovidPolicyPlugin(IngestPlugin):
             and i.field not in linked_fields
             and i.field not in set_fields
             and i.export is True
-            or i.field == 'source_id'
+            or i.field in ('source_id', 'policy_or_law_name')
         )[:]
 
         # maintain dict of attributes to set post-creation
@@ -2185,8 +2185,8 @@ class CovidPolicyPlugin(IngestPlugin):
             metadatum_attributes = {
                 'ingest_field': d['Ingest field name'],
                 'table_name': d['Field'],
-                'display_name': d['Export column name'] \
-                    if (d['Export column name'] != '' and not pd.isna(d['Export column name'])) else d['Field'],
+                'display_name': d['Export column name']
+                if (d['Export column name'] != '' and not pd.isna(d['Export column name'])) else d['Field'],
                 'colgroup': colgroup,
                 'tooltip': d['Descriptive text for site'] if not pd.isna(d['Descriptive text for site']) else '',
                 'definition': d['Definition'],
