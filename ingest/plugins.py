@@ -1234,6 +1234,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     )
                     for d in policies:
                         d.court_challenges.add(court_challenge)
+                        commit()
 
     @db_session
     def create_auth_entities_and_places(self, db):
@@ -2099,8 +2100,6 @@ class CovidPolicyPlugin(IngestPlugin):
         data = self.data_court_challenges
 
         for i, d in data.iterrows():
-            if 'policy_categories' in d:
-                print(d['policy_categories'])
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest

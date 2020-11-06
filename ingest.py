@@ -32,12 +32,15 @@ if __name__ == "__main__":
     # load and process metadata
     client.load_metadata().process_metadata(db)
 
-
     # ingest court challenges and matter number info, if appropriate
     if ingest_court:
         print('\n\nIngesting court challenges and matter numbers data...')
         client.load_court_challenge_data().process_court_challenge_data(db)
         plugin.post_process_court_challenge_data(db)
+
+        if not ingest_policies:
+            plugin.post_process_policies(db, include_court_challenges=True)
+
     else:
         print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
@@ -46,7 +49,7 @@ if __name__ == "__main__":
 
         # post-process places
         plugin.post_process_places(db)
-        plugin.post_process_policies(db)
+        plugin.post_process_policies(db, include_court_challenges=ingest_court)
         schema.add_search_text()
     else:
         print('\n\nSkipping policy ingest.\n')
@@ -56,7 +59,6 @@ if __name__ == "__main__":
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
     else:
         print('\n\nSkipping distancing level ingest.\n')
-
 
     # # Drop all data/tables before ingesting
     # db.generate_mapping(check_tables=False, create_tables=False)
