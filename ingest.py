@@ -20,14 +20,13 @@ if __name__ == "__main__":
 
     # ingest court challenges and matter numbers?
     ingest_court = True
-
     # generate database mapping and ingest data for the COVID-AMP project
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
     db.generate_mapping(create_tables=True)
     plugin = CovidPolicyPlugin()
-    plugin.post_process_policies(db)
-    plugin.post_process_policy_numbers(db)
-    sys.exit(0)
+    # plugin.post_process_policies(db)
+    # plugin.post_process_policy_numbers(db)
+    # sys.exit(0)
 
     # update core policy data, if appropriate
     client = plugin.load_client(airtable_key)
