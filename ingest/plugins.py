@@ -1208,17 +1208,38 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
-        # for travel restriction policies, set aff to auth
-        policies = select(
+        policy_sections = select(
             i for i in db.Policy
-            if i.primary_ph_measure == 'Travel restrictions'
         )
-        for p in policies:
-            all_country = all(ae.place.level ==
-                              'Country' for ae in p.auth_entity)
-            p.place = set()
-            for ae in p.auth_entity:
-                p.place.add(ae.place)
+        for p in policy_sections:
+            # for travel restriction policies, set affected place to auth. pl.
+            if p.primary_ph_measure == 'Travel restrictions':
+                all_country = all(ae.place.level ==
+                                  'Country' for ae in p.auth_entity)
+                p.place = set()
+                for ae in p.auth_entity:
+                    p.place.add(ae.place)
+
+            # create or add to policy numbers, which group policies
+            policy_number_value = None
+
+            # if a policy section had no policy number, use its ID instead
+            if p.policy_number in (None, 0):
+                policy_number_value = p.id
+            else:
+                policy_number_value = p.policy_number
+
+            # if a policy number exists, then add the policy section to it,
+            # otherwise create it and add the policy section to it
+            policy_number_exists = \
+                db.Policy_Number.exists(id=policy_number_value)
+            if policy_number_exists:
+                policy_number = db.Policy_Number.get(id=policy_number_value)
+            else:
+                policy_number = db.Policy_Number(id=policy_number_value)
+
+            policy_number.policy.add(p)
+            commit()
 
         # link policies to court challenges
         if include_court_challenges:
@@ -1235,6 +1256,50 @@ class CovidPolicyPlugin(IngestPlugin):
                     for d in policies:
                         d.court_challenges.add(court_challenge)
                         commit()
+
+    @db_session
+    def post_process_policy_numbers(self, db):
+        """Populate certain data fields for Policy_Number records.
+
+        """
+        policy_numbers = select(
+            i for i in db.Policy_Number
+        )
+        for num in policy_numbers:
+            # define search text
+            search_text = ''
+            for section in num.policy:
+                # unique auth_entity instances
+                num.auth_entity.add(section.auth_entity)
+
+                # unique place instances
+                num.place.add(section.place)
+
+                # unique policy_names
+                if section.policy_name is not None:
+                    if num.names is not None:
+                        cur_names = set(num.names)
+                        cur_names.add(section.policy_name)
+                        num.names = list(cur_names)
+                    else:
+                        num.names = [section.policy_name]
+
+                # earliest effective start date
+                if num.earliest_date_start_effective is None or \
+                        num.earliest_date_start_effective > \
+                        section.date_start_effective:
+                    num.earliest_date_start_effective = \
+                        section.date_start_effective
+
+                # concat search text
+                search_text += section.search_text
+
+                # commit to db
+                commit()
+
+            # update search text and commit to db
+            num.search_text = search_text
+            commit()
 
     @db_session
     def create_auth_entities_and_places(self, db):

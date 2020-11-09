@@ -2,6 +2,7 @@
 bin/
 sh/
 ingest/sh
+db/config-local.ini
 
 
 # PDFs

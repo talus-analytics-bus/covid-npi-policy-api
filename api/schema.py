@@ -17,7 +17,8 @@ from fuzzywuzzy import fuzz
 # local modules
 from .export import CovidPolicyExportPlugin
 from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File, PlanList, ChallengeList
+    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber, \
+    PolicyNumberList
 from .util import str_to_date, find, download_file
 from db import db
 
@@ -286,6 +287,156 @@ def get_file(id: int):
         media_type = 'application/pdf'
     return Response(content=content, media_type=media_type)
 
+
+@db_session
+@cached
+def get_policy_number(
+    filters: dict = None,
+    fields: list = None,
+    order_by_field: str = 'date_start_effective',
+    return_db_instances: bool = False,
+    by_category: str = None,
+    ordering: list = [],
+    page: int = None,
+    pagesize: int = 100
+):
+
+    # return all fields?
+    all = fields is None
+
+    # use pagination if all fields are requested, and set value for `page` if
+    # none was provided in the URL query args
+    use_pagination = (all or page is not None) and not return_db_instances
+    if use_pagination and (page is None or page == 0):
+        page = 1
+
+    # get base query
+    entity_class = db.Policy_Number
+    q = select(i for i in entity_class)
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, entity_class, filters)
+
+    # apply ordering
+    ordering.reverse()
+    for field_tmp, direction in ordering:
+        if 'place.' in field_tmp:
+            field = field_tmp.split('.')[1]
+            if direction == 'desc':
+                q = q.order_by(
+                    lambda i: desc(
+                        group_concat(getattr(p, field) for p in i.place)
+                    )
+                )
+            else:
+                q = q.order_by(
+                    lambda i:
+                        group_concat(getattr(p, field) for p in i.place)
+
+                )
+        else:
+            field = field_tmp
+            if direction == 'desc':
+                q = q.order_by(desc(getattr(entity_class, field)))
+            else:
+                q = q.order_by(getattr(entity_class, field))
+
+    # get len of query
+    n = count(q) if use_pagination else None
+
+    # apply pagination if using
+    if use_pagination:
+        q = q.page(page, pagesize=pagesize)
+
+    # return query object if arguments requested it
+    if return_db_instances:
+        return q
+
+    # otherwise prepare list of dictionaries to return
+    else:
+        return_fields_by_entity = defaultdict(list)
+        if fields is not None:
+            return_fields_by_entity['policy_number'] = fields
+
+        # TODO dynamically set fields returned for Place and other
+        # linked entities
+        return_fields_by_entity['place'] = [
+            'id', 'level', 'loc'
+        ]
+        return_fields_by_entity['auth_entity'] = [
+            'id', 'place', 'office', 'name'
+        ]
+
+        # define list of instances to return
+        data = []
+        # for each policy
+        for d in q:
+            # convert it to a dictionary returning only the specified fields
+            d_dict = d.to_dict_2(
+                with_collections=True,
+                related_objects=True,
+                return_fields_by_entity=return_fields_by_entity)
+            print(d_dict)
+            # add it to the output list
+            # policies = list()
+            # for p in d_dict['policies']:
+            #     policy = db.Policy[p]
+            #     policies.append(
+            #         Policy(
+            #             id=policy.id,
+            #             primary_ph_measure=p['primary_ph_measure'],
+            #             ph_measure_details=p['ph_measure_details'],
+            #             date_start_effective=p['date_start_effective']
+            #         )
+            #     )
+            datum = PolicyNumber(
+                policy_number=d_dict['id'],
+                titles=d_dict['names'],
+                auth_entity_offices=\
+                    [ae.office for ae in d_dict['auth_entity']],
+                policies=[
+                    Policy(
+                        id=p.id,
+                        primary_ph_measure=p.primary_ph_measure,
+                        ph_measure_details=p.ph_measure_details,
+                        date_start_effective=p.date_start_effective
+                    ) for p in d_dict['policy']
+                ]
+            )
+            data.append(datum)
+
+        # if pagination is being used, get next page URL if there is one
+        n_pages = None if not use_pagination else math.ceil(n / pagesize)
+        more_pages = use_pagination and page < n_pages
+        next_page_url = None if not more_pages else \
+            f'''/get/policy_number?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
+        # if by category: transform data to organize by category
+        # NOTE: assumes one `primary_ph_measure` per Policy
+        if by_category is not None:
+            pass
+            # data_by_category = defaultdict(list)
+            # for i in data:
+            #     data_by_category[i[by_category]].append(i)
+            #
+            # res = PolicyDict(
+            #     data=data_by_category,
+            #     success=True,
+            #     message=f'''{len(q)} policies found''',
+            #     next_page_url=next_page_url,
+            #     n=n
+            # )
+        else:
+            # create response from output list
+            res = PolicyNumberList(
+                data=data,
+                success=True,
+                message=f'''{len(q)} policy numbers found''',
+                next_page_url=next_page_url,
+                n=n
+            )
+        return res
 
 @db_session
 @cached
@@ -1246,17 +1397,19 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             q_search_text_only = select((i.id, i.search_text) for i in q)
 
             for id, search_text in q_search_text_only:
-
-                # return exact match - if no exact match return partial match
-                exact_match = text in search_text
-                if exact_match:
-                    new_q_ids.append(id)
+                if search_text is None:
+                    continue
                 else:
-                    ratio = fuzz.partial_ratio(
-                        text, search_text)
-                    partial_match = ratio >= thresh
-                    if partial_match:
+                    # return exact match - if no exact match return partial match
+                    exact_match = text in search_text
+                    if exact_match:
                         new_q_ids.append(id)
+                    else:
+                        ratio = fuzz.partial_ratio(
+                            text, search_text)
+                        partial_match = ratio >= thresh
+                        if partial_match:
+                            new_q_ids.append(id)
             q = select(
                 i
                 for i in entity_class

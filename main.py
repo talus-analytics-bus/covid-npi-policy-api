@@ -3,4 +3,4 @@
 from api import app, schema
 from db import db
 
-db.generate_mapping()
+db.generate_mapping(create_tables=True)

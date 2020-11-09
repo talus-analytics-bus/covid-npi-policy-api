@@ -25,6 +25,9 @@ if __name__ == "__main__":
     ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
     db.generate_mapping(create_tables=True)
     plugin = CovidPolicyPlugin()
+    plugin.post_process_policies(db)
+    plugin.post_process_policy_numbers(db)
+    sys.exit(0)
 
     # update core policy data, if appropriate
     client = plugin.load_client(airtable_key)
@@ -49,7 +52,8 @@ if __name__ == "__main__":
 
         # post-process places
         plugin.post_process_places(db)
-        plugin.post_process_policies(db, include_court_challenges=ingest_court)
+        plugin.post_process_policies(db)
+        plugin.post_process_policy_numbers(db)
         schema.add_search_text()
     else:
         print('\n\nSkipping policy ingest.\n')
