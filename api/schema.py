@@ -36,6 +36,7 @@ S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
 
+
 def cached(func):
     """ Caching """
     cache = {}
@@ -393,8 +394,7 @@ def get_policy_number(
             datum = PolicyNumber(
                 policy_number=d_dict['id'],
                 titles=d_dict['names'],
-                auth_entity_offices=\
-                    [ae.office for ae in d_dict['auth_entity']],
+                auth_entity_offices=[ae.office for ae in d_dict['auth_entity']],
                 policies=[
                     Policy(
                         id=p.id,
@@ -437,6 +437,7 @@ def get_policy_number(
                 n=n
             )
         return res
+
 
 @db_session
 @cached
@@ -1207,7 +1208,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
         options.sort()
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
-        options.sort(key=lambda x: x in('Unspecified', 'Local'))
+        options.sort(key=lambda x: x in ('Unspecified', 'Local'))
 
         # skip blank strings
         options = list(filter(lambda x: x.strip() != '', options))
@@ -1493,7 +1494,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
-
             if field == 'date_of_decision':
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
@@ -1508,7 +1508,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                 )
                 continue
 
-
             if field == 'date_of_complaint':
                 # return instances where `date_of_complaint` falls within the
                 # specified range, inclusive
@@ -1522,7 +1521,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     and i.date_of_complaint >= start
                 )
                 continue
-
 
             elif field == 'date_issued':
                 # return instances where `date_issued` falls within the
@@ -1542,7 +1540,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         # different entity?
         # TODO generalize this and rename function `apply_entity_filters`
         join_place = field in ('level', 'loc', 'area1',
-                         'iso3', 'country_name', 'area2')
+                               'iso3', 'country_name', 'area2')
 
         join_policy = not join_place and field in ('policy.policy_number',)
 
