@@ -1208,6 +1208,12 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
+
+        # delete all current policy number records
+        all_policy_numbers = select(i for i in db.Policy_Number)
+        all_policy_numbers.delete()
+        commit()
+
         policy_sections = select(
             i for i in db.Policy
         )
@@ -1269,6 +1275,10 @@ class CovidPolicyPlugin(IngestPlugin):
             # define search text
             search_text = ''
             for section in num.policy:
+
+                # set policy number to be equal to this one
+                section.policy_number = num.id
+
                 # unique auth_entity instances
                 num.auth_entity.add(section.auth_entity)
 
@@ -1525,7 +1535,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 get_data = dict()
                 for k in get_keys:
                     get_data[k] = auth_entity_instance_data[k] if k in auth_entity_instance_data else 'Unspecified'
-                pp.pprint(get_data)
 
                 action, auth_entity = upsert(
                     db.Auth_Entity,
