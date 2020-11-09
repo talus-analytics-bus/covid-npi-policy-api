@@ -1557,11 +1557,8 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         # joined to policy entity
         elif join_policy:
             q = q.filter(
-                lambda i:
-                    exists(
-                        t for t in i.policies
-                        if t.policy_number in allowed_values
-                    )
+                lambda i_join_policy:
+                    i_join_policy.policy_number in allowed_values
             )
         else:
             # if the filter is not a join, i.e., is on policy native fields
