@@ -19,6 +19,7 @@ from api import schema
 # constants
 pp = pprint.PrettyPrinter(indent=4)
 
+
 class CovidPolicyTab(WorkbookTab):
     """Add a specific parameter denoting whether a tab for court challenges
     is part of a workbook containing court challenges only. Note: Workbooks
@@ -27,6 +28,7 @@ class CovidPolicyTab(WorkbookTab):
     containing any court challenges associated with those policies.
 
     """
+
     def __init__(self, challenges_only=False, **kwargs):
         # assign project-specific parameter `challenges_only`
         self.challenges_only = challenges_only
@@ -140,7 +142,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
                     # Does this workbook contain court challenges only?
                     challenges_only=tab['s'] == 'Court_Challenge' and \
-                        len(tabs) == 1
+                    len(tabs) == 1
                 ),
                 CovidPolicyTab(
                     name='Legend - ' + tab['p'],
@@ -281,18 +283,22 @@ class CovidPolicyExportPlugin(ExcelExport):
                 policies_with_challenges = schema.get_policy(
                     filters=self.filters, return_db_instances=True
                 )
-
-                challenge_ids = set()
-                for d in policies_with_challenges:
-                    if len(d.court_challenges) > 0:
-                        for dd in d.court_challenges:
-                            challenge_ids.add(dd.id)
-                policies = select(
-                    i for i in db.Court_Challenge
-                    if i.id in challenge_ids
-                )
-            policies = \
-                policies.order_by(db.Court_Challenge.date_of_complaint)
+                n_all_policies = db.Policy.select().count()
+                filter_challenges = policies_with_challenges.count() != n_all_policies
+                if filter_challenges:
+                    challenge_ids = set()
+                    for d in policies_with_challenges:
+                        if len(d.court_challenges) > 0:
+                            for dd in d.court_challenges:
+                                challenge_ids.add(dd.id)
+                    policies = select(
+                        i for i in db.Court_Challenge
+                        if i.id in challenge_ids
+                    )
+                else:
+                    policies = schema.get_challenge(
+                        filters=self.filters, return_db_instances=True
+                    )
 
         # init export data list
         rows = list()

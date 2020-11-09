@@ -51,11 +51,13 @@ class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
     _table_ = "metadata"
     field = Required(str)
+    table_name = Optional(str)
     ingest_field = Optional(str)
     order = Required(float)
     display_name = Optional(str)
     colgroup = Optional(str)
     definition = Optional(str)
+    tooltip = Optional(str)
     possible_values = Optional(str)
     notes = Optional(str)
     entity_name = Required(str)
@@ -560,7 +562,7 @@ class Court_Challenge(db.Entity):
     case_number = Optional(str)
     legal_citation = Optional(str)
     filed_in_state_or_federal_court = Optional(str)
-    summary_of_action = Optional(str)
+    summary_of_action = Optional(str, nullable=True)
     complaint_category = Optional(StrArray, nullable=True)
     legal_challenge = Optional(bool, nullable=True)
     case_name = Optional(str)
@@ -577,6 +579,8 @@ class Court_Challenge(db.Entity):
     policy_or_law_name = Optional(str)
     source_id = Required(str)
     search_text = Optional(str)
+    policy_categories = Optional(StrArray)
+    parties_or_citation_and_summary_of_action = Optional(str, nullable=True)
 
     # Relationships
     policies = Set('Policy', table="policies_to_court_challenges")

@@ -208,7 +208,14 @@ async def get_lockdown_level_model(iso3=str, geo_res=str, end_date=str, name=str
     """Get lockdown level of a location by date.
 
     """
-    return schema.get_lockdown_level(geo_res=geo_res, name=name, end_date=end_date)
+    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, name=name, end_date=end_date)
+
+@app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
+async def get_lockdown_level_country(iso3=str, end_date=str):
+    """Get lockdown level of a location by date.
+
+    """
+    return schema.get_lockdown_level(iso3=iso3, geo_res='country', end_date=end_date)
 
 
 @app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
