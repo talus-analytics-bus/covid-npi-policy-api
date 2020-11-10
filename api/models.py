@@ -67,6 +67,7 @@ class Policy(BaseModel):
     ph_measure_details: str = None
     policy_type: str = None
     authority_name: str = None
+    subtarget: str = None
 
     # key dates
     date_issued: date = None
@@ -79,6 +80,17 @@ class Policy(BaseModel):
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+
+
+class PolicyNumber(BaseModel):
+    policy_number: int # aka. `id`
+
+    # descriptive information
+    titles: List[str] = None
+    auth_entity_offices: List[str] = None
+
+    # relationships
+    policies: List[Policy] = None
 
 
 class Plan(BaseModel):
@@ -137,6 +149,10 @@ class PolicyFilters(BaseModel):
 
 class PolicyList(Response):
     data: List[Policy]
+
+
+class PolicyNumberList(Response):
+    data: List[PolicyNumber]
 
 
 class Court_Challenge(BaseModel):

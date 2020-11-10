@@ -19,6 +19,7 @@ from api import schema
 # constants
 pp = pprint.PrettyPrinter(indent=4)
 
+
 class CovidPolicyTab(WorkbookTab):
     """Add a specific parameter denoting whether a tab for court challenges
     is part of a workbook containing court challenges only. Note: Workbooks
@@ -27,6 +28,7 @@ class CovidPolicyTab(WorkbookTab):
     containing any court challenges associated with those policies.
 
     """
+
     def __init__(self, challenges_only=False, **kwargs):
         # assign project-specific parameter `challenges_only`
         self.challenges_only = challenges_only
@@ -140,7 +142,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
                     # Does this workbook contain court challenges only?
                     challenges_only=tab['s'] == 'Court_Challenge' and \
-                        len(tabs) == 1
+                    len(tabs) == 1
                 ),
                 CovidPolicyTab(
                     name='Legend - ' + tab['p'],
@@ -265,11 +267,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 filters=self.filters, return_db_instances=True
             )
             policies = policies.order_by(db.Policy.date_start_effective)
+
         elif class_name == 'Plan':
             policies = schema.get_plan(
                 filters=self.filters, return_db_instances=True
             )
             policies = policies.order_by(db.Plan.date_issued)
+
         elif class_name == 'Court_Challenge':
             if tab.challenges_only:
                 policies = schema.get_challenge(
