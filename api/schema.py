@@ -1193,6 +1193,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
+        options.sort(key=lambda x: x != 'Face mask')
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in ('Unspecified', 'Local'))
@@ -1371,7 +1372,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
     """
     # for each filter set provided
     for field, allowed_values in filters.items():
-
         # if no values were specified, assume no filter is applied
         # and continue
         if len(allowed_values) == 0:
@@ -1528,9 +1528,14 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         join_place = field in ('level', 'loc', 'area1',
                                'iso3', 'country_name', 'area2')
 
-        join_policy = not join_place and field in ('policy.policy_number',)
+        join_policy_number = not join_place and field == 'policy.policy_number'
 
-        set_fields = ('complaint_subcategory_new', 'complaint_category_new')
+        # determine whether this field is obtained by joining to policies
+        # TODO more dynamically determine set of fields to check
+        join_policy_nonset_field = entity_class != db.Policy and \
+            field in ('primary_ph_measure')
+
+        set_fields = ('policy_categories', 'complaint_subcategory_new', 'complaint_category_new')
 
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
@@ -1542,13 +1547,23 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                         if getattr(t, field) in allowed_values
                     )
             )
-        # joined to policy entity
-        elif join_policy:
+        # joined to policy entity: policy number field
+        elif join_policy_number:
             q = q.filter(
                 lambda i:
                     exists(
                         t for t in i.policies
                         if t.policy_number in allowed_values
+                    )
+            )
+
+        # joined to policy entity: any other non-set field
+        elif join_policy_nonset_field:
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.policies
+                        if getattr(t, field) in allowed_values
                     )
             )
 
