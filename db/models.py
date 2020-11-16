@@ -80,8 +80,8 @@ class Glossary(db.Entity):
     id = PrimaryKey(int, auto=True)
     term = Required(str)
     subterm = Optional(str, default="n/a")
-    definition = Optional(str, default="Definition currently being developed")
-    reference = Optional(str, default="None")
+    definition = Optional(str, nullable=True)
+    reference = Optional(str, nullable=True)
     entity_name = Optional(str)
     field = Optional(str)
 
@@ -387,9 +387,9 @@ class Policy_Number(db.Entity):
     sections) together.
 
     """
-    id = PrimaryKey(int, auto=False) # the policy number
-    names = Optional(StrArray) # list of names of policy sections
-    earliest_date_start_effective = Optional(date) # of all sections
+    id = PrimaryKey(int, auto=False)  # the policy number
+    names = Optional(StrArray)  # list of names of policy sections
+    earliest_date_start_effective = Optional(date)  # of all sections
     search_text = Optional(str)
 
     # relationships
@@ -422,7 +422,7 @@ class Policy_Number(db.Entity):
             instance_dict = Policy_Number.to_dict(
                 self,
                 only=return_fields_by_entity['policy_number'],
-                 **kwargs
+                **kwargs
             )
         else:
             instance_dict = Policy_Number.to_dict(self, **kwargs)
@@ -469,6 +469,7 @@ class Policy_Number(db.Entity):
             #             doc_instance_dict['id']
             #         )
         return instance_dict
+
 
 class Place(db.Entity):
     _table_ = "place"
@@ -581,6 +582,10 @@ class Court_Challenge(db.Entity):
     search_text = Optional(str)
     policy_categories = Optional(StrArray)
     parties_or_citation_and_summary_of_action = Optional(str, nullable=True)
+
+    # Future data fields
+    complaint_category_new = Optional(StrArray, nullable=True)
+    complaint_subcategory_new = Optional(StrArray, nullable=True)
 
     # Relationships
     policies = Set('Policy', table="policies_to_court_challenges")

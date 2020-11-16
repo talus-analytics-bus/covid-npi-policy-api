@@ -3,6 +3,7 @@
 import os
 import pytz
 import time
+import random
 from os import sys
 from datetime import date, datetime, timedelta
 from collections import defaultdict
@@ -638,6 +639,11 @@ class CovidPolicyPlugin(IngestPlugin):
             .worksheet(name='Appendix: glossary') \
             .as_dataframe(view='API ingest')
 
+        # court challenges glossary
+        self.glossary_court_challenges = self.client \
+            .worksheet(name='Appendix: Court challenges glossary') \
+            .as_dataframe(view='API ingest')
+
         return self
 
     def load_data(self):
@@ -879,9 +885,6 @@ class CovidPolicyPlugin(IngestPlugin):
         self
 
         """
-
-        # upsert glossary terms
-        self.create_glossary(db)
 
         # POLICY DATA # ------------------------------------------------------#
         def process_policy_data(self, db):
@@ -2244,6 +2247,10 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
+
+        # upsert glossary terms
+        self.create_glossary(db)
+
         print('\n\n[2] Ingesting metadata from data dictionary...')
         colgroup = ''
         upserted = set()
@@ -2397,25 +2404,31 @@ class CovidPolicyPlugin(IngestPlugin):
         upserted = set()
         n_inserted = 0
         n_updated = 0
-        for i, d in self.glossary.iterrows():
-            if d['Key Term'] is None or d['Key Term'].strip() == '':
-                continue
-            attributes = {
-                'definition': d['Definition'],
-                'reference': d['Reference'],
-                'entity_name': d['Database entity'],
-                'field': d['Database field name'],
-            }
 
-            action, instance = upsert(db.Glossary, {
-                'term': d['Key Term'],
-                'subterm': d['Field Value'],
-            }, attributes)
-            if action == 'update':
-                n_updated += 1
-            elif action == 'insert':
-                n_inserted += 1
-            upserted.add(instance)
+        glossary_tables = [
+            self.glossary,
+            self.glossary_court_challenges
+        ]
+        for glossary_table in glossary_tables:
+            for i, d in glossary_table.iterrows():
+                if d['Key term'] is None or d['Key term'].strip() == '':
+                    continue
+                attributes = {
+                    'definition': d['Definition'],
+                    'reference': d.get('Reference'),
+                    'entity_name': d['Database entity'],
+                    'field': d['Database field name'],
+                }
+
+                action, instance = upsert(db.Glossary, {
+                    'term': d['Key term'],
+                    'subterm': d['Field value'],
+                }, attributes)
+                if action == 'update':
+                    n_updated += 1
+                elif action == 'insert':
+                    n_inserted += 1
+                upserted.add(instance)
 
         # delete all records in table but not in ingest dataset
         n_deleted = db.Glossary.delete_2(upserted)
@@ -2664,6 +2677,42 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
         print('Deleted (still in S3): ' + str(n_deleted))
+
+    @db_session
+    def debug_add_test_complaint_cats(self, db):
+        """Add stand-in complaint cats and subcats to test the new data fields
+        before data are populated in them.
+
+
+        """
+        print('\nAdding debug data...')
+        # get subcats and their cats
+        possible_values = select(
+            (i.term, i.subterm)
+            for i in db.Glossary
+            if i.field == 'complaint_subcategory_new'
+        )[:][:]
+
+        # for each court challenge
+        for i in db.Court_Challenge.select():
+
+            # randomly choose a number of subcats to assign
+            n_values = random.randrange(1, 3)
+            values = random.sample(possible_values, n_values)
+            subcats = set()
+            cats = set()
+
+            for value in values:
+                cats.add(value[0])
+                subcats.add(value[1])
+            cats = list(cats)
+            subcats = list(subcats)
+
+            # assign data
+            i.complaint_category_new = cats
+            i.complaint_subcategory_new = subcats
+            commit()
+        print('\nDone.')
 
     @db_session
     def validate_docs(self, db):

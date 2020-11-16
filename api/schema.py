@@ -3,6 +3,7 @@
 import functools
 import math
 import itertools
+import logging
 # import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
@@ -272,8 +273,7 @@ def get_file(id: int):
     try:
         s3.download_fileobj(S3_BUCKET_NAME, key, data)
     except Exception as e:
-        print('e')
-        print(e)
+        logging.exception(e)
         return 'Document not found (404)'
 
     # return to start of IO stream
@@ -378,19 +378,6 @@ def get_policy_number(
                 with_collections=True,
                 related_objects=True,
                 return_fields_by_entity=return_fields_by_entity)
-            print(d_dict)
-            # add it to the output list
-            # policies = list()
-            # for p in d_dict['policies']:
-            #     policy = db.Policy[p]
-            #     policies.append(
-            #         Policy(
-            #             id=policy.id,
-            #             primary_ph_measure=p['primary_ph_measure'],
-            #             ph_measure_details=p['ph_measure_details'],
-            #             date_start_effective=p['date_start_effective']
-            #         )
-            #     )
             datum = PolicyNumber(
                 policy_number=d_dict['id'],
                 titles=d_dict['names'],
@@ -1157,7 +1144,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
 
     # define which data fields use groups
     # TODO dynamically
-    fields_using_groups = ('Policy.ph_measure_details')
+    fields_using_groups = ('Policy.ph_measure_details', 'Court_Challenge.complaint_subcategory_new')
     fields_using_geo_groups = ('Place.area1', 'Place.area2')
 
     # define output data dict
@@ -1429,7 +1416,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         if field == 'complaint_category':
 
             for value in allowed_values:
-                print(allowed_values)
                 q = select(
                     i for i in q if value in i.complaint_category
                 )
@@ -1544,6 +1530,8 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
         join_policy = not join_place and field in ('policy.policy_number',)
 
+        set_fields = ('complaint_subcategory_new', 'complaint_category_new')
+
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
         if join_place:
@@ -1562,6 +1550,17 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                         t for t in i.policies
                         if t.policy_number in allowed_values
                     )
+            )
+
+        # if field is an array, and possible values are also an array, use
+        # special raw sql to filter
+        elif field in set_fields:
+            allowed_values = list(map(lambda x: '"' + x + '"', allowed_values))
+            raw_sql_allowed_values = ", ".join(allowed_values)
+            raw_sql_allowed_values = "'{" + raw_sql_allowed_values + "}'::text[]"
+            q = q.filter(
+                lambda x:
+                    raw_sql(raw_sql_allowed_values + ' && "i"."' + field + '"')
             )
         else:
             # if the filter is not a join, i.e., is on policy native fields
