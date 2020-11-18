@@ -124,6 +124,7 @@ async def get_policy(
     fields: List[str] = Query(None),
     page: int = None,
     pagesize: int = 100,
+    count: bool = False,
 ):
     """Return Policy data.
 
@@ -138,7 +139,9 @@ async def get_policy(
         Policy response dictionary.
 
     """
-    return schema.get_policy(fields=fields, page=page, pagesize=pagesize)
+    return schema.get_policy(
+        fields=fields, page=page, pagesize=pagesize, count_only=count
+    )
 
 
 @app.get("/get/challenge", response_model=ListResponse, response_model_exclude_unset=True)
@@ -291,6 +294,7 @@ async def post_policy(
     fields: List[str] = Query(None),
     page: int = None,
     pagesize: int = 100,
+    count: bool = False,
 ):
     """Return Policy data with filters applied.
 
@@ -309,7 +313,8 @@ async def post_policy(
     """
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=by_category,
-        page=page, pagesize=pagesize, ordering=body.ordering
+        page=page, pagesize=pagesize, ordering=body.ordering,
+        count_only=count
     )
 
 

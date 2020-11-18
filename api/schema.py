@@ -437,7 +437,8 @@ def get_policy(
     by_category: str = None,
     ordering: list = [],
     page: int = None,
-    pagesize: int = 100
+    pagesize: int = 100,
+    count_only: bool = False
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -478,96 +479,105 @@ def get_policy(
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
 
-    # apply ordering
-    ordering.reverse()
-    for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
-                q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
-                )
-            else:
-                q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
-                )
-        else:
-            field = field_tmp
-            if direction == 'desc':
-                q = q.order_by(desc(getattr(db.Policy, field)))
-            else:
-                q = q.order_by(getattr(db.Policy, field))
-
-    # get len of query
-    n = count(q) if use_pagination else None
-
-    # apply pagination if using
-    if use_pagination:
-        q = q.page(page, pagesize=pagesize)
-
-    # return query object if arguments requested it
-    if return_db_instances:
-        return q
-
-    # otherwise prepare list of dictionaries to return
+    # if only a count was requested, return it
+    if count_only:
+        n = q.count()
+        return {
+            'data': [{'n': n}],
+            'success': True, 'message': 'Number of policies'
+        }
     else:
-        return_fields_by_entity = defaultdict(list)
-        if fields is not None:
-            return_fields_by_entity['policy'] = fields
 
-        # TODO dynamically set fields returned for Place and other
-        # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc'
-        ]
-        return_fields_by_entity['auth_entity'] = [
-            'id', 'place', 'office', 'name', 'official'
-        ]
+        # apply ordering
+        ordering.reverse()
+        for field_tmp, direction in ordering:
+            if 'place.' in field_tmp:
+                field = field_tmp.split('.')[1]
+                if direction == 'desc':
+                    q = q.order_by(
+                        lambda i: desc(
+                            group_concat(getattr(p, field) for p in i.place)
+                        )
+                    )
+                else:
+                    q = q.order_by(
+                        lambda i:
+                            group_concat(getattr(p, field) for p in i.place)
 
-        # define list of instances to return
-        data = []
-        # for each policy
-        for d in q:
-            # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
-            # add it to the output list
-            data.append(d_dict)
+                    )
+            else:
+                field = field_tmp
+                if direction == 'desc':
+                    q = q.order_by(desc(getattr(db.Policy, field)))
+                else:
+                    q = q.order_by(getattr(db.Policy, field))
 
-        # if pagination is being used, get next page URL if there is one
-        n_pages = None if not use_pagination else math.ceil(n / pagesize)
-        more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+        # get len of query
+        n = count(q) if use_pagination else None
 
-        # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Policy
-        if by_category is not None:
-            data_by_category = defaultdict(list)
-            for i in data:
-                data_by_category[i[by_category]].append(i)
+        # apply pagination if using
+        if use_pagination:
+            q = q.page(page, pagesize=pagesize)
 
-            res = PolicyDict(
-                data=data_by_category,
-                success=True,
-                message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url,
-                n=n
-            )
+        # return query object if arguments requested it
+        if return_db_instances:
+            return q
+
+        # otherwise prepare list of dictionaries to return
         else:
-            # create response from output list
-            res = PolicyList(
-                data=data,
-                success=True,
-                message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url,
-                n=n
-            )
-        return res
+            return_fields_by_entity = defaultdict(list)
+            if fields is not None:
+                return_fields_by_entity['policy'] = fields
+
+            # TODO dynamically set fields returned for Place and other
+            # linked entities
+            return_fields_by_entity['place'] = [
+                'id', 'level', 'loc'
+            ]
+            return_fields_by_entity['auth_entity'] = [
+                'id', 'place', 'office', 'name', 'official'
+            ]
+
+            # define list of instances to return
+            data = []
+            # for each policy
+            for d in q:
+                # convert it to a dictionary returning only the specified fields
+                d_dict = d.to_dict_2(
+                    return_fields_by_entity=return_fields_by_entity)
+                # add it to the output list
+                data.append(d_dict)
+
+            # if pagination is being used, get next page URL if there is one
+            n_pages = None if not use_pagination else math.ceil(n / pagesize)
+            more_pages = use_pagination and page < n_pages
+            next_page_url = None if not more_pages else \
+                f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
+            # if by category: transform data to organize by category
+            # NOTE: assumes one `primary_ph_measure` per Policy
+            if by_category is not None:
+                data_by_category = defaultdict(list)
+                for i in data:
+                    data_by_category[i[by_category]].append(i)
+
+                res = PolicyDict(
+                    data=data_by_category,
+                    success=True,
+                    message=f'''{len(q)} policies found''',
+                    next_page_url=next_page_url,
+                    n=n
+                )
+            else:
+                # create response from output list
+                res = PolicyList(
+                    data=data,
+                    success=True,
+                    message=f'''{len(q)} policies found''',
+                    next_page_url=next_page_url,
+                    n=n
+                )
+            return res
 
 
 @db_session
@@ -1430,37 +1440,40 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
         # custom text search with fuzzy matching
         if field == '_text':
-            text = allowed_values[0].lower()
-            thresh = 80
-            new_q_ids = []
-            q_search_text_only = select((i.id, i.search_text) for i in q)
+            if len(allowed_values) > 0 and allowed_values[0] is not None:
+                text = allowed_values[0].lower()
+                thresh = 80
+                new_q_ids = []
+                q_search_text_only = select((i.id, i.search_text) for i in q)
 
-            for id, search_text in q_search_text_only:
-                if search_text is None:
-                    continue
-                else:
-                    # return exact match - if no exact match return partial match
-                    exact_match = text in search_text
-                    if exact_match:
-                        new_q_ids.append(id)
+                for id, search_text in q_search_text_only:
+                    if search_text is None:
+                        continue
                     else:
-                        ratio = fuzz.partial_ratio(
-                            text, search_text)
-                        partial_match = ratio >= thresh
-                        if partial_match:
+                        # return exact match - if no exact match return partial match
+                        exact_match = text in search_text
+                        if exact_match:
                             new_q_ids.append(id)
-            q = select(
-                i
-                for i in entity_class
-                if i.id in new_q_ids
-            )
+                        else:
+                            ratio = fuzz.partial_ratio(
+                                text, search_text)
+                            partial_match = ratio >= thresh
+                            if partial_match:
+                                new_q_ids.append(id)
+                q = select(
+                    i
+                    for i in entity_class
+                    if i.id in new_q_ids
+                )
 
-            # # Text match with direct case insensitive matches only
-            # q = select(
-            #     i for i in q
-            #     if text in i.search_text
-            # )
-            continue
+                # # Text match with direct case insensitive matches only
+                # q = select(
+                #     i for i in q
+                #     if text in i.search_text
+                # )
+                continue
+            else:
+                continue
 
         # Complaint category field needs to be handled separately
         # because the field contains arrays instead of strings
