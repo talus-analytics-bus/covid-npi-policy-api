@@ -222,6 +222,7 @@ async def get_lockdown_level_model(
         deltas_only=deltas_only,
     )
 
+
 @app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
 async def get_lockdown_level_country(
     iso3=str,
@@ -248,8 +249,13 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
 
 
 @app.post("/post/policy_status/{geo_res}", response_model=PolicyStatusList, response_model_exclude_unset=True)
-async def post_policy_status(body: PolicyFilters, geo_res=str):
-    """Return Policy data.
+async def post_policy_status(
+    body: PolicyFilters, geo_res=str,
+    start: str = None,  # YYYY-MM-DD
+    end: str = None,
+):
+    """Return Policy status data; a t/f value indicating whether a particular
+    category and/or subcategory of policy was in effect on a date(s)
 
     Parameters
     ----------
@@ -263,7 +269,19 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
 
     """
 
-    return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
+    # if start / end dates were provided, return a time series, otherwise
+    # return a single observation whose date is determined from the
+    # `dates_in_effect` filter in `filters`
+    get_by_date = start is not None and end is not None
+    if get_by_date:
+        return schema.get_policy_status_by_date(
+            geo_res=geo_res,
+            filters=body.filters,
+            start=start,
+            end=end,
+        )
+    else:
+        return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
 @app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
@@ -310,6 +328,7 @@ async def post_policy_number(
         filters=body.filters, fields=fields, by_category=by_category,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
+
 
 @app.post("/post/challenge", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_challenge(
@@ -420,6 +439,8 @@ async def get_test(test_param: str = 'GET successful'):
 ##
 # Debug endpoints
 ##
+
+
 @app.get("/add_search_text")
 async def add_search_text(test_param: str = 'GET successful'):
     """Test GET endpoint.
@@ -438,3 +459,8 @@ async def add_search_text(test_param: str = 'GET successful'):
     """
     schema.add_search_text()
     return 'Done'
+
+
+@app.get("/add_missing_daily_observations")
+async def add_missing_daily_observations(metric: int = None):
+    return schema.add_missing_daily_observations(metric=metric)
