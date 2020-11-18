@@ -83,7 +83,7 @@ class Policy(BaseModel):
 
 
 class PolicyNumber(BaseModel):
-    policy_number: int # aka. `id`
+    policy_number: int  # aka. `id`
 
     # descriptive information
     titles: List[str] = None
