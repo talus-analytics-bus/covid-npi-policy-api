@@ -907,9 +907,8 @@ def get_policy_status(
             if name is None:
                 q = db.Observation.select_by_sql(
                     f'''
-                            select distinct on (place) *
+                            select *
                             from observation o
-                            where date <= '{str(start)}'
                             order by place, date desc
                     ''')
                 data = [
@@ -964,7 +963,8 @@ def get_policy_status(
             if i not in data_tmp:
                 data_tmp[i] = PolicyStatus(
                     place_name=i,
-                    value="t"
+                    value="t",
+                    datestamp=datetime.strptime('2020-11-1', '%Y-%m-%d').date()  # FAKE DEBUG
                 )
         data = list(data_tmp.values())
 
