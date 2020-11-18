@@ -977,28 +977,6 @@ def get_policy_status(
     return res
 
 
-# def parse_lockdown_level(value_tmp):
-#     """If "No restrictions" has not yet been implemented on the frontend, then
-#     return "new normal" instead of "no restrictions". Otherwise return the val.
-#
-#     Parameters
-#     ----------
-#     value_tmp : type
-#         Description of parameter `value_tmp`.
-#
-#     Returns
-#     -------
-#     type
-#         Description of returned object.
-#
-#     """
-#     if not IMPLEMENTED_NO_RESTRICTIONS:
-#         if value_tmp == 'No restrictions':
-#             return 'New normal'
-#         else:
-#             return value_tmp
-
-
 @cached
 @db_session
 def get_lockdown_level(
