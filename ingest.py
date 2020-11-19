@@ -39,7 +39,6 @@ if __name__ == "__main__":
     # define red and green airtable keys and pick the one to use
     red_airtable_key = 'appOtKBVJRyuH83wf'
     green_airtable_key = 'appoXaOlIgpiHK3I2'
-    # airtable_key = red_airtable_key
     airtable_key = green_airtable_key
 
     # generate database mapping and ingest data for the COVID-AMP project
