@@ -83,7 +83,7 @@ class Policy(BaseModel):
 
 
 class PolicyNumber(BaseModel):
-    policy_number: int # aka. `id`
+    policy_number: int  # aka. `id`
 
     # descriptive information
     titles: List[str] = None
@@ -173,6 +173,8 @@ class Court_Challenge(BaseModel):
     date_of_complaint: date = None
     government_order_upheld_or_enjoined: str = None
     parties_or_citation_and_summary_of_action: str = None
+    policy_status: str = None
+    case_status: str = None
 
     # related entities
     policies: List[Policy] = None

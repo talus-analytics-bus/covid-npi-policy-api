@@ -582,6 +582,8 @@ class Court_Challenge(db.Entity):
     search_text = Optional(str)
     policy_categories = Optional(StrArray)
     parties_or_citation_and_summary_of_action = Optional(str, nullable=True)
+    policy_status = Optional(str)
+    case_status = Optional(str)
 
     # Future data fields
     complaint_category_new = Optional(StrArray, nullable=True)
