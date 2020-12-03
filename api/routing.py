@@ -10,7 +10,7 @@ from typing import List, Optional
 # local modules
 from . import schema
 from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, \
-    ListResponse, PolicyStatusList
+    ListResponse, PolicyStatusList, PolicyStatusCountList
 from .app import app
 from db import db
 
@@ -225,6 +225,7 @@ async def get_lockdown_level_model(
         deltas_only=deltas_only,
     )
 
+
 @app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True)
 async def get_lockdown_level_country(
     iso3=str,
@@ -267,6 +268,26 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
     """
 
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
+
+
+@app.post("/post/policy_status_counts/{geo_res}", response_model=PolicyStatusCountList, response_model_exclude_unset=True)
+async def post_policy_status(body: PolicyFilters, geo_res=str):
+    """Return Policy status counts.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Policy response dictionary.
+
+    """
+    res = schema.get_policy_status_counts(geo_res=geo_res, filters=body.filters)
+    print(res)
+    return res
 
 
 @app.post("/post/policy", response_model=ListResponse, response_model_exclude_unset=True)
@@ -315,6 +336,7 @@ async def post_policy_number(
         filters=body.filters, fields=fields, by_category=by_category,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
+
 
 @app.post("/post/challenge", response_model=ListResponse, response_model_exclude_unset=True)
 async def post_challenge(
@@ -425,6 +447,8 @@ async def get_test(test_param: str = 'GET successful'):
 ##
 # Debug endpoints
 ##
+
+
 @app.get("/add_search_text")
 async def add_search_text(test_param: str = 'GET successful'):
     """Test GET endpoint.

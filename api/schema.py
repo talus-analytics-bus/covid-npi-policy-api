@@ -11,15 +11,20 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists, group_concat
+from pony.orm import (
+    db_session, select, get, commit, desc, count, raw_sql, concat, coalesce,
+    exists, group_concat
+)
 from fastapi.responses import FileResponse, Response
 from fuzzywuzzy import fuzz
 
 # local modules
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber, \
-    PolicyNumberList
+from .models import (
+    Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
+    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber,
+    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList
+)
 from .util import str_to_date, find, download_file
 from db import db
 
@@ -983,6 +988,59 @@ def get_policy_status(
         data=data,
         success=True,
         message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+    )
+    return res
+
+
+@cached
+@db_session
+def get_policy_status_counts(
+    geo_res: str = None,
+    name: str = None,
+    filters: dict = dict()
+):
+    """Return number of policies that match the filters for each geography
+    on the date defined in the filters."""
+
+    # DEBUG filter by USA only
+    filters['iso3'] = ['USA'] if geo_res == 'state' else []
+
+    # get ordered policies from database
+    level = 'State / Province'
+    if geo_res == 'country':
+        level = 'Country'
+    filters['level'] = level
+
+    # get policies
+    q = select(i for i in db.Policy)
+
+    # initialize output data
+    data = None
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, db.Policy, filters)
+
+    # get correct location field
+    loc_field = 'area1' if geo_res != 'country' else 'iso3'
+
+    # get locations
+    q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+
+    data_tmp = dict()
+    for name, num in q_loc:
+        if name not in data_tmp:
+            data_tmp[name] = PolicyStatusCount(
+                place_name=name,
+                value=num
+            )
+    data = list(data_tmp.values())
+
+    # create response from output list
+    res = PolicyStatusCountList(
+        data=data,
+        success=True,
+        message=f'''Found {str(len(data))} values'''
     )
     return res
 

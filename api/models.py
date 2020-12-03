@@ -142,6 +142,12 @@ class PolicyStatus(BaseModel):
     datestamp: date = None
 
 
+class PolicyStatusCount(BaseModel):
+    place_name: str = None
+    value: int
+    datestamp: date = None
+
+
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
     ordering: List[list] = None
@@ -194,6 +200,10 @@ class PolicyDict(Response):
 
 class PolicyStatusList(Response):
     data: List[PolicyStatus]
+
+
+class PolicyStatusCountList(Response):
+    data: List[PolicyStatusCount]
 
 
 class OptionSetList(Response):
