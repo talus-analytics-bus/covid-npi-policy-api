@@ -9,9 +9,10 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
+import pprint
 from pony.orm import db_session, commit, get, select, delete, StrArray
 from pony.orm.core import CacheIndexError, ObjectNotFound
-import pprint
+from alive_progress import alive_bar
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
@@ -748,94 +749,103 @@ class CovidPolicyPlugin(IngestPlugin):
     def load_observations(self, db):
         print(
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
+
+        # all_rows = self.client.worksheet(
+        #     name='Status table'
+        # ).as_dataframe(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
         # delete existing observations
-        print('\n\nDeleting existing observations...')
+        print('Deleting existing observations...')
         delete(i for i in db.Observation if i.metric == 0)
-        print('Existing observations deleted.\n')
+        print('Existing observations deleted.')
 
         # add new observations
         skipped = 0
-        for page in airtable_iter:
-            for record in page:
-                # TODO add observations
-                d = record['fields']
-                if 'Name' not in d:
-                    skipped += 1
-                    continue
-                if not d['Date'].startswith('2020'):
-                    skipped += 1
-                    continue
+        # n_est = len(all_rows)
+        n_est = 28523
+        with alive_bar(n_est, title='Importing observations') as bar:
+            # for page in [1]:
+            for page in airtable_iter:
+                for record in page:
+                    bar()
+                    # TODO add observations
+                    d = record['fields']
+                    if 'Name' not in d:
+                        skipped += 1
+                        continue
+                    if not d['Date'].startswith('2020'):
+                        skipped += 1
+                        continue
 
-                place = None
-                if d['Location type'] == 'State':
-                    place = select(
-                        i for i in db.Place
-                        if i.iso3 == 'USA'
-                        and i.area1 == d['Name']
-                        and (i.area2 == 'Unspecified' or i.area2 == '')
-                        and i.level == 'State / Province'
-                    ).first()
+                    place = None
+                    if d['Location type'] == 'State':
+                        place = select(
+                            i for i in db.Place
+                            if i.iso3 == 'USA'
+                            and i.area1 == d['Name']
+                            and (i.area2 == 'Unspecified' or i.area2 == '')
+                            and i.level == 'State / Province'
+                        ).first()
+
+                        if place is None:
+                            # TODO generalize to all countries
+                            action, place = upsert(
+                                db.Place,
+                                {
+                                    'iso3': 'USA',
+                                    'country_name': 'United States of America (USA)',
+                                    'area1': d['Name'],
+                                    'area2': 'Unspecified',
+                                    'level': 'State / Province'
+                                },
+                                {
+                                    'loc': f'''{d['Name']}, USA'''
+                                }
+                            )
+
+                    else:
+                        # TODO
+                        place = select(
+                            i for i in db.Place
+                            if i.iso3 == d['Name']
+                            and i.level == 'Country'
+                        ).first()
+
+                        if place is None:
+                            # TODO generalize to all countries
+                            action, place = upsert(
+                                db.Place,
+                                {
+                                    'iso3': d['Name'],
+                                    'country_name': get_name_from_iso3(d['Name']) + f''' ({d['Name']})''',
+                                    'area1': 'Unspecified',
+                                    'area2': 'Unspecified',
+                                    'level': 'Country'
+                                },
+                                {
+                                    'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
+                                }
+                            )
 
                     if place is None:
-                        # TODO generalize to all countries
-                        action, place = upsert(
-                            db.Place,
-                            {
-                                'iso3': 'USA',
-                                'country_name': 'United States of America (USA)',
-                                'area1': d['Name'],
-                                'area2': 'Unspecified',
-                                'level': 'State / Province'
-                            },
-                            {
-                                'loc': f'''{d['Name']}, USA'''
-                            }
-                        )
+                        print('[FATAL ERROR] Missing place')
+                        sys.exit(0)
 
-                else:
-                    # TODO
-                    place = select(
-                        i for i in db.Place
-                        if i.iso3 == d['Name']
-                        and i.level == 'Country'
-                    ).first()
-
-                    if place is None:
-                        # TODO generalize to all countries
-                        action, place = upsert(
-                            db.Place,
-                            {
-                                'iso3': d['Name'],
-                                'country_name': get_name_from_iso3(d['Name']) + f''' ({d['Name']})''',
-                                'area1': 'Unspecified',
-                                'area2': 'Unspecified',
-                                'level': 'Country'
-                            },
-                            {
-                                'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
-                            }
-                        )
-
-                if place is None:
-                    print('[FATAL ERROR] Missing place')
-                    sys.exit(0)
-
-                action, d = upsert(
-                    db.Observation,
-                    {'source_id': record['id']},
-                    {
-                        'date': d['Date'],
-                        'metric': 0,
-                        'value': 'Mixed distancing levels'
-                        if d['Status'] == 'Mixed'
-                        else d['Status'],
-                        'place': place,
-                    }
-                )
-                commit()
+                    action, d = upsert(
+                        db.Observation,
+                        {'source_id': record['id']},
+                        {
+                            'date': d['Date'],
+                            'metric': 0,
+                            'value': 'Mixed distancing levels'
+                            if d['Status'] == 'Mixed'
+                            else d['Status'],
+                            'place': place,
+                        }
+                    )
+                    commit()
 
         return self
 
@@ -2398,7 +2408,8 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
         for i, d in self.glossary.iterrows():
-            if d['Key Term'] is None or d['Key Term'].strip() == '':
+            if 'Key Term' not in d or d['Key Term'] is None or \
+                    d['Key Term'].strip() == '':
                 continue
             attributes = {
                 'definition': d['Definition'],

@@ -10,6 +10,7 @@ import pprint
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+import numpy as np
 
 # local modules
 from .util import bcolors
@@ -53,10 +54,13 @@ class AirtableSource(DataSource):
             print(e)
             print('\nFailed to open worksheet with name ' + str(name))
 
-    def as_dataframe(self, header_row: int = 0, view: str = None, max_records: int = 10000000):
+    def as_dataframe(self, header_row: int = 0, view: str = None, max_records: int = 10000000, fields: list = None):
         try:
+            get_all_kwargs = {'view': view}
+            if fields is not None:
+                get_all_kwargs['fields'] = fields
             records_tmp = self.ws.get_all(max_records=max_records) if view is None else \
-                self.ws.get_all(view=view)
+                self.ws.get_all(**get_all_kwargs)
             records = list()
             for r_tmp in records_tmp:
                 r = r_tmp['fields']
@@ -69,7 +73,7 @@ class AirtableSource(DataSource):
                 f'''\n{bcolors.OKGREEN}Found {len(df)} records in worksheet "{self.ws_name}"{bcolors.ENDC}''')
 
             # remove NaN values
-            df = df.replace(pd.np.nan, '', regex=True)
+            df = df.replace(np.nan, '', regex=True)
             # print(df)
             return df
         except Exception as e:

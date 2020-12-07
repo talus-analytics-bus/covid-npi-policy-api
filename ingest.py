@@ -1,5 +1,6 @@
 """Run data ingest application"""
-# standard modules
+# standard modules and packages
+import argparse
 from os import sys
 
 # local modules
@@ -7,32 +8,58 @@ from api import schema
 from db import db
 from ingest import CovidPolicyPlugin
 
+# setup arguments
+parser = argparse.ArgumentParser(description='Define which data ingest routines to run')
+parser.add_argument('-a', '--all', default=False,
+                    action='store_const',
+                    const=True,
+                    help='ingest all data types')
+parser.add_argument('-p', '--policies', default=False,
+                    action='store_const',
+                    const=True,
+                    help='ingest policies')
+parser.add_argument('-c', '--challenges', default=False,
+                    action='store_const',
+                    const=True,
+                    help='ingest court challenges')
+parser.add_argument('-d', '--distancing-levels', default=False,
+                    action='store_const',
+                    const=True,
+                    help='ingest distancing levels')
+parser.add_argument('-m', '--metadata', default=False,
+                    action='store_const',
+                    const=True,
+                    help='ingest metadata')
+
 if __name__ == "__main__":
     # constants
+    # command line arguments
+    args = parser.parse_args()
+
     # define red and green airtable keys and pick the one to use
     red_airtable_key = 'appOtKBVJRyuH83wf'
     green_airtable_key = 'appoXaOlIgpiHK3I2'
-    # airtable_key = red_airtable_key
     airtable_key = green_airtable_key
 
     # ingest policies?
-    ingest_policies = True
+    ingest_policies = args.policies or args.all
 
     # ingest court challenges and matter numbers?
-    ingest_court = True
+    ingest_court = args.challenges or args.all
+
     # generate database mapping and ingest data for the COVID-AMP project
-    ingest_lockdown_levels = len(sys.argv) > 1 and sys.argv[1] == 'yes'
+    ingest_lockdown_levels = args.distancing_levels or args.all
+
+    # generate db mapping
     db.generate_mapping(create_tables=True)
-    plugin = CovidPolicyPlugin()
-    # plugin.post_process_policies(db)
-    # plugin.post_process_policy_numbers(db)
-    # sys.exit(0)
 
     # update core policy data, if appropriate
+    plugin = CovidPolicyPlugin()
     client = plugin.load_client(airtable_key)
 
     # load and process metadata
-    client.load_metadata().process_metadata(db)
+    if args.metadata or args.policies or args.challenges or args.all:
+        client.load_metadata().process_metadata(db)
 
     # ingest court challenges and matter number info, if appropriate
     if ingest_court:
@@ -62,11 +89,3 @@ if __name__ == "__main__":
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
     else:
         print('\n\nSkipping distancing level ingest.\n')
-
-    # # Drop all data/tables before ingesting
-    # db.generate_mapping(check_tables=False, create_tables=False)
-    # db.drop_all_tables(with_all_data=True)
-    # db.create_tables()
-    # plugin = CovidPolicyPlugin()
-    # plugin.load_client().load_data().process_data(db)
-    # sys.exit(0)
