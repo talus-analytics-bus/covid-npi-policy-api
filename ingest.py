@@ -37,7 +37,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # define red and green airtable keys and pick the one to use
-    red_airtable_key = 'appOtKBVJRyuH83wf'
     green_airtable_key = 'appoXaOlIgpiHK3I2'
     airtable_key = green_airtable_key
 
@@ -89,3 +88,8 @@ if __name__ == "__main__":
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
     else:
         print('\n\nSkipping distancing level ingest.\n')
+
+    # TODO remove this when court challenge complaint categories and
+    # subcategories are updated circa Nov/Dec 2020
+    plugin.debug_add_test_complaint_cats(db)
+    sys.exit(0)

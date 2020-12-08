@@ -83,7 +83,7 @@ class Policy(BaseModel):
 
 
 class PolicyNumber(BaseModel):
-    policy_number: int # aka. `id`
+    policy_number: int  # aka. `id`
 
     # descriptive information
     titles: List[str] = None
@@ -142,6 +142,12 @@ class PolicyStatus(BaseModel):
     datestamp: date = None
 
 
+class PolicyStatusCount(BaseModel):
+    place_name: str = None
+    value: int
+    datestamp: date = None
+
+
 class PolicyFilters(BaseModel):
     filters: Dict[str, List]
     ordering: List[list] = None
@@ -173,6 +179,8 @@ class Court_Challenge(BaseModel):
     date_of_complaint: date = None
     government_order_upheld_or_enjoined: str = None
     parties_or_citation_and_summary_of_action: str = None
+    policy_status: str = None
+    case_status: str = None
 
     # related entities
     policies: List[Policy] = None
@@ -192,6 +200,10 @@ class PolicyDict(Response):
 
 class PolicyStatusList(Response):
     data: List[PolicyStatus]
+
+
+class PolicyStatusCountList(Response):
+    data: List[PolicyStatusCount]
 
 
 class OptionSetList(Response):

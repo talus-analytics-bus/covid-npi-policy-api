@@ -3,6 +3,7 @@
 import functools
 import math
 import itertools
+import logging
 # import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
@@ -10,15 +11,20 @@ from collections import defaultdict
 
 # 3rd party modules
 import boto3
-from pony.orm import db_session, select, get, commit, desc, count, raw_sql, concat, coalesce, exists, group_concat
+from pony.orm import (
+    db_session, select, get, commit, desc, count, raw_sql, concat, coalesce,
+    exists, group_concat
+)
 from fastapi.responses import FileResponse, Response
 from fuzzywuzzy import fuzz
 
 # local modules
 from .export import CovidPolicyExportPlugin
-from .models import Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList, \
-    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber, \
-    PolicyNumberList
+from .models import (
+    Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
+    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber,
+    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList
+)
 from .util import str_to_date, find, download_file
 from db import db
 
@@ -272,8 +278,7 @@ def get_file(id: int):
     try:
         s3.download_fileobj(S3_BUCKET_NAME, key, data)
     except Exception as e:
-        print('e')
-        print(e)
+        logging.exception(e)
         return 'Document not found (404)'
 
     # return to start of IO stream
@@ -378,19 +383,6 @@ def get_policy_number(
                 with_collections=True,
                 related_objects=True,
                 return_fields_by_entity=return_fields_by_entity)
-            print(d_dict)
-            # add it to the output list
-            # policies = list()
-            # for p in d_dict['policies']:
-            #     policy = db.Policy[p]
-            #     policies.append(
-            #         Policy(
-            #             id=policy.id,
-            #             primary_ph_measure=p['primary_ph_measure'],
-            #             ph_measure_details=p['ph_measure_details'],
-            #             date_start_effective=p['date_start_effective']
-            #         )
-            #     )
             datum = PolicyNumber(
                 policy_number=d_dict['id'],
                 titles=d_dict['names'],
@@ -449,7 +441,8 @@ def get_policy(
     by_category: str = None,
     ordering: list = [],
     page: int = None,
-    pagesize: int = 100
+    pagesize: int = 100,
+    count_only: bool = False
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -490,96 +483,105 @@ def get_policy(
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
 
-    # apply ordering
-    ordering.reverse()
-    for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
-                q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
-                )
-            else:
-                q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
-                )
-        else:
-            field = field_tmp
-            if direction == 'desc':
-                q = q.order_by(desc(getattr(db.Policy, field)))
-            else:
-                q = q.order_by(getattr(db.Policy, field))
-
-    # get len of query
-    n = count(q) if use_pagination else None
-
-    # apply pagination if using
-    if use_pagination:
-        q = q.page(page, pagesize=pagesize)
-
-    # return query object if arguments requested it
-    if return_db_instances:
-        return q
-
-    # otherwise prepare list of dictionaries to return
+    # if only a count was requested, return it
+    if count_only:
+        n = q.count()
+        return {
+            'data': [{'n': n}],
+            'success': True, 'message': 'Number of policies'
+        }
     else:
-        return_fields_by_entity = defaultdict(list)
-        if fields is not None:
-            return_fields_by_entity['policy'] = fields
 
-        # TODO dynamically set fields returned for Place and other
-        # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc'
-        ]
-        return_fields_by_entity['auth_entity'] = [
-            'id', 'place', 'office', 'name', 'official'
-        ]
+        # apply ordering
+        ordering.reverse()
+        for field_tmp, direction in ordering:
+            if 'place.' in field_tmp:
+                field = field_tmp.split('.')[1]
+                if direction == 'desc':
+                    q = q.order_by(
+                        lambda i: desc(
+                            group_concat(getattr(p, field) for p in i.place)
+                        )
+                    )
+                else:
+                    q = q.order_by(
+                        lambda i:
+                            group_concat(getattr(p, field) for p in i.place)
 
-        # define list of instances to return
-        data = []
-        # for each policy
-        for d in q:
-            # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
-            # add it to the output list
-            data.append(d_dict)
+                    )
+            else:
+                field = field_tmp
+                if direction == 'desc':
+                    q = q.order_by(desc(getattr(db.Policy, field)))
+                else:
+                    q = q.order_by(getattr(db.Policy, field))
 
-        # if pagination is being used, get next page URL if there is one
-        n_pages = None if not use_pagination else math.ceil(n / pagesize)
-        more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+        # get len of query
+        n = count(q) if use_pagination else None
 
-        # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Policy
-        if by_category is not None:
-            data_by_category = defaultdict(list)
-            for i in data:
-                data_by_category[i[by_category]].append(i)
+        # apply pagination if using
+        if use_pagination:
+            q = q.page(page, pagesize=pagesize)
 
-            res = PolicyDict(
-                data=data_by_category,
-                success=True,
-                message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url,
-                n=n
-            )
+        # return query object if arguments requested it
+        if return_db_instances:
+            return q
+
+        # otherwise prepare list of dictionaries to return
         else:
-            # create response from output list
-            res = PolicyList(
-                data=data,
-                success=True,
-                message=f'''{len(q)} policies found''',
-                next_page_url=next_page_url,
-                n=n
-            )
-        return res
+            return_fields_by_entity = defaultdict(list)
+            if fields is not None:
+                return_fields_by_entity['policy'] = fields
+
+            # TODO dynamically set fields returned for Place and other
+            # linked entities
+            return_fields_by_entity['place'] = [
+                'id', 'level', 'loc'
+            ]
+            return_fields_by_entity['auth_entity'] = [
+                'id', 'place', 'office', 'name', 'official'
+            ]
+
+            # define list of instances to return
+            data = []
+            # for each policy
+            for d in q:
+                # convert it to a dictionary returning only the specified fields
+                d_dict = d.to_dict_2(
+                    return_fields_by_entity=return_fields_by_entity)
+                # add it to the output list
+                data.append(d_dict)
+
+            # if pagination is being used, get next page URL if there is one
+            n_pages = None if not use_pagination else math.ceil(n / pagesize)
+            more_pages = use_pagination and page < n_pages
+            next_page_url = None if not more_pages else \
+                f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+
+            # if by category: transform data to organize by category
+            # NOTE: assumes one `primary_ph_measure` per Policy
+            if by_category is not None:
+                data_by_category = defaultdict(list)
+                for i in data:
+                    data_by_category[i[by_category]].append(i)
+
+                res = PolicyDict(
+                    data=data_by_category,
+                    success=True,
+                    message=f'''{len(q)} policies found''',
+                    next_page_url=next_page_url,
+                    n=n
+                )
+            else:
+                # create response from output list
+                res = PolicyList(
+                    data=data,
+                    success=True,
+                    message=f'''{len(q)} policies found''',
+                    next_page_url=next_page_url,
+                    n=n
+                )
+            return res
 
 
 @db_session
@@ -990,6 +992,59 @@ def get_policy_status(
     return res
 
 
+@cached
+@db_session
+def get_policy_status_counts(
+    geo_res: str = None,
+    name: str = None,
+    filters: dict = dict()
+):
+    """Return number of policies that match the filters for each geography
+    on the date defined in the filters."""
+
+    # DEBUG filter by USA only
+    filters['iso3'] = ['USA'] if geo_res == 'state' else []
+
+    # get ordered policies from database
+    level = 'State / Province'
+    if geo_res == 'country':
+        level = 'Country'
+    filters['level'] = level
+
+    # get policies
+    q = select(i for i in db.Policy)
+
+    # initialize output data
+    data = None
+
+    # apply filters if any
+    if filters is not None:
+        q = apply_entity_filters(q, db.Policy, filters)
+
+    # get correct location field
+    loc_field = 'area1' if geo_res != 'country' else 'iso3'
+
+    # get locations
+    q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+
+    data_tmp = dict()
+    for name, num in q_loc:
+        if name not in data_tmp:
+            data_tmp[name] = PolicyStatusCount(
+                place_name=name,
+                value=num
+            )
+    data = list(data_tmp.values())
+
+    # create response from output list
+    res = PolicyStatusCountList(
+        data=data,
+        success=True,
+        message=f'''Found {str(len(data))} values'''
+    )
+    return res
+
+
 # def parse_lockdown_level(value_tmp):
 #     """If "No restrictions" has not yet been implemented on the frontend, then
 #     return "new normal" instead of "no restrictions". Otherwise return the val.
@@ -1157,7 +1212,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
 
     # define which data fields use groups
     # TODO dynamically
-    fields_using_groups = ('Policy.ph_measure_details')
+    fields_using_groups = ('Policy.ph_measure_details', 'Court_Challenge.complaint_subcategory_new')
     fields_using_geo_groups = ('Place.area1', 'Place.area2')
 
     # define output data dict
@@ -1206,6 +1261,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
+        options.sort(key=lambda x: x != 'Face mask')
         options.sort(key=lambda x: x != 'Social distancing')
         options.sort(key=lambda x: x == 'Other')
         options.sort(key=lambda x: x in ('Unspecified', 'Local'))
@@ -1384,7 +1440,6 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
     """
     # for each filter set provided
     for field, allowed_values in filters.items():
-
         # if no values were specified, assume no filter is applied
         # and continue
         if len(allowed_values) == 0:
@@ -1392,44 +1447,46 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
         # custom text search with fuzzy matching
         if field == '_text':
-            text = allowed_values[0].lower()
-            thresh = 80
-            new_q_ids = []
-            q_search_text_only = select((i.id, i.search_text) for i in q)
+            if len(allowed_values) > 0 and allowed_values[0] is not None:
+                text = allowed_values[0].lower()
+                thresh = 80
+                new_q_ids = []
+                q_search_text_only = select((i.id, i.search_text) for i in q)
 
-            for id, search_text in q_search_text_only:
-                if search_text is None:
-                    continue
-                else:
-                    # return exact match - if no exact match return partial match
-                    exact_match = text in search_text
-                    if exact_match:
-                        new_q_ids.append(id)
+                for id, search_text in q_search_text_only:
+                    if search_text is None:
+                        continue
                     else:
-                        ratio = fuzz.partial_ratio(
-                            text, search_text)
-                        partial_match = ratio >= thresh
-                        if partial_match:
+                        # return exact match - if no exact match return partial match
+                        exact_match = text in search_text
+                        if exact_match:
                             new_q_ids.append(id)
-            q = select(
-                i
-                for i in entity_class
-                if i.id in new_q_ids
-            )
+                        else:
+                            ratio = fuzz.partial_ratio(
+                                text, search_text)
+                            partial_match = ratio >= thresh
+                            if partial_match:
+                                new_q_ids.append(id)
+                q = select(
+                    i
+                    for i in entity_class
+                    if i.id in new_q_ids
+                )
 
-            # # Text match with direct case insensitive matches only
-            # q = select(
-            #     i for i in q
-            #     if text in i.search_text
-            # )
-            continue
+                # # Text match with direct case insensitive matches only
+                # q = select(
+                #     i for i in q
+                #     if text in i.search_text
+                # )
+                continue
+            else:
+                continue
 
         # Complaint category field needs to be handled separately
         # because the field contains arrays instead of strings
         if field == 'complaint_category':
 
             for value in allowed_values:
-                print(allowed_values)
                 q = select(
                     i for i in q if value in i.complaint_category
                 )
@@ -1542,7 +1599,14 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         join_place = field in ('level', 'loc', 'area1',
                                'iso3', 'country_name', 'area2')
 
-        join_policy = not join_place and field in ('policy.policy_number',)
+        join_policy_number = not join_place and field == 'policy.policy_number'
+
+        # determine whether this field is obtained by joining to policies
+        # TODO more dynamically determine set of fields to check
+        join_policy_nonset_field = entity_class != db.Policy and \
+            field in ('primary_ph_measure')
+
+        set_fields = ('policy_categories', 'complaint_subcategory_new', 'complaint_category_new')
 
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
@@ -1554,14 +1618,35 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                         if getattr(t, field) in allowed_values
                     )
             )
-        # joined to policy entity
-        elif join_policy:
+        # joined to policy entity: policy number field
+        elif join_policy_number:
             q = q.filter(
                 lambda i:
                     exists(
                         t for t in i.policies
                         if t.policy_number in allowed_values
                     )
+            )
+
+        # joined to policy entity: any other non-set field
+        elif join_policy_nonset_field:
+            q = q.filter(
+                lambda i:
+                    exists(
+                        t for t in i.policies
+                        if getattr(t, field) in allowed_values
+                    )
+            )
+
+        # if field is an array, and possible values are also an array, use
+        # special raw sql to filter
+        elif field in set_fields:
+            allowed_values = list(map(lambda x: '"' + x + '"', allowed_values))
+            raw_sql_allowed_values = ", ".join(allowed_values)
+            raw_sql_allowed_values = "'{" + raw_sql_allowed_values + "}'::text[]"
+            q = q.filter(
+                lambda x:
+                    raw_sql(raw_sql_allowed_values + ' && "i"."' + field + '"')
             )
         else:
             # if the filter is not a join, i.e., is on policy native fields
