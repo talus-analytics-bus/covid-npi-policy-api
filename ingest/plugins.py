@@ -268,7 +268,7 @@ class CovidCaseloadPlugin(IngestPlugin):
         return None
 
     @db_session
-    def upsert_data(self, db, db_amp):
+    def upsert_data(self, db, db_amp, do_state=True, do_global=True):
         """Upsert caseload data from different sources.
 
         Parameters
@@ -330,6 +330,27 @@ class CovidCaseloadPlugin(IngestPlugin):
             )
             commit()
 
+            # upsert metric for daily US deaths
+            action, covid_total_deaths_provinces = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_total_deaths_provinces',
+                    'metric_id': 92
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'deaths',
+                    'num_type': 'int',
+                    'metric_definition': 'The total cumulative number of COVID-19 deaths by date and state / province'
+                }
+            )
+            commit()
+
             # upsert metric for daily US NEW caseload
             action, covid_new_cases_provinces = upsert(
                 db.Metric,
@@ -353,6 +374,29 @@ class CovidCaseloadPlugin(IngestPlugin):
             )
             commit()
 
+            # upsert metric for daily US NEW deaths
+            action, covid_new_deaths_provinces = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_new_cases_provinces',
+                    'metric_id': 93
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'deaths',
+                    'num_type': 'int',
+                    'metric_definition': 'The number of new COVID-19 deaths by date and state / province',
+                    'is_view': True,
+                    'view_name': 'metric_93'
+                }
+            )
+            commit()
+
             # upsert metric for 7-day US NEW caseload
             action, covid_new_cases_provinces_7d = upsert(
                 db.Metric,
@@ -372,6 +416,29 @@ class CovidCaseloadPlugin(IngestPlugin):
                     'metric_definition': 'The number of new COVID-19 cases in the last 7 days by date and state / province',
                     'is_view': True,
                     'view_name': 'metric_74'
+                }
+            )
+            commit()
+
+            # upsert metric for 7-day US NEW caseload
+            action, covid_new_deaths_provinces_7d = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_new_deaths_provinces_7d',
+                    'metric_id': 94
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'state',
+                    'spatial_extent': 'country',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'deaths',
+                    'num_type': 'int',
+                    'metric_definition': 'The number of new COVID-19 deaths in the last 7 days by date and state / province',
+                    'is_view': True,
+                    'view_name': 'metric_94'
                 }
             )
             commit()
@@ -402,7 +469,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                             continue
                         else:
                             last_datum_date = d['date']
-                            action, obs_affected = upsert(
+                            action, obs_affected_cases = upsert(
                                 db.Observation,
                                 {
                                     'metric': covid_total_cases_provinces,
@@ -412,6 +479,19 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 },
                                 {
                                     'value': d['cases'],
+                                    'updated_at': updated_at,
+                                }
+                            )
+                            action, obs_affected_deaths = upsert(
+                                db.Observation,
+                                {
+                                    'metric': covid_total_deaths_provinces,
+                                    'date_time': dt,
+                                    'place': place,
+                                    'data_source': 'New York Times',  # TODO correct
+                                },
+                                {
+                                    'value': d['deaths'],
                                     'updated_at': updated_at,
                                 }
                             )
@@ -572,8 +652,10 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
         # perform all upserts defined above
-        upsert_jhu_caseload(db, db_amp)
-        upsert_nyt_caseload(db, db_amp)
+        if do_global:
+            upsert_jhu_caseload(db, db_amp)
+        if do_state:
+            upsert_nyt_caseload(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
