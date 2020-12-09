@@ -96,7 +96,7 @@ config.read('./db/config-local.ini')
 
 # collate parameters from INI file or from AWS Secrets Manager if that is
 # not provided
-conn_params = {'database': 'covid-npi-policy'}
+conn_params = {'database': os.environ.get('DBNAME', 'covid-npi-policy-test')}
 no_config = (len(config) == 1 and len(config['DEFAULT']) == 0)
 
 if os.environ.get('PROD') != 'true' and not no_config:
