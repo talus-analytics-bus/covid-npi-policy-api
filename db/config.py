@@ -102,13 +102,13 @@ no_config = (len(config) == 1 and len(config['DEFAULT']) == 0)
 if os.environ.get('PROD') != 'true' and not no_config:
     # if not no_config:
     for d in config['DEFAULT']:
-        print(d)
         conn_params[d] = config['DEFAULT'].get(d)
 else:
     secret = json.loads(get_secret())
     conn_params['username'] = secret['username']
     conn_params['host'] = secret['host']
     conn_params['password'] = secret['password']
+print('\nCreating database connection with the following parameters:')
 print(conn_params)
 
 # init PonyORM database instance

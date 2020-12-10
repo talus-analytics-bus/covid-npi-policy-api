@@ -273,7 +273,6 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
             or datum['name'] in i.other_names
         ).first()
         if p is None:
-            print('ERROR: No place found for ' + datum['name'])
             missing_names.add(datum['name'])
             continue
         else:
@@ -287,13 +286,8 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
             datum_final['place'] = datum['place']
             data.append(datum_final)
 
-    print('\nmissing_names')
+    print('These places in the JHU dataset were missing from the COVID AMP places database:')
     pp.pprint(missing_names)
-    # input('Press enter to continue.')
-
-    print('\ndata')
-    pp.pprint(data)
-    # input('Press enter to continue.')
 
     # return output
     return data

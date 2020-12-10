@@ -286,6 +286,14 @@ class CovidCaseloadPlugin(IngestPlugin):
 
         """
 
+        # get dict of database datetimes with keys as YYYY-MM-DD for speed
+        all_dt_res = select(i for i in db.DateTime)[:][:]
+        all_dt_list = [i.to_dict() for i in all_dt_res]
+        all_dt_dict = {
+            str((i['datetime'] +
+                 timedelta(hours=12)).date()): i for i in all_dt_list
+        }
+
         def upsert_nyt_caseload(db, db_amp):
             """Upsert NYT state-level caseload data and derived metrics for
             the USA.
@@ -303,12 +311,12 @@ class CovidCaseloadPlugin(IngestPlugin):
                 Description of returned object.
 
             """
-            print('Fetching data from New York Times server...')
+            print('\nFetching data from New York Times GitHub...')
             download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
             data = nyt_caseload_csv_to_dict(download_url)
             print('Done.')
 
-            print('\nUpserting relevant metric...')
+            print('\nUpserting relevant metrics...')
 
             # upsert metric for daily US caseload
             action, covid_total_cases_provinces = upsert(
@@ -447,34 +455,41 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
             print('\nUpserting observations...')
+
+            # get all places indexed by name
+            all_places_list = select((i.place_id, i.name) for i in db.Place)[:][:]
+            all_places_dict = {
+                v[1]: v[0] for v in all_places_list
+            }
+
+            missing = set()
             updated_at = datetime.now()
             last_datum_date = None
-            for name in data:
-                print(name)
-                place = db.Place.select().filter(name=name).first()
-                if place is None:
-                    continue
-                else:
-                    # i = 0
-                    # max_i = str(len(data[name]))
-                    for d in data[name]:
-                        # print('upserting ' + str(i) + ' of ' + max_i)
-                        # i = i + 1
-                        dt = select(
-                            i for i in db.DateTime
-                            if str((i.datetime + timedelta(hours=12)).date()) == d['date']
-                        ).first()
+            n = len(data.keys())
+            with alive_bar(n, title='Importing state-level cases and deaths data') as bar:
+                for name in data:
+                    bar()
+                    place = all_places_dict.get(name, None)
+                    if place is None:
+                        missing.add(name)
+                        continue
+                    else:
+                        for d in data[name]:
 
-                        if dt is None:
-                            print('error: missing dt')
-                            continue
-                        else:
+                            dt = None
+                            try:
+                                dt = all_dt_dict[d['date']]
+                            except:
+                                print('error: missing dt')
+                                # input('error: missing dt. Press enter to continue.')
+                                continue
+
                             last_datum_date = d['date']
                             action, obs_affected_cases = upsert(
                                 db.Observation,
                                 {
                                     'metric': covid_total_cases_provinces,
-                                    'date_time': dt,
+                                    'date_time': dt['dt_id'],
                                     'place': place,
                                     'data_source': 'New York Times',  # TODO correct
                                 },
@@ -487,7 +502,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 db.Observation,
                                 {
                                     'metric': covid_total_deaths_provinces,
-                                    'date_time': dt,
+                                    'date_time': dt['dt_id'],
                                     'place': place,
                                     'data_source': 'New York Times',  # TODO correct
                                 },
@@ -509,6 +524,10 @@ class CovidCaseloadPlugin(IngestPlugin):
                 }
             )
 
+            if len(missing) > 0:
+                print('These places in the NYT dataset were missing from the COVID AMP places database:')
+                pp.pprint(missing)
+
             print('Done.')
 
         def upsert_jhu_caseload(db, db_amp):
@@ -528,12 +547,12 @@ class CovidCaseloadPlugin(IngestPlugin):
                 Description of returned object.
 
             """
-            print('Fetching data from JHU GitHub...')
+            print('\nFetching data from JHU GitHub...')
             download_url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv'
             data = jhu_caseload_csv_to_dict(download_url, db)
             print('Done.')
 
-            print('\nUpserting relevant metric...')
+            print('\nUpserting relevant metrics...')
 
             # upsert metric for daily US caseload
             action, covid_total_cases_countries = upsert(
@@ -605,31 +624,27 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
             print('\nUpserting observations...')
+
             updated_at = datetime.now()
             last_datum_date = None
             n = len(data)
-            i = 0
-            for d in data:
-                print(f'''Adding {i} of {n}''')
-                i = i + 1
-                place = d['place']
+            with alive_bar(n, title='Importing national-level cases data') as bar:
+                for d in data:
+                    bar()
+                    dt = None
+                    try:
+                        dt = all_dt_dict[d['date']]
+                    except:
+                        input('error: missing dt. Press enter to continue.')
+                        continue
 
-                dt = select(
-                    i for i in db.DateTime
-                    if str((i.datetime + timedelta(hours=12)).date()) == d['date']
-                ).first()
-
-                if dt is None:
-                    input('error: missing dt. Press enter to continue.')
-                    continue
-                else:
                     last_datum_date = d['date']
                     action, obs_affected = upsert(
                         db.Observation,
                         {
                             'metric': covid_total_cases_countries,
-                            'date_time': dt,
-                            'place': place,
+                            'date_time': dt['dt_id'],
+                            'place': d['place'],
                             'data_source': 'JHU CSSE COVID-19 Dataset',
                         },
                         {
@@ -653,10 +668,10 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
         # perform all upserts defined above
-        if do_global:
-            upsert_jhu_caseload(db, db_amp)
         if do_state:
             upsert_nyt_caseload(db, db_amp)
+        if do_global:
+            upsert_jhu_caseload(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
