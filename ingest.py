@@ -81,7 +81,8 @@ if __name__ == "__main__":
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
 
-    # TODO remove this when court challenge complaint categories and
-    # subcategories are updated circa Nov/Dec 2020
-    plugin.debug_add_test_complaint_cats(db)
-    sys.exit(0)
+    if ingest_court:
+        # TODO remove this when court challenge complaint categories and
+        # subcategories are updated circa Nov/Dec 2020
+        plugin.debug_add_test_complaint_cats(db)
+        sys.exit(0)
