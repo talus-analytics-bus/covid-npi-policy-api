@@ -62,15 +62,11 @@ if __name__ == "__main__":
 
     # ingest court challenges and matter number info, if appropriate
     if ingest_court:
-        print('\n\nIngesting court challenges and matter numbers data...')
         client.load_court_challenge_data().process_court_challenge_data(db)
         plugin.post_process_court_challenge_data(db)
 
         if not ingest_policies:
             plugin.post_process_policies(db, include_court_challenges=True)
-
-    else:
-        print('\n\nSkipping court challenges and matter numbers data ingest.\n')
 
     if ingest_policies:
         client.load_data().process_data(db)
@@ -80,14 +76,10 @@ if __name__ == "__main__":
         plugin.post_process_policies(db)
         plugin.post_process_policy_numbers(db)
         schema.add_search_text()
-    else:
-        print('\n\nSkipping policy ingest.\n')
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
         plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
-    else:
-        print('\n\nSkipping distancing level ingest.\n')
 
     # TODO remove this when court challenge complaint categories and
     # subcategories are updated circa Nov/Dec 2020
