@@ -248,6 +248,7 @@ class Policy(db.Entity):
     policy_data_source = Optional(str)
     subtarget = Optional(str)  # multiselect, concat
     policy_number = Optional(int, nullable=True)
+    group_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
     search_text = Optional(str)
 

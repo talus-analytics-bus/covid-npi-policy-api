@@ -4,6 +4,7 @@ import os
 import pytz
 import time
 import random
+import itertools
 from os import sys
 from datetime import date, datetime, timedelta
 from collections import defaultdict
@@ -1324,6 +1325,7 @@ class CovidPolicyPlugin(IngestPlugin):
         all_policy_numbers.delete()
         commit()
 
+        # policy_section: one per row in Airtable
         policy_sections = select(
             i for i in db.Policy
         )
@@ -1372,6 +1374,35 @@ class CovidPolicyPlugin(IngestPlugin):
                     for d in policies:
                         d.court_challenges.add(court_challenge)
                         commit()
+
+    @db_session
+    def assign_policy_group_numbers(self, db):
+        # assign group numbers
+        policy_sections = select(
+            i for i in db.Policy
+        ).order_by(
+            db.Policy.primary_ph_measure,
+            db.Policy.ph_measure_details,
+            db.Policy.relaxing_or_restricting,
+            db.Policy.policy_name,
+            db.Policy.date_start_effective
+        )[:][:]
+
+        # sort
+        def key_func(x):
+            return f'''{x.primary_ph_measure} -- {x.ph_measure_details} -- {x.relaxing_or_restricting} -- {x.policy_name} -- {x.date_start_effective}'''
+        policy_sections.sort(key=key_func)
+
+        ps_iter = itertools.groupby(policy_sections, key=key_func)
+
+        group_number = 0
+        print('\nAssigning group numbers to policies with similar attributes...')
+        for key, records in ps_iter:
+            for r in list(records):
+                r.group_number = group_number
+            group_number += 1
+        commit()
+        print('Assigned.')
 
     @db_session
     def post_process_policy_numbers(self, db):

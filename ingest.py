@@ -18,6 +18,10 @@ parser.add_argument('-p', '--policies', default=False,
                     action='store_const',
                     const=True,
                     help='ingest policies')
+parser.add_argument('-g', '--group-numbers', default=False,
+                    action='store_const',
+                    const=True,
+                    help='assign policy group numbers')
 parser.add_argument('-c', '--challenges', default=False,
                     action='store_const',
                     const=True,
@@ -76,6 +80,9 @@ if __name__ == "__main__":
         plugin.post_process_policies(db)
         plugin.post_process_policy_numbers(db)
         schema.add_search_text()
+
+    if args.group_numbers or ingest_policies:
+        plugin.assign_policy_group_numbers(db)
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
