@@ -442,7 +442,8 @@ def get_policy(
     ordering: list = [],
     page: int = None,
     pagesize: int = 100,
-    count_only: bool = False
+    count_only: bool = False,
+    by_group_number: bool = True,
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -485,11 +486,14 @@ def get_policy(
 
     # if only a count was requested, return it
     if count_only:
+        if by_group_number:
+            q = select(i.group_number for i in q)
         n = q.count()
         return {
             'data': [{'n': n}],
             'success': True, 'message': 'Number of policies'
         }
+
     else:
 
         # apply ordering
@@ -997,7 +1001,8 @@ def get_policy_status(
 def get_policy_status_counts(
     geo_res: str = None,
     name: str = None,
-    filters: dict = dict()
+    filters: dict = dict(),
+    by_group_number: bool = True,
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
@@ -1025,7 +1030,11 @@ def get_policy_status_counts(
     loc_field = 'area1' if geo_res != 'country' else 'iso3'
 
     # get locations
-    q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+    q_loc = None
+    if not by_group_number:
+        q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+    else:
+        q_loc = select((getattr(i.place, loc_field), count(i.group_number)) for i in q)
 
     data_tmp = dict()
     for name, num in q_loc:
