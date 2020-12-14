@@ -516,7 +516,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             action, version = upsert(
                 db_amp.Version,
                 {
-                    'type': 'COVID-19 caseload data',
+                    'type': 'COVID-19 case data',
                 },
                 {
                     'date': date.today(),
@@ -657,7 +657,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             action, version = upsert(
                 db_amp.Version,
                 {
-                    'type': 'COVID-19 caseload data (countries)',
+                    'type': 'COVID-19 case data (countries)',
                 },
                 {
                     'date': date.today(),
