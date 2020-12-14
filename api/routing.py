@@ -286,7 +286,6 @@ async def post_policy_status(body: PolicyFilters, geo_res=str):
 
     """
     res = schema.get_policy_status_counts(geo_res=geo_res, filters=body.filters)
-    print(res)
     return res
 
 
