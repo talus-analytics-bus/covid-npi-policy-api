@@ -209,7 +209,7 @@ def get_metadata(fields: list, entity_class_name: str):
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
-            and i.entity_name.lower() == entity_name
+            and i.entity_name.lower() == entity_name.lower()
             and i.class_name == entity_class_name
         )
 

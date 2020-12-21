@@ -12,15 +12,15 @@ tags_metadata = [
     },
     {
         "name": "Plans",
-        "description": "Operations to get data for policies and counts of policies in certain categories and/or subcategories.",
+        "description": "Operations to get data for plans in certain categories and/or subcategories.",
     },
     {
         "name": "Court challenges",
-        "description": "Operations to get data for policies and counts of policies in certain categories and/or subcategories.",
+        "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
     },
     {
         "name": "Distancing levels",
-        "description": "Operations to get data for policies and counts of policies in certain categories and/or subcategories.",
+        "description": "Operations to get data describing the level of distancing (e.g., \"Lockdown\", \"Partially open\") that was in effect in a given US state or a given country on a given date.",
     },
     {
         "name": "Metadata",
@@ -32,7 +32,7 @@ tags_metadata = [
     },
     {
         "name": "Downloads",
-        "description": "Operations to download data. Excel-exportable data types can be downloaded with `/post/export` and include policies, plans, and court challenges. Filters may be applied. Individual PDF files associated with those data types can be downloaded using the `/get/file` endpoints.",
+        "description": "Operations to download data (.xlsx or .pdf). Excel-exportable data types can be downloaded with `/post/export` and include policies, plans, and court challenges. Filters may be applied. Individual PDF files associated with those data types can be downloaded using the `/get/file` endpoint.",
     },
 ]
 app = FastAPI()
@@ -61,7 +61,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="COVID AMP application programming interface (API) documentation",
         version="1.0.0",
-        description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>.</p>",
+        description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. You may contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p>",
         routes=app.routes
     )
     openapi_schema["info"]["x-logo"] = {
