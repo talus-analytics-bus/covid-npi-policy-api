@@ -4,7 +4,7 @@ import functools
 import math
 import itertools
 import logging
-# import pprint
+import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -37,8 +37,8 @@ from db import db
 s3 = boto3.client('s3')
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
-# # pretty printing: for printing JSON objects legibly
-# pp = pprint.PrettyPrinter(indent=4)
+# pretty printing: for printing JSON objects legibly
+pp = pprint.PrettyPrinter(indent=4)
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
 
@@ -876,11 +876,78 @@ def get_plan(
 
 @cached
 @db_session
+def get_policy_status_by_date(
+    geo_res: str = None,
+    name: str = None,
+    start: str = None,
+    end: str = None,
+    filters: dict = dict()
+):
+    """Given a range of dates, returns the t/f policy status for each date in
+    the range for each geography of the specified geographic resolution
+    `geo_res`.
+
+    Parameters
+    ----------
+    is_lockdown_level : bool
+        Description of parameter `is_lockdown_level`.
+    geo_res : str
+        Description of parameter `geo_res`.
+    name : str
+        Description of parameter `name`.
+    filters : dict
+        Description of parameter `filters`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+
+    # get all policies
+    q = select(i for i in db.Policy)
+
+    # for each date between start and end, call `get_policy_status` with the
+    # appropriate parameters and concatenate the results
+    dt_start = datetime.strptime(start, '%Y-%m-%d')
+    dt_end = datetime.strptime(end, '%Y-%m-%d')
+    dt_cur = dt_start
+    dt_prv = dt_start
+    done = False
+    data = list()
+    while not done:
+        dt_prv = dt_cur
+        # do stuff
+        dt_cur_str = dt_cur.strftime('%Y-%m-%d')
+        cur_policy_status = get_policy_status(
+            geo_res=geo_res,
+            filters={
+                'primary_ph_measure': filters.get('primary_ph_measure', []),
+                'ph_measure_details': filters.get('ph_measure_details', []),
+                'dates_in_effect': [dt_cur_str, dt_cur_str]
+            },
+        )
+        data += cur_policy_status.data
+        dt_cur = dt_cur + timedelta(days=1)
+        done = dt_cur > dt_end
+
+    # Fake data for debugging
+    return {
+        'data': data,
+        'success': True,
+        'message': 'TODO'
+    }
+
+
+@cached
+@db_session
 def get_policy_status(
+    q: any = None,
     is_lockdown_level: bool = None,
     geo_res: str = None,
     name: str = None,
-    filters: dict = dict()
+    filters: dict = dict(),
 ):
     """TODO"""
 
@@ -892,7 +959,7 @@ def get_policy_status(
     if geo_res == 'country':
         level = 'Country'
 
-    q = select(i for i in db.Policy)
+    q = select(i for i in db.Policy) if q is None else q
     # q = select(i for i in db.Policy if i.place.level == level)
 
     # initialize output data
@@ -933,9 +1000,8 @@ def get_policy_status(
             if name is None:
                 q = db.Observation.select_by_sql(
                     f'''
-                            select distinct on (place) *
+                            select *
                             from observation o
-                            where date <= '{str(start)}'
                             order by place, date desc
                     ''')
                 data = [
@@ -985,12 +1051,18 @@ def get_policy_status(
 
         q_loc = select(getattr(i.place, loc_field) for i in q)
 
+        # if date was provided then add it to the response
+        start = None
+        if 'dates_in_effect' in filters:
+            start, end = filters['dates_in_effect']
+
         data_tmp = dict()
         for i in q_loc:
             if i not in data_tmp:
                 data_tmp[i] = PolicyStatus(
                     place_name=i,
-                    value="t"
+                    value="t",
+                    datestamp=start
                 )
         data = list(data_tmp.values())
 
@@ -1933,3 +2005,111 @@ def add_search_text():
         i.search_text = get_plan_search_text(i)
     for i in db.Court_Challenge.select():
         i.search_text = get_challenge_search_text(i)
+
+
+@db_session
+def add_missing_daily_observations(
+    metric: int = None,
+):
+    """For observations of the given metric ID, extrapolates values for all
+    dates prior to the current max date that do not have values in a location.
+
+
+    """
+    # error handling
+    # TODO
+
+    # function to clone an observation
+    def get_observation_clone(obs_dict, dt_cur, interp_or_exterp):
+        new_obs = {
+            k: v for (k, v) in obs_dict.items()
+            if k != 'id'
+        }
+        new_obs['date'] = dt_cur
+        new_obs['source_id'] += ' - ' + interp_or_exterp
+        return new_obs
+
+    # get all observations of this metric
+    obs = select(
+        i for i in db.Observation
+        if i.metric == metric
+    )
+
+    # get max date of metric as datetime.date
+    max_metric = select(i.date for i in obs).max()
+
+    # get all places
+    places = db.Place.select()
+
+    # track number of observations added
+    num_added = 0
+
+    # for each place
+    for p in places:
+
+        # get this place's obs.
+        obs_place = obs.filter(lambda x: x.place == p)
+
+        # if it has none, continue
+        if obs_place.count() == 0:
+            continue
+        else:
+
+            # get earliest obs. for this place
+            obs_place_earliest = obs_place.first()
+            obs_place_earliest_dict = obs_place_earliest.to_dict()
+
+            # get this place's most recent obs.
+            obs_place = obs_place.order_by(desc(db.Observation.date))
+            obs_place_latest_dict = obs_place.first().to_dict()
+
+            # get this place's max date of metric as datetime.date
+            max_place = select(i.date for i in obs_place).max()
+
+            # get this place's min date of metric as datetime.date
+            min_place = select(i.date for i in obs_place).min()
+
+            # starting with max date, if obs. doesn't exist, add one
+            # repeat for all dates between place's max obs. date and the
+            # max overall
+            dt_cur = max_metric
+            while not dt_cur <= max_place:
+
+                # add a copy of the latest obs. that has the correct date and
+                # shows "Extrapolated" in the source ID so it can be
+                # distinguished from true obs.
+                new_obs = get_observation_clone(
+                    obs_place_latest_dict, dt_cur, 'Extrapolated'
+                )
+                db.Observation(**new_obs)
+                commit()
+                num_added += 1
+                dt_cur = dt_cur - timedelta(days=1)
+
+            # starting with first date in original set of obs. for this place,
+            # step forward and check whether an obs. exists for the "next"
+            # date, and if not, carry the most recent one forward
+            dt_cur = min_place + timedelta(days=1)
+            new_obs_list = list()
+            while not dt_cur >= max_place:
+                # check whether an obs. on `dt_cur` exists
+                dt_cur_obs = obs_place.filter(lambda x: x.date == dt_cur).first()
+
+                # if so, adv. the date and continue
+                if dt_cur_obs is not None:
+                    obs_place_earliest = dt_cur_obs
+                    pass
+                else:
+                    # if not, add one based on the most recent obs, and adv. the
+                    # date and continue
+                    obs_place_earliest_dict = obs_place_earliest.to_dict()
+                    new_obs = get_observation_clone(
+                        obs_place_earliest_dict, dt_cur, 'Interpolated'
+                    )
+                    db.Observation(**new_obs)
+                    commit()
+                    num_added += 1
+
+                dt_cur = dt_cur + timedelta(days=1)
+
+    return 'Added ' + str(num_added) + ' observation(s)'
