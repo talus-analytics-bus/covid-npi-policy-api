@@ -26,21 +26,21 @@ DOWNLOAD_DESCRIPTION = '**Note:** This endpoint results in a file download and m
 ClassNameExport = Enum(
     value='ClassNameExport',
     names=[
-        ('all_static', 'All data'),
-        ('Policy', 'Policies'),
-        ('Plan', 'Plans'),
-        ('Court_Challenge', 'Court challenges'),
+        ('all_static', 'All_data'),
+        ('Policy', 'Policy'),
+        ('Plan', 'Plan'),
+        ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
 
 
 ClassName = Enum(
-    value='ClassNameExport',
+    value='ClassName',
     names=[
-        ('Policy', 'Policies'),
-        ('Plan', 'Plans'),
-        ('Court_Challenge', 'Court challenges'),
+        ('Policy', 'Policy'),
+        ('Plan', 'Plan'),
+        ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
@@ -149,7 +149,7 @@ async def get_metadata(
     if entity_class_name is None:
         raise NotImplementedError('Must provide a `entity_class_name` to /get/metadata')
     return schema.get_metadata(
-        fields=fields, entity_class_name=entity_class_name
+        fields=fields, entity_class_name=entity_class_name.name
     )
 
 
@@ -500,7 +500,7 @@ async def get_optionset(
         ['Policy.primary_ph_measure', 'Policy.ph_measure_details'],
         description='A list of fields for which optionsets are requested, prefixed by the data type name and a period')
 ):
-    return schema.get_optionset(fields=fields, class_name=class_name)
+    return schema.get_optionset(fields=fields, class_name=class_name.name)
 
 
 ##
