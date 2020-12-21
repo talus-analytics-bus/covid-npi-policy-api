@@ -377,7 +377,7 @@ class GeoRes(str, Enum):
     country = 'country'
 
 
-@ app.post(
+@app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
@@ -404,21 +404,19 @@ async def post_policy_status(
     tags=["Policies"],
     summary="Return number of policies in effect by location matching filters and the provided geographic resolution"
 )
-async def post_policy_status_counts(body: PolicyFilters, geo_res=str):
-    """Return Policy status counts.
-
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Policy response dictionary.
-
-    """
-    res = schema.get_policy_status_counts(geo_res=geo_res, filters=body.filters)
+async def post_policy_status_counts(
+    body: PolicyFilters,
+    geo_res: GeoRes = Query(GeoRes.state,
+                            description='The geographic resolution for which to return data'
+                            ),
+    merge_like_policies: bool = Query(
+        True,
+        description="If true, more accurately weights policy counts by merging like policies, e.g., counting policies that affected multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging."
+    )
+):
+    res = schema.get_policy_status_counts(
+        geo_res=geo_res, filters=body.filters,
+        by_group_number=merge_like_policies)
     return res
 
 
