@@ -163,7 +163,7 @@ def get_count(class_names):
         Description of returned object.
 
     """
-    supported_entities = ('Policy', 'Plan')
+    supported_entities = ('Policy', 'Plan', 'Court_Challenge')
     data = dict()
     for d in class_names:
         if d not in supported_entities or not hasattr(db, d):
