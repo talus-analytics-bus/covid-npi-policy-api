@@ -15,24 +15,34 @@ from .models import (
     PolicyList, PolicyFilters, PlanFilters, ChallengeFilters, OptionSetList,
     MetadataList,
     ListResponse, PolicyStatusList, PolicyStatusCountList,
-    PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields
+    PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields,
+    Iso3Codes, StateNames, ExportFiltersNoOrdering
 )
 from .app import app
 from db import db
 
 
-class ClassNameExport(str, Enum):
-    Policy = "Policy"
-    Plan = "Plan"
-    Court_Challenge = "Court_Challenge"
-    all_static = "All_data"
+ClassNameExport = Enum(
+    value='ClassNameExport',
+    names=[
+        ('all_static', 'All data'),
+        ('Policy', 'Policies'),
+        ('Plan', 'Plans'),
+        ('Court_Challenge', 'Court challenges'),
+        ('none', ''),
+    ]
+)
 
 
-class ClassName(str, Enum):
-    # TODO use inheritance to create `ClassNameExport` from this class
-    Policy = "Policy"
-    Plan = "Plan"
-    Court_Challenge = "Court_Challenge"
+ClassName = Enum(
+    value='ClassNameExport',
+    names=[
+        ('Policy', 'Policies'),
+        ('Plan', 'Plans'),
+        ('Court_Challenge', 'Court challenges'),
+        ('none', ''),
+    ]
+)
 
 
 @app.post(
@@ -43,9 +53,9 @@ class ClassName(str, Enum):
     ```curl -X POST "https://api.covidamp.org/post/export?class_name=Policy" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```"""
 )
 async def post_export(
-    body: PolicyFiltersNoOrdering,
+    body: ExportFiltersNoOrdering,
     class_name: ClassNameExport = Query(
-        [ClassNameExport.all_static],
+        ClassNameExport.all_static,
         description='The name of the data type for which an Excel export is requested'
     ),
 ):
@@ -62,10 +72,13 @@ async def post_export(
         The XLSX data export file.
 
     """
+    print(class_name)
     if class_name == 'All_data':
         class_name = 'all_static'
+    if class_name == ClassNameExport.none or class_name is None:
+        raise NotImplementedError('Must provide a `class_name` to /post/export')
     filters = body.filters if bool(body.filters) == True else None
-    return schema.export(filters=filters, class_name=class_name)
+    return schema.export(filters=filters, class_name=class_name.name)
 
 
 @app.get(
@@ -108,34 +121,32 @@ async def get_count(
         description='The name(s) of the data type(s) for which record counts are requested'
     )
 ):
+    class_names = [v for v in class_names if v != ClassNameExport.none]
+    if len(class_names) == 0:
+        raise NotImplementedError('Must provide a `class_name` to /get/count')
     return schema.get_count(class_names=class_names)
 
 
 @app.get(
     "/get/metadata",
     response_model=MetadataList,
+    response_model_exclude_unset=True,
     tags=["Metadata"],
     summary="Return metadata describing the provided field(s), e.g, \"Policy.policy_name\" belonging to the provided class, e.g., \"Policy\" or \"Plan\".",
 
 )
 async def get_metadata(
-    entity_class_name: str,
-    fields: List[str] = Query(None),
+    entity_class_name: ClassName = Query(
+        ClassName.Policy,
+        description='The name of the data type for which metadata are requested'
+    ),
+    fields: List[str] = Query(
+        ['Policy.policy_name', 'Policy.primary_ph_measure', 'Policy.ph_measure_details'],
+        description='A list of fields for which metadata are requested, prefixed by the data type name and a period')
 ):
-    """Returns Metadata instance fields for the fields specified.
-
-    Parameters
-    ----------
-    fields : list
-        List of fields as strings with entity name prefixed, e.g.,
-        `policy.id`.
-
-    Returns
-    -------
-    dict
-        Response containing metadata information for the fields.
-
-    """
+    entity_class_name = entity_class_name if entity_class_name != ClassName.none else None
+    if entity_class_name is None:
+        raise NotImplementedError('Must provide a `entity_class_name` to /get/metadata')
     return schema.get_metadata(
         fields=fields, entity_class_name=entity_class_name
     )
@@ -165,24 +176,25 @@ async def get_file_redirect(id: int):
 @app.get(
     "/get/file/{title}",
     tags=["Downloads"],
+    summary="Download PDF with the given id, using the provided title as the filename",
+    include_in_schema=False
+)
+async def get_file_title_required(
+    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    title: str = Query('Filename', description="Any filename")
+):
+    return schema.get_file(id)
+
+
+@app.get(
+    "/get/file/{id}/{title}",
+    tags=["Downloads"],
     summary="Download PDF with the given id, using the provided title as the filename"
 )
-async def get_file(id: int, title: str):
-    """Return file from S3 with the matching ID using the provided title.
-
-    Parameters
-    ----------
-    id : int
-        ID of File instance.
-    title : str
-        Title to give file.
-
-    Returns
-    -------
-    fastapi.responses.Response
-        The file.
-
-    """
+async def get_file(
+    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    title: str = Query('Filename', description="Any filename")
+):
     return schema.get_file(id)
 
 
@@ -211,7 +223,7 @@ async def get_policy(
     )
 
 
-@app.post(
+@ app.post(
     "/post/policy",
     response_model=ListResponse,
     response_model_exclude_unset=True,
@@ -266,7 +278,7 @@ async def get_challenge(
     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
 
 
-@app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
+@ app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
 async def get_plan(
     fields: List[str] = Query(None),
     page: int = None,
@@ -306,27 +318,27 @@ async def get_policy_status(geo_res=str):
     return schema.get_policy_status(geo_res=geo_res)
 
 
-@ app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True, tags=["Distancing levels"])
+@ app.get("/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True, tags=["Distancing levels"], include_in_schema=False)
 async def get_lockdown_level_model(
     iso3=str,
     geo_res=str,
     end_date=str,
-    name=str,
+    name: str = None,
     deltas_only: bool = False
 ):
     """Get lockdown level of a location by date.
 
     """
     return schema.get_lockdown_level(
-        iso3=iso3,
-        geo_res=geo_res,
+        iso3=iso3,  # all or any ISO3 code
+        geo_res=geo_res,  # country or state ?
         name=name,
-        end_date=end_date,
-        deltas_only=deltas_only,
+        end_date=end_date,  # date
+        deltas_only=deltas_only,  # bool
     )
 
 
-@ app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True, tags=["Distancing levels"])
+@ app.get("/get/lockdown_level/country/{iso3}/{end_date}", response_model=PolicyStatusList, response_model_exclude_unset=True, tags=["Distancing levels"], include_in_schema=False)
 async def get_lockdown_level_country(
     iso3=str,
     end_date=str,
@@ -343,11 +355,17 @@ async def get_lockdown_level_country(
     )
 
 
-@ app.get("/get/lockdown_level/map/{iso3}/{geo_res}/{date}", response_model=PolicyStatusList, response_model_exclude_unset=True, tags=["Distancing levels"])
-async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
-    """Get lockdown level of a location by date.
-
-    """
+@ app.get(
+    "/get/lockdown_level/map/{iso3}/{geo_res}/{date}", include_in_schema=False,
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"]
+)
+async def get_lockdown_level_map(
+    iso3=str,
+    geo_res=str,
+    date=date
+):
     return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
@@ -357,7 +375,7 @@ class GeoRes(str, Enum):
     country = 'country'
 
 
-@app.post(
+@ app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
@@ -441,7 +459,7 @@ async def post_challenge(
     )
 
 
-@app.post(
+@ app.post(
     "/post/plan",
     response_model=ListResponse,
     response_model_exclude_unset=True,
@@ -464,7 +482,7 @@ async def post_plan(
     )
 
 
-@app.get(
+@ app.get(
     "/get/optionset",
     response_model=OptionSetList,
     tags=["Metadata"],
@@ -472,28 +490,14 @@ async def post_plan(
 
 )
 async def get_optionset(
-    class_name: str,
-    fields: List[str] = Query(None),
+    class_name: ClassName = Query(
+        ClassName.Policy,
+        description='The name of the data type for which optionsets are requested'
+    ),
+    fields: List[str] = Query(
+        ['Policy.primary_ph_measure', 'Policy.ph_measure_details'],
+        description='A list of fields for which optionsets are requested, prefixed by the data type name and a period')
 ):
-    """Given a list of data fields and an entity name, returns the possible
-    values for those fields based on what data are currently in the database.
-
-    TODO add support for getting possible fields even if they haven't been
-    used yet in the data
-
-    Parameters
-    ----------
-    fields : list
-        List of strings of data fields names.
-    class_name : str
-        The name of the entity for which to check possible values.
-
-    Returns
-    -------
-    api.models.OptionSetList
-        List of possible optionset values for each field.
-
-    """
     return schema.get_optionset(fields=fields, class_name=class_name)
 
 
@@ -517,6 +521,49 @@ async def get_test(test_param: str = 'GET successful'):
 
     """
     return [{'success': True, 'message': 'GET test', 'data': [test_param]}]
+
+
+@ app.get(
+    "/get/distancing_levels",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"]
+)
+async def get_distancing_levels(
+    geo_res: GeoRes = Query(GeoRes.state,
+                            description='The geographic resolution for which to return data'
+                            ),
+    iso3: Iso3Codes = Query(Iso3Codes.all_countries,
+                            description='For "country" resolution: Which country(ies) to return'
+                            ),
+    state_name: StateNames = Query(getattr(StateNames, 'All states and territories'),
+                                   description='For "state" resolution: Which state(s) or territory(ies) to return'
+                                   ),
+    date: date = Query(
+        date.today(),
+        description='The date for which data are requested, YYYY-MM-DD, defaults to today. If no data available, data for most recent date before this date are returned.'
+    ),
+    all_dates: bool = Query(
+        False,
+        description='If true, all dates up to and including `date` are returned, if false, only data for `date` are returned'
+    ),
+    deltas_only: bool = Query(
+        False,
+        description='If true, only dates on which the distancing level changed are returned, if false, dates returned are determined by `all_dates`'
+    )
+):
+    state_name = state_name.name if state_name.name != '' and state_name.name != 'All states and territories' else None
+    iso3 = iso3.name if iso3.name != '' and iso3.name != 'all_countries' else 'all'
+    end_date = None if not all_dates else str(date)
+    date = None if all_dates else str(date)
+    return schema.get_lockdown_level(
+        iso3=iso3,
+        geo_res=geo_res.name,
+        date=date,
+        name=state_name,
+        end_date=end_date,
+        deltas_only=deltas_only
+    )
 
 # ##
 # # Debug endpoints

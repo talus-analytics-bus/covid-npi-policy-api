@@ -203,7 +203,14 @@ def get_metadata(fields: list, entity_class_name: str):
     for d in fields:
 
         # get entity class name and field
-        entity_name, field = d.split('.')
+        try:
+            entity_name, field = d.split('.')
+        except:
+            return {
+                'success': False,
+                'message': 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
+                'data': []
+            }
 
         # get metadata instance from db that matches this field
         metadatum = get(
@@ -991,7 +998,7 @@ def get_policy_status(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+        message=f'''Found {str(len(data))} status(es){'' if name is None else ' for ' + name}'''
     )
     return res
 
@@ -1090,6 +1097,13 @@ def get_lockdown_level(
 
     # if date is not provided, return it in the response
     specify_date = date is None
+    print(geo_res)
+    print(iso3)
+    print(name)
+    print(date)
+    print(end_date)
+    print(deltas_only)
+    print(type(end_date))
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1109,7 +1123,10 @@ def get_lockdown_level(
     for i in q:
         if country_only and i.place.level != 'Country':
             continue
+        elif not country_only and i.place.level != 'State / Province':
+            continue
         else:
+
             datum = {
                 'value': i.value,
                 'datestamp': i.date,
@@ -1123,6 +1140,7 @@ def get_lockdown_level(
                 #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
+                    print(i.place.to_dict())
                     datum['place_name'] = i.place.area1
                 elif i.place.area1 != name:
                     continue
@@ -1156,7 +1174,7 @@ def get_lockdown_level(
 
     # if only the deltas are needed, return one datum representing the date
     # each different distancing level was entered, instead of all dates
-    message_noun = 'statuses'
+    message_noun = 'status(es)'
     if deltas_only:
 
         # create list to hold output
@@ -1171,7 +1189,7 @@ def get_lockdown_level(
             items = list(items)
             deltas_only_data.append(items[len(items) - 1])
         data = deltas_only_data
-        message_noun = 'status changes'
+        message_noun = 'status change(s)'
 
     # create response from output list
     message_name = None

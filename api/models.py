@@ -249,6 +249,13 @@ examplePolicyFilter = {
 }
 
 
+class ExportFiltersNoOrdering(BaseModel):
+    filters: Optional[Dict[str, List]] = Field(
+        {}, title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have."
+    )
+
+
 class PolicyFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         examplePolicyFilter, title="Filters to be applied",
@@ -340,4 +347,146 @@ class OptionSetList(Response):
 
 
 class MetadataList(Response):
-    data: Dict[str, dict]
+    data: Dict[str, dict] = {}
+
+
+class Iso3Codes(str, Enum):
+    all_countries = 'All countries'
+    ARG = 'ARG'
+    AUS = 'AUS'
+    BOL = 'BOL'
+    BRA = 'BRA'
+    BWA = 'BWA'
+    CAN = 'CAN'
+    CHE = 'CHE'
+    CHL = 'CHL'
+    CHN = 'CHN'
+    CIV = 'CIV'
+    COD = 'COD'
+    COL = 'COL'
+    CUB = 'CUB'
+    CZE = 'CZE'
+    DEU = 'DEU'
+    DJI = 'DJI'
+    DNK = 'DNK'
+    ECU = 'ECU'
+    EGY = 'EGY'
+    ESP = 'ESP'
+    EST = 'EST'
+    ETH = 'ETH'
+    FRA = 'FRA'
+    GBR = 'GBR'
+    GHA = 'GHA'
+    GIN = 'GIN'
+    GUF = 'GUF'
+    GUY = 'GUY'
+    HKG = 'HKG'
+    HND = 'HND'
+    IND = 'IND'
+    IRL = 'IRL'
+    IRN = 'IRN'
+    IRQ = 'IRQ'
+    ISL = 'ISL'
+    ISR = 'ISR'
+    ITA = 'ITA'
+    JOR = 'JOR'
+    JPN = 'JPN'
+    KOR = 'KOR'
+    LBY = 'LBY'
+    MAC = 'MAC'
+    MAR = 'MAR'
+    MEX = 'MEX'
+    MHL = 'MHL'
+    MNG = 'MNG'
+    MYS = 'MYS'
+    NER = 'NER'
+    NGA = 'NGA'
+    NOR = 'NOR'
+    NZL = 'NZL'
+    OMN = 'OMN'
+    PAN = 'PAN'
+    PER = 'PER'
+    PHL = 'PHL'
+    PRY = 'PRY'
+    RUS = 'RUS'
+    SAU = 'SAU'
+    SEN = 'SEN'
+    SLV = 'SLV'
+    SOM = 'SOM'
+    SUR = 'SUR'
+    SWE = 'SWE'
+    TCD = 'TCD'
+    THA = 'THA'
+    UGA = 'UGA'
+    UMI = 'UMI'
+    URY = 'URY'
+    USA = 'USA'
+    VEN = 'VEN'
+    YEM = 'YEM'
+    ZAF = 'ZAF'
+    none = ''
+
+
+StateNames = Enum(
+    value='StateNames',
+    names=[('All states and territories', 'All states and territories'),
+           ('Alabama', 'Alabama'),
+           ('Alaska', 'Alaska'),
+           ('American Samoa', 'American Samoa'),
+           ('Arizona', 'Arizona'),
+           ('Arkansas', 'Arkansas'),
+           ('California', 'California'),
+           ('Colorado', 'Colorado'),
+           ('Connecticut', 'Connecticut'),
+           ('Delaware', 'Delaware'),
+           ('District of Columbia', 'District of Columbia'),
+           ('Florida', 'Florida'),
+           ('Georgia', 'Georgia'),
+           ('Guam', 'Guam'),
+           ('Hawaii', 'Hawaii'),
+           ('Idaho', 'Idaho'),
+           ('Illinois', 'Illinois'),
+           ('Indiana', 'Indiana'),
+           ('Iowa', 'Iowa'),
+           ('Kansas', 'Kansas'),
+           ('Kentucky', 'Kentucky'),
+           ('Louisiana', 'Louisiana'),
+           ('Maine', 'Maine'),
+           ('Maryland', 'Maryland'),
+           ('Massachusetts', 'Massachusetts'),
+           ('Michigan', 'Michigan'),
+           ('Minnesota', 'Minnesota'),
+           ('Mississippi', 'Mississippi'),
+           ('Missouri', 'Missouri'),
+           ('Montana', 'Montana'),
+           ('Nebraska', 'Nebraska'),
+           ('Nevada', 'Nevada'),
+           ('New Hampshire', 'New Hampshire'),
+           ('New Jersey', 'New Jersey'),
+           ('New Mexico', 'New Mexico'),
+           ('New York', 'New York'),
+           ('North Carolina', 'North Carolina'),
+           ('North Dakota', 'North Dakota'),
+           ('Northern Mariana Islands', 'Northern Mariana Islands'),
+           ('Ohio', 'Ohio'),
+           ('Oklahoma', 'Oklahoma'),
+           ('Oregon', 'Oregon'),
+           ('Pennsylvania', 'Pennsylvania'),
+           ('Puerto Rico', 'Puerto Rico'),
+           ('Rhode Island', 'Rhode Island'),
+           ('South Carolina', 'South Carolina'),
+           ('South Dakota', 'South Dakota'),
+           ('Tennessee', 'Tennessee'),
+           ('Texas', 'Texas'),
+           ('US Virgin Islands', 'US Virgin Islands'),
+           ('Unspecified', 'Unspecified'),
+           ('Utah', 'Utah'),
+           ('Vermont', 'Vermont'),
+           ('Virginia', 'Virginia'),
+           ('Washington', 'Washington'),
+           ('West Virginia', 'West Virginia'),
+           ('Wisconsin', 'Wisconsin'),
+           ('Wyoming', 'Wyoming'),
+           ('none', ''),
+           ]
+)
