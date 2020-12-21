@@ -720,7 +720,7 @@ def get_challenge(
             res = ChallengeList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} challenges found''',
+                message=f'''{n} challenge(s) found''',
                 next_page_url=next_page_url,
                 n=n
             )

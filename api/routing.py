@@ -1,28 +1,53 @@
 """Define API endpoints"""
 # standard modules
 from datetime import date
+from enum import Enum
 
 # 3rd party modules
 from fastapi import Query
 from starlette.responses import RedirectResponse
 from typing import List, Optional
+from pydantic import BaseModel
 
 # local modules
 from . import schema
-from .models import PolicyList, PolicyFilters, OptionSetList, MetadataList, \
-    ListResponse, PolicyStatusList, PolicyStatusCountList
+from .models import (
+    PolicyList, PolicyFilters, PlanFilters, ChallengeFilters, OptionSetList,
+    MetadataList,
+    ListResponse, PolicyStatusList, PolicyStatusCountList,
+    PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields
+)
 from .app import app
 from db import db
+
+
+class ClassNameExport(str, Enum):
+    Policy = "Policy"
+    Plan = "Plan"
+    Court_Challenge = "Court_Challenge"
+    all_static = "All_data"
+
+
+class ClassName(str, Enum):
+    # TODO use inheritance to create `ClassNameExport` from this class
+    Policy = "Policy"
+    Plan = "Plan"
+    Court_Challenge = "Court_Challenge"
 
 
 @app.post(
     "/post/export",
     tags=["Downloads"],
     summary="Return Excel (.xlsx) file containing formatted data for all records belonging to the provided class, e.g., \"Policy\" or \"Plan\" that match filters.",
+    description="""Example: to download all face mask policies:
+    ```curl -X POST "https://api.covidamp.org/post/export?class_name=Policy" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```"""
 )
 async def post_export(
-    body: PolicyFilters,
-    class_name: str,
+    body: PolicyFiltersNoOrdering,
+    class_name: ClassNameExport = Query(
+        [ClassNameExport.all_static],
+        description='The name of the data type for which an Excel export is requested'
+    ),
 ):
     """Return XLSX data export for policies with the given filters applied.
 
@@ -37,6 +62,8 @@ async def post_export(
         The XLSX data export file.
 
     """
+    if class_name == 'All_data':
+        class_name = 'all_static'
     filters = body.filters if bool(body.filters) == True else None
     return schema.export(filters=filters, class_name=class_name)
 
@@ -59,6 +86,15 @@ async def get_version():
 async def get_countries_with_lockdown_levels():
     return schema.get_countries_with_lockdown_levels()
 
+#
+# class Item(BaseModel):
+#     name: str
+#     description: Optional[str] = Field(
+#         None, title="The description of the item", max_length=300
+#     )
+#     price: float = Field(..., gt=0, description="The price must be greater than zero")
+#     tax: Optional[float] = None
+
 
 @app.get(
     "/get/count",
@@ -67,7 +103,10 @@ async def get_countries_with_lockdown_levels():
 
 )
 async def get_count(
-    class_names: List[str] = Query(None),
+    class_names: List[ClassName] = Query(
+        [ClassName.Policy],
+        description='The name(s) of the data type(s) for which record counts are requested'
+    )
 ):
     return schema.get_count(class_names=class_names)
 
@@ -172,24 +211,26 @@ async def get_policy(
     )
 
 
-@ app.post(
+@app.post(
     "/post/policy",
     response_model=ListResponse,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return data for policies matching filters",
-    # description="""Return policies matching filters"""
 )
 async def post_policy(
     body: PolicyFilters,
-    by_category: str = None,
-    fields: List[str] = Query(None),
-    page: int = None,
-    pagesize: int = 100,
-    count: bool = False,
+    fields: List[PolicyFields] = Query(
+        [PolicyFields.id],
+        description='List of data fields that should be returned for each policy'
+    ),
+    page: int = Query(1, description='Page to return'),
+    pagesize: int = Query(100, description='Number of records per page'),
+    count: bool = Query(False, description='If true, return number of records only, otherwise return data for records'),
 ):
+    fields = [v for v in fields if v != PolicyFields.none]
     return schema.get_policy(
-        filters=body.filters, fields=fields, by_category=by_category,
+        filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering,
         count_only=count
     )
@@ -225,7 +266,7 @@ async def get_challenge(
     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
 
 
-@ app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
+@app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
 async def get_plan(
     fields: List[str] = Query(None),
     page: int = None,
@@ -310,7 +351,13 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
-@ app.post(
+# define allowed geo_res values
+class GeoRes(str, Enum):
+    state = 'state'
+    country = 'country'
+
+
+@app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
@@ -318,22 +365,16 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     summary="Return whether or not ('t' or 'f') policies were in effect by location which match the filters and the provided geographic resolution"
 
 )
-async def post_policy_status(body: PolicyFilters, geo_res=str):
-    """Return Policy data.
-
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Policy response dictionary.
-
-    """
-
-    return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
+async def post_policy_status(
+    body: PolicyFilters,
+    geo_res: GeoRes = Query(GeoRes.state,
+                            description='The geographic resolution for which to return data'
+                            )
+):
+    return schema.get_policy_status(
+        geo_res=geo_res,
+        filters=body.filters
+    )
 
 
 @ app.post(
@@ -364,7 +405,6 @@ async def post_policy_status_counts(body: PolicyFilters, geo_res=str):
 @ app.post("/post/policy_number", response_model=ListResponse, response_model_exclude_unset=True, include_in_schema=False, tags=["Advanced"])
 async def post_policy_number(
     body: PolicyFilters,
-    by_category: str = None,
     fields: List[str] = Query(None),
     page: int = None,
     pagesize: int = 100,
@@ -373,7 +413,7 @@ async def post_policy_number(
 
     """
     return schema.get_policy_number(
-        filters=body.filters, fields=fields, by_category=by_category,
+        filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
@@ -386,34 +426,22 @@ async def post_policy_number(
     summary="Return data for court challenges (to policies) matching filters",
 )
 async def post_challenge(
-    body: PolicyFilters,
-    by_category: str = None,
-    fields: List[str] = Query(None),
-    page: int = None,
-    pagesize: int = 100,
+    body: ChallengeFilters,
+    fields: List[CourtChallengeFields] = Query(
+        [CourtChallengeFields.id],
+        description='List of data fields that should be returned for each court challenge'
+    ),
+    page: int = Query(1, description='Page to return'),
+    pagesize: int = Query(100, description='Number of records per page'),
 ):
-    """Return Challenge data with filters applied.
-
-    Parameters
-    ----------
-    body : PolicyFilters
-        Filters to apply.
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Challenge response dictionaries
-
-    """
+    fields = [v for v in fields if v != CourtChallengeFields.none]
     return schema.get_challenge(
-        filters=body.filters, fields=fields, by_category=by_category,
+        filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
 
-@ app.post(
+@app.post(
     "/post/plan",
     response_model=ListResponse,
     response_model_exclude_unset=True,
@@ -421,29 +449,17 @@ async def post_challenge(
     summary="Return data for plans matching filters",
 )
 async def post_plan(
-    body: PolicyFilters,
-    by_category: str = None,
-    fields: List[str] = Query(None),
-    page: int = None,
-    pagesize: int = 100,
+    body: PlanFilters,
+    fields: List[PlanFields] = Query(
+        [PlanFields.id],
+        description='List of data fields that should be returned for each plan'
+    ),
+    page: int = Query(1, description='Page to return'),
+    pagesize: int = Query(100, description='Number of records per page'),
 ):
-    """Return Plan data with filters applied.
-
-    Parameters
-    ----------
-    body : PolicyFilters
-        Filters to apply.
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Plan response dictionary
-
-    """
+    fields = [v for v in fields if v != PlanFields.none]
     return schema.get_plan(
-        filters=body.filters, fields=fields, by_category=by_category,
+        filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
