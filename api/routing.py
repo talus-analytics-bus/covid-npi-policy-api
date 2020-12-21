@@ -122,7 +122,7 @@ async def get_count(
         description='The name(s) of the data type(s) for which record counts are requested'
     )
 ):
-    class_names = [v for v in class_names if v != ClassNameExport.none]
+    class_names = [v.name for v in class_names if v != ClassNameExport.none]
     if len(class_names) == 0:
         raise NotImplementedError('Must provide a `class_name` to /get/count')
     return schema.get_count(class_names=class_names)
