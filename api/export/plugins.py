@@ -120,7 +120,6 @@ class CovidPolicyExportPlugin(ExcelExport):
             )
 
         self.sheet_settings = []
-        print(tabs)
         for tab in tabs:
             self.sheet_settings += [
                 CovidPolicyTab(
