@@ -59,7 +59,6 @@ class Metadata(db.Entity):
     definition = Optional(str)
     tooltip = Optional(str)
     possible_values = Optional(str)
-    notes = Optional(str)
     entity_name = Required(str)
     export = Required(bool)
     class_name = Required(str)
