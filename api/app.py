@@ -61,7 +61,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="COVID AMP application programming interface (API) documentation",
         version="1.0.0",
-        description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. You may contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p>",
+        description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. Please contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p>",
         routes=app.routes
     )
     openapi_schema["info"]["x-logo"] = {
