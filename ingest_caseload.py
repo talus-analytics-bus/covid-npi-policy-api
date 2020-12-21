@@ -1,6 +1,7 @@
 """Run caseload data ingest application"""
 # standard modules
 import argparse
+import time
 from os import sys
 
 # local modules
@@ -26,6 +27,10 @@ parser.add_argument('-a', '--all', default=False,
                     action='store_const',
                     const=True,
                     help='ingest all data')
+parser.add_argument('-mv', '--materialized-views', default=False,
+                    action='store_const',
+                    const=True,
+                    help='refresh materialized views')
 
 
 @db_session
@@ -60,14 +65,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     do_state = args.state or args.all
     do_global = args.globe or args.all
+    do_refresh_materialized_views = args.globe or args.state or \
+        args.materialized_views or args.all
 
     # generate database mapping and ingest data for the COVID-AMP project
     db.generate_mapping(create_tables=False)
     db_amp.generate_mapping(create_tables=False)
-    plugin = CovidCaseloadPlugin()
-    plugin.upsert_data(db, db_amp, do_state=do_state, do_global=do_global)
+    if do_state or do_global:
+        plugin = CovidCaseloadPlugin()
+        plugin.upsert_data(db, db_amp, do_state=do_state, do_global=do_global)
 
     # refresh materialized views that depend on case/deaths data
-    refresh_materialized_views()
+    if do_refresh_materialized_views:
+        refresh_materialized_views()
     print('\nData ingested.')
     sys.exit(0)

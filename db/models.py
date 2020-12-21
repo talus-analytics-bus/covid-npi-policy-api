@@ -59,7 +59,6 @@ class Metadata(db.Entity):
     definition = Optional(str)
     tooltip = Optional(str)
     possible_values = Optional(str)
-    notes = Optional(str)
     entity_name = Required(str)
     export = Required(bool)
     class_name = Required(str)
@@ -248,6 +247,7 @@ class Policy(db.Entity):
     policy_data_source = Optional(str)
     subtarget = Optional(str)  # multiselect, concat
     policy_number = Optional(int, nullable=True)
+    group_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
     search_text = Optional(str)
 

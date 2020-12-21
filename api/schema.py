@@ -163,7 +163,7 @@ def get_count(class_names):
         Description of returned object.
 
     """
-    supported_entities = ('Policy', 'Plan')
+    supported_entities = ('Policy', 'Plan', 'Court_Challenge')
     data = dict()
     for d in class_names:
         if d not in supported_entities or not hasattr(db, d):
@@ -203,13 +203,20 @@ def get_metadata(fields: list, entity_class_name: str):
     for d in fields:
 
         # get entity class name and field
-        entity_name, field = d.split('.')
+        try:
+            entity_name, field = d.split('.')
+        except:
+            return {
+                'success': False,
+                'message': 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
+                'data': []
+            }
 
         # get metadata instance from db that matches this field
         metadatum = get(
             i for i in db.Metadata
             if i.field == field
-            and i.entity_name.lower() == entity_name
+            and i.entity_name.lower() == entity_name.lower()
             and i.class_name == entity_class_name
         )
 
@@ -442,7 +449,8 @@ def get_policy(
     ordering: list = [],
     page: int = None,
     pagesize: int = 100,
-    count_only: bool = False
+    count_only: bool = False,
+    by_group_number: bool = True,
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -485,11 +493,14 @@ def get_policy(
 
     # if only a count was requested, return it
     if count_only:
+        if by_group_number:
+            q = select(i.group_number for i in q)
         n = q.count()
         return {
             'data': [{'n': n}],
             'success': True, 'message': 'Number of policies'
         }
+
     else:
 
         # apply ordering
@@ -716,7 +727,7 @@ def get_challenge(
             res = ChallengeList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} challenges found''',
+                message=f'''{n} challenge(s) found''',
                 next_page_url=next_page_url,
                 n=n
             )
@@ -1059,7 +1070,7 @@ def get_policy_status(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} statuses{'' if name is None else ' for ' + name}'''
+        message=f'''Found {str(len(data))} status(es){'' if name is None else ' for ' + name}'''
     )
     return res
 
@@ -1069,7 +1080,8 @@ def get_policy_status(
 def get_policy_status_counts(
     geo_res: str = None,
     name: str = None,
-    filters: dict = dict()
+    filters: dict = dict(),
+    by_group_number: bool = True,
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
@@ -1097,7 +1109,11 @@ def get_policy_status_counts(
     loc_field = 'area1' if geo_res != 'country' else 'iso3'
 
     # get locations
-    q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+    q_loc = None
+    if not by_group_number:
+        q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+    else:
+        q_loc = select((getattr(i.place, loc_field), count(i.group_number)) for i in q)
 
     data_tmp = dict()
     for name, num in q_loc:
@@ -1153,6 +1169,13 @@ def get_lockdown_level(
 
     # if date is not provided, return it in the response
     specify_date = date is None
+    print(geo_res)
+    print(iso3)
+    print(name)
+    print(date)
+    print(end_date)
+    print(deltas_only)
+    print(type(end_date))
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1172,7 +1195,10 @@ def get_lockdown_level(
     for i in q:
         if country_only and i.place.level != 'Country':
             continue
+        elif not country_only and i.place.level != 'State / Province':
+            continue
         else:
+
             datum = {
                 'value': i.value,
                 'datestamp': i.date,
@@ -1186,6 +1212,7 @@ def get_lockdown_level(
                 #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
+                    print(i.place.to_dict())
                     datum['place_name'] = i.place.area1
                 elif i.place.area1 != name:
                     continue
@@ -1219,7 +1246,7 @@ def get_lockdown_level(
 
     # if only the deltas are needed, return one datum representing the date
     # each different distancing level was entered, instead of all dates
-    message_noun = 'statuses'
+    message_noun = 'status(es)'
     if deltas_only:
 
         # create list to hold output
@@ -1234,7 +1261,7 @@ def get_lockdown_level(
             items = list(items)
             deltas_only_data.append(items[len(items) - 1])
         data = deltas_only_data
-        message_noun = 'status changes'
+        message_noun = 'status change(s)'
 
     # create response from output list
     message_name = None
