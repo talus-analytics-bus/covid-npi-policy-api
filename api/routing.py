@@ -21,6 +21,7 @@ from .models import (
 from .app import app
 from db import db
 
+DOWNLOAD_DESCRIPTION = '**Note:** This endpoint results in a file download and may only work if you make the API request either (1) in your address bar or (2) using cURL.'
 
 ClassNameExport = Enum(
     value='ClassNameExport',
@@ -49,14 +50,14 @@ ClassName = Enum(
     "/post/export",
     tags=["Downloads"],
     summary="Return Excel (.xlsx) file containing formatted data for all records belonging to the provided class, e.g., \"Policy\" or \"Plan\" that match filters.",
-    description="""Example: to download all face mask policies:
+    description=DOWNLOAD_DESCRIPTION + """ <br/><br/>**Example:** to download all face mask policies:<br/><br/>
     ```curl -X POST "https://api.covidamp.org/post/export?class_name=Policy" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```"""
 )
 async def post_export(
     body: ExportFiltersNoOrdering,
     class_name: ClassNameExport = Query(
         ClassNameExport.all_static,
-        description='The name of the data type for which an Excel export is requested'
+        description='The name of the data type for which an Excel export is requested',
     ),
 ):
     """Return XLSX data export for policies with the given filters applied.
@@ -189,7 +190,8 @@ async def get_file_title_required(
 @app.get(
     "/get/file/{id}/{title}",
     tags=["Downloads"],
-    summary="Download PDF with the given id, using the provided title as the filename"
+    summary="Download PDF with the given id, using the provided title as the filename",
+    description=DOWNLOAD_DESCRIPTION
 )
 async def get_file(
     id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
