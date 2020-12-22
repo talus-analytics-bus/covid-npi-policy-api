@@ -15,7 +15,7 @@ from pony.orm import (
     db_session, select, get, commit, desc, count, raw_sql, concat, coalesce,
     exists, group_concat
 )
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from fuzzywuzzy import fuzz
 
 # local modules
