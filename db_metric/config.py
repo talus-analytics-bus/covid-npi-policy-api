@@ -112,7 +112,6 @@ else:
 
 # init PonyORM database instance
 db = orm.Database()
-
 db.bind(
     'postgres',
     user=conn_params['username'],
