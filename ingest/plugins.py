@@ -2409,7 +2409,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'tooltip': d['Descriptive text for site'] if not pd.isna(d['Descriptive text for site']) else '',
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
-                'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
+                # 'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
                 'order': d['Order'],
                 'export': d['Export?'] == True,
             }
@@ -2436,7 +2436,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': '',
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
-                'notes': '',
+                # 'notes': '',
                 'order': 0,
                 'export': False,
             }), ({
@@ -2449,7 +2449,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': '',
                 'definition': 'The location affected by the plan',
                 'possible_values': 'Any text',
-                'notes': '',
+                # 'notes': '',
                 'order': 0,
                 'export': False,
             }), ({
@@ -2463,7 +2463,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'source_id',
@@ -2476,7 +2476,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'source_id',
@@ -2489,7 +2489,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'date_end_actual_or_anticipated',
@@ -2502,7 +2502,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The date on which the policy or law will (or did) end',
                 'possible_values': 'Any date',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             })
         ]
