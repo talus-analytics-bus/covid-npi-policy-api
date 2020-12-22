@@ -60,7 +60,7 @@ The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides 
 
 You can visit the site at https://covidamp.org. Please contact us with comments, questions, or accessibility concerns at https://covidamp.org/contact.
 ## Database update schedule
-The AMP database is usually updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but will requests will succeed again when updates are completed.
+The AMP database is usually updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but requests will succeed again when updates are completed.
 ## Filtering data
 Filters to view only a subset of data are generally defined in the body of a POST request (see POST endpoints below). Some examples of potentially useful filters follow.
  - See all "Social distancing" policies: `{"filters": "primary_ph_measure": ["Social distancing"]}`
@@ -79,7 +79,7 @@ def custom_openapi():
         title="COVID AMP application programming interface (API) documentation",
         version="1.0.0",
         description=new_desc,
-        # description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. Please contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p><p><strong>Note about data updates:</strong> The AMP database is updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but will requests will succeed again when updates are completed.</p>",
+        # description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. Please contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p><p><strong>Note about data updates:</strong> The AMP database is updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but requests will succeed again when updates are completed.</p>",
         routes=app.routes
     )
     openapi_schema["info"]["x-logo"] = {
