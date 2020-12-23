@@ -4,15 +4,17 @@ import os
 import pytz
 import time
 import random
+import itertools
 from os import sys
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 # 3rd party modules
 import boto3
+import pprint
 from pony.orm import db_session, commit, get, select, delete, StrArray
 from pony.orm.core import CacheIndexError, ObjectNotFound
-import pprint
+from alive_progress import alive_bar
 
 # local modules
 from .sources import GoogleSheetSource, AirtableSource
@@ -285,6 +287,14 @@ class CovidCaseloadPlugin(IngestPlugin):
 
         """
 
+        # get dict of database datetimes with keys as YYYY-MM-DD for speed
+        all_dt_res = select(i for i in db.DateTime)[:][:]
+        all_dt_list = [i.to_dict() for i in all_dt_res]
+        all_dt_dict = {
+            str((i['datetime'] +
+                 timedelta(hours=12)).date()): i for i in all_dt_list
+        }
+
         def upsert_nyt_caseload(db, db_amp):
             """Upsert NYT state-level caseload data and derived metrics for
             the USA.
@@ -302,12 +312,12 @@ class CovidCaseloadPlugin(IngestPlugin):
                 Description of returned object.
 
             """
-            print('Fetching data from New York Times server...')
+            print('\nFetching data from New York Times GitHub...')
             download_url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv'
             data = nyt_caseload_csv_to_dict(download_url)
             print('Done.')
 
-            print('\nUpserting relevant metric...')
+            print('\nUpserting relevant metrics...')
 
             # upsert metric for daily US caseload
             action, covid_total_cases_provinces = upsert(
@@ -446,34 +456,41 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
             print('\nUpserting observations...')
+
+            # get all places indexed by name
+            all_places_list = select((i.place_id, i.name) for i in db.Place)[:][:]
+            all_places_dict = {
+                v[1]: v[0] for v in all_places_list
+            }
+
+            missing = set()
             updated_at = datetime.now()
             last_datum_date = None
-            for name in data:
-                print(name)
-                place = db.Place.select().filter(name=name).first()
-                if place is None:
-                    continue
-                else:
-                    # i = 0
-                    # max_i = str(len(data[name]))
-                    for d in data[name]:
-                        # print('upserting ' + str(i) + ' of ' + max_i)
-                        # i = i + 1
-                        dt = select(
-                            i for i in db.DateTime
-                            if str((i.datetime + timedelta(hours=12)).date()) == d['date']
-                        ).first()
+            n = len(data.keys())
+            with alive_bar(n, title='Importing state-level cases and deaths data') as bar:
+                for name in data:
+                    bar()
+                    place = all_places_dict.get(name, None)
+                    if place is None:
+                        missing.add(name)
+                        continue
+                    else:
+                        for d in data[name]:
 
-                        if dt is None:
-                            print('error: missing dt')
-                            continue
-                        else:
+                            dt = None
+                            try:
+                                dt = all_dt_dict[d['date']]
+                            except:
+                                print('error: missing dt')
+                                # input('error: missing dt. Press enter to continue.')
+                                continue
+
                             last_datum_date = d['date']
                             action, obs_affected_cases = upsert(
                                 db.Observation,
                                 {
                                     'metric': covid_total_cases_provinces,
-                                    'date_time': dt,
+                                    'date_time': dt['dt_id'],
                                     'place': place,
                                     'data_source': 'New York Times',  # TODO correct
                                 },
@@ -486,7 +503,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                                 db.Observation,
                                 {
                                     'metric': covid_total_deaths_provinces,
-                                    'date_time': dt,
+                                    'date_time': dt['dt_id'],
                                     'place': place,
                                     'data_source': 'New York Times',  # TODO correct
                                 },
@@ -500,13 +517,17 @@ class CovidCaseloadPlugin(IngestPlugin):
             action, version = upsert(
                 db_amp.Version,
                 {
-                    'type': 'COVID-19 caseload data',
+                    'type': 'COVID-19 case data',
                 },
                 {
                     'date': date.today(),
                     'last_datum_date': last_datum_date,
                 }
             )
+
+            if len(missing) > 0:
+                print('These places in the NYT dataset were missing from the COVID AMP places database:')
+                pp.pprint(missing)
 
             print('Done.')
 
@@ -527,12 +548,12 @@ class CovidCaseloadPlugin(IngestPlugin):
                 Description of returned object.
 
             """
-            print('Fetching data from JHU GitHub...')
+            print('\nFetching data from JHU GitHub...')
             download_url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv'
             data = jhu_caseload_csv_to_dict(download_url, db)
             print('Done.')
 
-            print('\nUpserting relevant metric...')
+            print('\nUpserting relevant metrics...')
 
             # upsert metric for daily US caseload
             action, covid_total_cases_countries = upsert(
@@ -604,31 +625,27 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
             print('\nUpserting observations...')
+
             updated_at = datetime.now()
             last_datum_date = None
             n = len(data)
-            i = 0
-            for d in data:
-                print(f'''Adding {i} of {n}''')
-                i = i + 1
-                place = d['place']
+            with alive_bar(n, title='Importing national-level cases data') as bar:
+                for d in data:
+                    bar()
+                    dt = None
+                    try:
+                        dt = all_dt_dict[d['date']]
+                    except:
+                        input('error: missing dt. Press enter to continue.')
+                        continue
 
-                dt = select(
-                    i for i in db.DateTime
-                    if str((i.datetime + timedelta(hours=12)).date()) == d['date']
-                ).first()
-
-                if dt is None:
-                    input('error: missing dt. Press enter to continue.')
-                    continue
-                else:
                     last_datum_date = d['date']
                     action, obs_affected = upsert(
                         db.Observation,
                         {
                             'metric': covid_total_cases_countries,
-                            'date_time': dt,
-                            'place': place,
+                            'date_time': dt['dt_id'],
+                            'place': d['place'],
                             'data_source': 'JHU CSSE COVID-19 Dataset',
                         },
                         {
@@ -641,7 +658,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             action, version = upsert(
                 db_amp.Version,
                 {
-                    'type': 'COVID-19 caseload data (countries)',
+                    'type': 'COVID-19 case data (countries)',
                 },
                 {
                     'date': date.today(),
@@ -652,10 +669,10 @@ class CovidCaseloadPlugin(IngestPlugin):
             print('Done.')
 
         # perform all upserts defined above
-        if do_global:
-            upsert_jhu_caseload(db, db_amp)
         if do_state:
             upsert_nyt_caseload(db, db_amp)
+        if do_global:
+            upsert_jhu_caseload(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
@@ -836,94 +853,103 @@ class CovidPolicyPlugin(IngestPlugin):
     def load_observations(self, db):
         print(
             '\n\n[X] Connecting to Airtable for observations and fetching tables...')
+
+        # all_rows = self.client.worksheet(
+        #     name='Status table'
+        # ).as_dataframe(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
         airtable_iter = self.client.worksheet(
             name='Status table').ws.get_iter(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
 
         # delete existing observations
-        print('\n\nDeleting existing observations...')
+        print('Deleting existing observations...')
         delete(i for i in db.Observation if i.metric == 0)
-        print('Existing observations deleted.\n')
+        print('Existing observations deleted.')
 
         # add new observations
         skipped = 0
-        for page in airtable_iter:
-            for record in page:
-                # TODO add observations
-                d = record['fields']
-                if 'Name' not in d:
-                    skipped += 1
-                    continue
-                if not d['Date'].startswith('2020'):
-                    skipped += 1
-                    continue
+        # n_est = len(all_rows)
+        n_est = 28523
+        with alive_bar(n_est, title='Importing observations') as bar:
+            # for page in [1]:
+            for page in airtable_iter:
+                for record in page:
+                    bar()
+                    # TODO add observations
+                    d = record['fields']
+                    if 'Name' not in d:
+                        skipped += 1
+                        continue
+                    if not d['Date'].startswith('2020'):
+                        skipped += 1
+                        continue
 
-                place = None
-                if d['Location type'] == 'State':
-                    place = select(
-                        i for i in db.Place
-                        if i.iso3 == 'USA'
-                        and i.area1 == d['Name']
-                        and (i.area2 == 'Unspecified' or i.area2 == '')
-                        and i.level == 'State / Province'
-                    ).first()
+                    place = None
+                    if d['Location type'] == 'State':
+                        place = select(
+                            i for i in db.Place
+                            if i.iso3 == 'USA'
+                            and i.area1 == d['Name']
+                            and (i.area2 == 'Unspecified' or i.area2 == '')
+                            and i.level == 'State / Province'
+                        ).first()
+
+                        if place is None:
+                            # TODO generalize to all countries
+                            action, place = upsert(
+                                db.Place,
+                                {
+                                    'iso3': 'USA',
+                                    'country_name': 'United States of America (USA)',
+                                    'area1': d['Name'],
+                                    'area2': 'Unspecified',
+                                    'level': 'State / Province'
+                                },
+                                {
+                                    'loc': f'''{d['Name']}, USA'''
+                                }
+                            )
+
+                    else:
+                        # TODO
+                        place = select(
+                            i for i in db.Place
+                            if i.iso3 == d['Name']
+                            and i.level == 'Country'
+                        ).first()
+
+                        if place is None:
+                            # TODO generalize to all countries
+                            action, place = upsert(
+                                db.Place,
+                                {
+                                    'iso3': d['Name'],
+                                    'country_name': get_name_from_iso3(d['Name']) + f''' ({d['Name']})''',
+                                    'area1': 'Unspecified',
+                                    'area2': 'Unspecified',
+                                    'level': 'Country'
+                                },
+                                {
+                                    'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
+                                }
+                            )
 
                     if place is None:
-                        # TODO generalize to all countries
-                        action, place = upsert(
-                            db.Place,
-                            {
-                                'iso3': 'USA',
-                                'country_name': 'United States of America (USA)',
-                                'area1': d['Name'],
-                                'area2': 'Unspecified',
-                                'level': 'State / Province'
-                            },
-                            {
-                                'loc': f'''{d['Name']}, USA'''
-                            }
-                        )
+                        print('[FATAL ERROR] Missing place')
+                        sys.exit(0)
 
-                else:
-                    # TODO
-                    place = select(
-                        i for i in db.Place
-                        if i.iso3 == d['Name']
-                        and i.level == 'Country'
-                    ).first()
-
-                    if place is None:
-                        # TODO generalize to all countries
-                        action, place = upsert(
-                            db.Place,
-                            {
-                                'iso3': d['Name'],
-                                'country_name': get_name_from_iso3(d['Name']) + f''' ({d['Name']})''',
-                                'area1': 'Unspecified',
-                                'area2': 'Unspecified',
-                                'level': 'Country'
-                            },
-                            {
-                                'loc': get_name_from_iso3(d['Name']) + f''' ({d['Name']})'''
-                            }
-                        )
-
-                if place is None:
-                    print('[FATAL ERROR] Missing place')
-                    sys.exit(0)
-
-                action, d = upsert(
-                    db.Observation,
-                    {'source_id': record['id']},
-                    {
-                        'date': d['Date'],
-                        'metric': 0,
-                        'value': 'Mixed distancing levels'
-                        if d['Status'] == 'Mixed'
-                        else d['Status'],
-                        'place': place,
-                    }
-                )
-                commit()
+                    action, d = upsert(
+                        db.Observation,
+                        {'source_id': record['id']},
+                        {
+                            'date': d['Date'],
+                            'metric': 0,
+                            'value': 'Mixed distancing levels'
+                            if d['Status'] == 'Mixed'
+                            else d['Status'],
+                            'place': place,
+                        }
+                    )
+                    commit()
 
         return self
 
@@ -1299,6 +1325,7 @@ class CovidPolicyPlugin(IngestPlugin):
         all_policy_numbers.delete()
         commit()
 
+        # policy_section: one per row in Airtable
         policy_sections = select(
             i for i in db.Policy
         )
@@ -1347,6 +1374,35 @@ class CovidPolicyPlugin(IngestPlugin):
                     for d in policies:
                         d.court_challenges.add(court_challenge)
                         commit()
+
+    @db_session
+    def assign_policy_group_numbers(self, db):
+        # assign group numbers
+        policy_sections = select(
+            i for i in db.Policy
+        ).order_by(
+            db.Policy.primary_ph_measure,
+            db.Policy.ph_measure_details,
+            db.Policy.relaxing_or_restricting,
+            db.Policy.policy_name,
+            db.Policy.date_start_effective
+        )[:][:]
+
+        # sort
+        def key_func(x):
+            return f'''{x.primary_ph_measure} -- {x.ph_measure_details} -- {x.relaxing_or_restricting} -- {x.policy_name} -- {x.date_start_effective}'''
+        policy_sections.sort(key=key_func)
+
+        ps_iter = itertools.groupby(policy_sections, key=key_func)
+
+        group_number = 0
+        print('\nAssigning group numbers to policies with similar attributes...')
+        for key, records in ps_iter:
+            for r in list(records):
+                r.group_number = group_number
+            group_number += 1
+        commit()
+        print('Assigned.')
 
     @db_session
     def post_process_policy_numbers(self, db):
@@ -2486,6 +2542,16 @@ class CovidPolicyPlugin(IngestPlugin):
         upserted = set()
         n_inserted = 0
         n_updated = 0
+        for i, d in self.glossary.iterrows():
+            if 'Key Term' not in d or d['Key Term'] is None or \
+                    d['Key Term'].strip() == '':
+                continue
+            attributes = {
+                'definition': d['Definition'],
+                'reference': d['Reference'],
+                'entity_name': d['Database entity'],
+                'field': d['Database field name'],
+            }
 
         glossary_tables = [
             self.glossary,
