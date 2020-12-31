@@ -30,6 +30,7 @@ ClassNameExport = Enum(
         ('Policy', 'Policy'),
         ('Plan', 'Plan'),
         ('Court_Challenge', 'Court_Challenge'),
+        ('All_data_recreate', 'All_data_recreate'),
         ('none', ''),
     ]
 )

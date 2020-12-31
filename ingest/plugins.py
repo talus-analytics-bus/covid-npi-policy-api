@@ -1332,8 +1332,8 @@ class CovidPolicyPlugin(IngestPlugin):
         for p in policy_sections:
             # for travel restriction policies, set affected place to auth. pl.
             if p.primary_ph_measure == 'Travel restrictions':
-                all_country = all(ae.place.level ==
-                                  'Country' for ae in p.auth_entity)
+                # all_country = all(ae.place.level ==
+                #                   'Country' for ae in p.auth_entity)
                 p.place = set()
                 for ae in p.auth_entity:
                     p.place.add(ae.place)
@@ -2041,61 +2041,71 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        for i, d in self.data.iterrows():
+        data_rows = list(self.data.iterrows())
 
-            # if unique ID is not an integer, skip
-            # TODO handle on ingest
-            try:
-                int(d['id'])
-            except:
-                continue
+        with alive_bar(len(data_rows), title="Ingesting policies") as bar:
+            for i, d in self.data.iterrows():
+                bar()
 
-            if reject(d):
-                continue
+                # if unique ID is not an integer, skip
+                # TODO handle on ingest
+                try:
+                    int(d['id'])
+                except:
+                    continue
 
-            # upsert policies
-            action, instance = upsert(
-                db.Policy,
-                {'id': d['id']},
-                {key: formatter(key, d) for key in keys if key in d},
-                skip=['prior_policy']
-            )
-            if action == 'update':
-                n_updated += 1
-            elif action == 'insert':
-                n_inserted += 1
-            upserted.add(instance)
+                if reject(d):
+                    continue
 
-        for i, d in self.data.iterrows():
-            # if unique ID is not an integer, skip
-            # TODO handle on ingest
-            try:
-                int(d['id'])
-            except:
-                continue
-
-            if reject(d):
-                continue
-
-            # upsert policies
-            # TODO consider how to count these updates, since they're done
-            # after new instances are created (if counting them at all)
-            if 'prior_policy' in d and d['prior_policy'] != '':
-                prior_policies = list()
-                for source_id in d['prior_policy']:
-                    prior_policy_instance = select(
-                        i for i in db.Policy if i.source_id == source_id).first()
-                    if prior_policy_instance is not None:
-                        prior_policies.append(prior_policy_instance)
-                upsert(
+                # upsert policies
+                action, instance = upsert(
                     db.Policy,
                     {'id': d['id']},
-                    {'prior_policy': prior_policies},
+                    {key: formatter(key, d) for key in keys if key in d},
+                    skip=['prior_policy']
                 )
+                if action == 'update':
+                    n_updated += 1
+                elif action == 'insert':
+                    n_inserted += 1
+                upserted.add(instance)
+
+        with alive_bar(len(data_rows), title="Linking policies") as bar:
+            for i, d in self.data.iterrows():
+                bar()
+
+                # if unique ID is not an integer, skip
+                # TODO handle on ingest
+                try:
+                    int(d['id'])
+                except:
+                    continue
+
+                if reject(d):
+                    continue
+
+                # upsert policies
+                # TODO consider how to count these updates, since they're done
+                # after new instances are created (if counting them at all)
+                if 'prior_policy' in d and d['prior_policy'] != '':
+                    prior_policies = list()
+                    for source_id in d['prior_policy']:
+                        prior_policy_instance = select(
+                            i for i in db.Policy if i.source_id == source_id).first()
+                        if prior_policy_instance is not None:
+                            prior_policies.append(prior_policy_instance)
+                    upsert(
+                        db.Policy,
+                        {'id': d['id']},
+                        {'prior_policy': prior_policies},
+                    )
 
         # delete all records in table but not in ingest dataset
+        print('Deleting policies no longer needed...')
         n_deleted = db.Policy.delete_2(upserted)
         commit()
+        print('Deleted.\n')
+
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
         print('Deleted: ' + str(n_deleted))
@@ -2409,7 +2419,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'tooltip': d['Descriptive text for site'] if not pd.isna(d['Descriptive text for site']) else '',
                 'definition': d['Definition'],
                 'possible_values': d['Possible values'],
-                'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
+                # 'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
                 'order': d['Order'],
                 'export': d['Export?'] == True,
             }
@@ -2436,7 +2446,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': '',
                 'definition': 'The location affected by the policy',
                 'possible_values': 'Any text',
-                'notes': '',
+                # 'notes': '',
                 'order': 0,
                 'export': False,
             }), ({
@@ -2449,7 +2459,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'colgroup': '',
                 'definition': 'The location affected by the plan',
                 'possible_values': 'Any text',
-                'notes': '',
+                # 'notes': '',
                 'order': 0,
                 'export': False,
             }), ({
@@ -2463,7 +2473,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'source_id',
@@ -2476,7 +2486,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'source_id',
@@ -2489,7 +2499,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The unique ID of the record in the original dataset',
                 'possible_values': 'Any text',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             }), ({
                 'field': 'date_end_actual_or_anticipated',
@@ -2502,7 +2512,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 'definition': 'The date on which the policy or law will (or did) end',
                 'possible_values': 'Any date',
                 'order': 0,
-                'notes': '',
+                # 'notes': '',
                 'export': False,
             })
         ]

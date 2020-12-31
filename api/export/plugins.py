@@ -78,7 +78,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         # Define a sheet settings instance for each tab of the XLSX
         # If class_name is all, then export policies and plans, otherwise
         # export whichever is defined in `class_name`
-        export_policies_and_plans = class_name == 'all'
+        export_policies_and_plans = class_name == 'All_data_recreate'
         tabs = None
         if not export_policies_and_plans:
             if class_name == 'Policy':
