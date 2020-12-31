@@ -541,17 +541,38 @@ def get_policy(
         # otherwise prepare list of dictionaries to return
         else:
             return_fields_by_entity = defaultdict(list)
+
             if fields is not None:
-                return_fields_by_entity['policy'] = fields
+                return_fields_by_entity['policy'] = \
+                    [f for f in fields if '.' not in f]
+
+            # get any linked entity fields and parse them
+            for f in fields:
+                if '.' in f:
+                    f_arr = f.split('.')
+                    ent = None
+                    if len(f_arr) == 2:
+                        ent, field_name = f_arr
+                        return_fields_by_entity[ent].append(field_name)
+                    elif len(f_arr) == 3:
+                        ent, linked_ent, field_name = f_arr
+                        return_fields_by_entity[ent].append(linked_ent)
+                        return_fields_by_entity[linked_ent].append(field_name)
+                    return_fields_by_entity['policy'].append(ent)
+
+            for ent in return_fields_by_entity:
+                return_fields_by_entity[ent] = list(set(return_fields_by_entity[ent]))
 
             # TODO dynamically set fields returned for Place and other
             # linked entities
-            return_fields_by_entity['place'] = [
-                'id', 'level', 'loc'
-            ]
-            return_fields_by_entity['auth_entity'] = [
-                'id', 'place', 'office', 'name', 'official'
-            ]
+            if 'place' not in return_fields_by_entity:
+                return_fields_by_entity['place'] = [
+                    'id', 'level', 'loc'
+                ]
+            if 'auth_entity' not in return_fields_by_entity:
+                return_fields_by_entity['auth_entity'] = [
+                    'id', 'place', 'office', 'name', 'official'
+                ]
 
             # define list of instances to return
             data = []
@@ -1097,13 +1118,6 @@ def get_lockdown_level(
 
     # if date is not provided, return it in the response
     specify_date = date is None
-    print(geo_res)
-    print(iso3)
-    print(name)
-    print(date)
-    print(end_date)
-    print(deltas_only)
-    print(type(end_date))
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1140,7 +1154,6 @@ def get_lockdown_level(
                 #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
-                    print(i.place.to_dict())
                     datum['place_name'] = i.place.area1
                 elif i.place.area1 != name:
                     continue
@@ -1392,16 +1405,6 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data['government_order_upheld_or_enjoined'].append(
                 {'id': -1, 'value': 'Pending', 'label': 'Pending'},
             )
-
-    # # Disable profiling
-    # p.disable()
-    #
-    # # Dump the stats to a file
-    # p.dump_stats("res_focus.prof")
-    # p2 = pstats.Stats('res_focus.prof')
-    # p2.sort_stats('cumulative').print_stats(10)
-
-    # return all optionset values
 
     # apply special ordering
     if 'ph_measure_details' in data:

@@ -35,6 +35,7 @@ class PolicyFields(str, Enum):
     date_end_anticipated = 'date_end_anticipated'
     date_end_actual = 'date_end_actual'
     auth_entity = 'auth_entity'
+    auth_entity_place_level = 'auth_entity.place.level'
     place = 'place'
     file = 'file'
     none = ''
