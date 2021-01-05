@@ -56,6 +56,12 @@ def find_all(i, filter_func):
     )
 
 
+# detect a null character in a string
+def has_null(s: str):
+    nulls = ('\x00', '0x00')
+    return s in nulls
+
+
 @db_session
 def upsert(cls, get: dict, set: dict = None, skip: list = []):
     """Insert or update record into specified class based on checking for
@@ -87,6 +93,10 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
     # if no set dictionary has been specified
     set = set or {}
 
+    for k, v in set.items():
+        if type(v) == str:
+            set[k] = v.replace('\x00', '')
+
     if not cls.exists(**get):
         # make new object
         return ('insert', cls(**set, **get))
@@ -101,11 +111,7 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
                 and value != getattr(obj, key)
             if true_update:
                 action = 'update'
-                # print('\nUpdated: value was ' + str(key) +
-                #       ' = ' + str(getattr(obj, key)))
-                # print('--changed to ' + str(key) + ' = ' + str(value))
-                # print(cls)
-                # print(get['field'])
+
             # special cases
             if key in special_fields:
                 cur_val = getattr(obj, key)
