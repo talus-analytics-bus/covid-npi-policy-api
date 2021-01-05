@@ -1336,7 +1336,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 #                   'Country' for ae in p.auth_entity)
                 p.place = set()
                 for ae in p.auth_entity:
-                    p.place.add(ae.place)
+                    if ae.place is not None:
+                        p.place.add(ae.place)
 
             # create or add to policy numbers, which group policies
             policy_number_value = None
