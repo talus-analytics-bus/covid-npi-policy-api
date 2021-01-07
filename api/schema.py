@@ -1296,18 +1296,23 @@ def get_optionset(
         # TODO handle other special values like "Unspecified" as needed
         options = None
         if field == 'country_name' or field == 'level':
-            if iso3 is not None or state_name is not None:
+            if (iso3 is not None or state_name is not None) and geo_res is not None:
                 raise NotImplementedError(f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
             options = select(
                 getattr(i, field) for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
             ).filter(lambda x: x is not None)
         else:
-            options = select(
-                getattr(i, field) for i in entity_class
-                if (iso3 in i.place.iso3 or iso3 is None or geo_res != 'country')
-                and (state_name in i.place.area1 or state_name is None or geo_res != 'state')
-            ).filter(lambda x: x is not None)
+            if entity_name not in ("Policy", "Plan"):
+                options = select(
+                    getattr(i, field) for i in entity_class
+                ).filter(lambda x: x is not None)
+            else:
+                options = select(
+                    getattr(i, field) for i in entity_class
+                    if (iso3 in i.place.iso3 or iso3 is None or geo_res != 'country')
+                    and (state_name in i.place.area1 or state_name is None or geo_res != 'state')
+                ).filter(lambda x: x is not None)
 
         # get objects
         options = options[:][:]
