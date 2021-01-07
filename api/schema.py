@@ -4,6 +4,7 @@ import functools
 import math
 import itertools
 import logging
+from logging import info, warn
 # import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
@@ -1221,7 +1222,13 @@ def get_lockdown_level(
 
 @db_session
 # @cached
-def get_optionset(fields: list = list(), class_name: str = 'Policy'):
+def get_optionset(
+    fields: list = list(),
+    class_name: str = 'Policy',
+    geo_res: str = None,
+    state_name: str = None,
+    iso3: str = None,
+):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -1249,6 +1256,7 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
 
     # # Enable profiling
     # p.enable()
+    info(geo_res)
 
     # define which data fields use groups
     # TODO dynamically

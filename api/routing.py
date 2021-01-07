@@ -482,6 +482,18 @@ async def post_plan(
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
+# define standard param sets that are shared across some routes
+geo_res_def = lambda default_val: Query(default_val,
+    description='The geographic resolution for which to return data',
+)
+
+state_name_def = Query(getattr(StateNames, 'All states and territories'),
+   description='For "state" resolution: Which state(s) or territory(ies) to return'
+)
+
+iso3_def = Query(Iso3Codes.all_countries,
+    description='For "country" resolution: Which country(ies) to return'
+)
 
 @ app.get(
     "/get/optionset",
@@ -497,9 +509,18 @@ async def get_optionset(
     ),
     fields: List[str] = Query(
         ['Policy.primary_ph_measure', 'Policy.ph_measure_details'],
-        description='A list of fields for which optionsets are requested, prefixed by the data type name and a period')
+        description='A list of fields for which optionsets are requested, prefixed by the data type name and a period'),
+    geo_res: GeoRes = geo_res_def(None),
+    state_name: StateNames = state_name_def,
+    iso3: Iso3Codes = iso3_def,
 ):
-    return schema.get_optionset(fields=fields, class_name=class_name.name)
+    return schema.get_optionset(
+        fields=fields,
+        class_name=class_name.name,
+        geo_res=geo_res.name if geo_res is not None else None,
+        state_name=state_name.name if state_name not in (None, "All states and territories") else None,
+        iso3=iso3.name if iso3 not in (None, "All countries") else None,
+    )
 
 
 ##
@@ -523,7 +544,6 @@ async def get_test(test_param: str = 'GET successful'):
     """
     return [{'success': True, 'message': 'GET test', 'data': [test_param]}]
 
-
 @ app.get(
     "/get/distancing_levels",
     response_model=PolicyStatusList,
@@ -531,15 +551,9 @@ async def get_test(test_param: str = 'GET successful'):
     tags=["Distancing levels"]
 )
 async def get_distancing_levels(
-    geo_res: GeoRes = Query(GeoRes.state,
-                            description='The geographic resolution for which to return data'
-                            ),
-    iso3: Iso3Codes = Query(Iso3Codes.all_countries,
-                            description='For "country" resolution: Which country(ies) to return'
-                            ),
-    state_name: StateNames = Query(getattr(StateNames, 'All states and territories'),
-                                   description='For "state" resolution: Which state(s) or territory(ies) to return'
-                                   ),
+    geo_res: GeoRes = geo_res_def(GeoRes.state),
+    iso3: Iso3Codes = iso3_def,
+    state_name: StateNames = state_name_def,
     date: date = Query(
         date.today(),
         description='The date for which data are requested, YYYY-MM-DD, defaults to today. If no data available, data for most recent date before this date are returned.'
