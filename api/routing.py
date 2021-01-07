@@ -518,8 +518,8 @@ async def get_optionset(
         fields=fields,
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
-        state_name=state_name.name if state_name not in (None, "All states and territories") else None,
-        iso3=iso3.name if iso3 not in (None, "All countries") else None,
+        state_name=state_name.name if (state_name is not None and state_name.name != 'All states and territories') else None,
+        iso3=iso3.name if (iso3 is not None and iso3.name != 'All countries') else None
     )
 
 

@@ -246,7 +246,7 @@ class Policy(db.Entity):
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
-    subtarget = Optional(str)  # multiselect, concat
+    subtarget = Optional(StrArray)  # multiselect, concat
     policy_number = Optional(int, nullable=True)
     group_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)

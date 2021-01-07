@@ -1256,7 +1256,6 @@ def get_optionset(
 
     # # Enable profiling
     # p.enable()
-    info(geo_res)
 
     # define which data fields use groups
     # TODO dynamically
@@ -1284,6 +1283,7 @@ def get_optionset(
     )[:][:] if need_places \
         else list()
 
+
     # for each field to get optionset values for:
     for d_str in fields:
 
@@ -1296,16 +1296,22 @@ def get_optionset(
         # TODO handle other special values like "Unspecified" as needed
         options = None
         if field == 'country_name' or field == 'level':
+            if iso3 is not None or state_name is not None:
+                raise NotImplementedError(f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
             options = select(
                 getattr(i, field) for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
-            ).filter(lambda x: x is not None)[:][:]
+            ).filter(lambda x: x is not None)
         else:
             options = select(
                 getattr(i, field) for i in entity_class
-            ).filter(lambda x: x is not None)[:][:]
+                if (iso3 in i.place.iso3 or iso3 is None or geo_res != 'country')
+                and (state_name in i.place.area1 or state_name is None or geo_res != 'state')
+            ).filter(lambda x: x is not None)
 
-        if isinstance(options[0], list):
+        # get objects
+        options = options[:][:]
+        if len(options) > 0 and isinstance(options[0], list):
             options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
@@ -1724,7 +1730,6 @@ def get_policy_search_text(i):
                 'desc',
                 'primary_ph_measure',
                 'ph_measure_details',
-                'subtarget',
                 'relaxing_or_restricting',
                 'authority_name',
             ]
@@ -1732,6 +1737,7 @@ def get_policy_search_text(i):
         {
             'type': list,
             'fields': [
+                'subtarget',
                 'primary_impact',
             ]
         },
