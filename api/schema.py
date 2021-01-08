@@ -1283,7 +1283,6 @@ def get_optionset(
     )[:][:] if need_places \
         else list()
 
-
     # for each field to get optionset values for:
     for d_str in fields:
 
@@ -1297,7 +1296,8 @@ def get_optionset(
         options = None
         if field == 'country_name' or field == 'level':
             if (iso3 is not None or state_name is not None) and geo_res is not None:
-                raise NotImplementedError(f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
+                raise NotImplementedError(
+                    f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
             options = select(
                 getattr(i, field) for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
