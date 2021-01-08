@@ -163,7 +163,7 @@ class Policy(BaseModel):
     ph_measure_details: str = None
     policy_type: str = None
     authority_name: str = None
-    subtarget: str = None
+    subtarget: List[str] = None
 
     # key dates
     date_issued: date = None
