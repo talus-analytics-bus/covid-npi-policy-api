@@ -43,6 +43,26 @@ show_in_progress = (
 )
 
 
+def format_date(key, d, unspec_val, skipped_dates):
+    if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
+        return None
+    elif len(d[key].split('/')) == 2:
+        print(f'''Unexpected format for `{key}`: {d[key]}\n''')
+        return unspec_val
+    else:
+        # ignore dates before Dec 1, 2019
+        date_arr = d[key].split('-')
+        date_arr_int = list(map(lambda x: int(x), date_arr))
+        yyyy, mm, dd = date_arr_int
+        if yyyy < 2019:
+            skipped_dates.add(d.get('policy_name', d.get('source_id', 'Unknown')))
+            return None
+        elif yyyy == 2019 and mm < 12:
+            skipped_dates.add(d.get('policy_name', d.get('source_id', 'Unknown')))
+            return None
+        else:
+            return d[key]
+
 def iterable(obj):
     """Return True if `obj` is iterable, like a string, set, or list,
     False otherwise.
@@ -701,6 +721,9 @@ class CovidPolicyPlugin(IngestPlugin):
             api_key=os.environ.get('AIRTABLE_API_KEY')
         )
         self.client = client
+
+        # track which records had incorrectly-formed dates
+        self.skipped_dates = set()
         return self
 
     def load_metadata(self):
@@ -1437,11 +1460,12 @@ class CovidPolicyPlugin(IngestPlugin):
                         num.names = [section.policy_name]
 
                 # earliest effective start date
-                if num.earliest_date_start_effective is None or \
-                        num.earliest_date_start_effective > \
-                        section.date_start_effective:
-                    num.earliest_date_start_effective = \
-                        section.date_start_effective
+                if section.date_start_effective is not None:
+                    if num.earliest_date_start_effective is None or \
+                            num.earliest_date_start_effective > \
+                            section.date_start_effective:
+                        num.earliest_date_start_effective = \
+                            section.date_start_effective
 
                 # concat search text
                 search_text += section.search_text
@@ -2005,16 +2029,13 @@ class CovidPolicyPlugin(IngestPlugin):
         # maintain dict of attributes to set post-creation
         post_creation_attrs = defaultdict(dict)
 
+        # define fields that should stay sets
+        set_fields = ('subtarget',)
+
         def formatter(key, d):
             unspec_val = 'In progress' if key in show_in_progress else 'Unspecified'
             if key.startswith('date_'):
-                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
-                    return None
-                elif len(d[key].split('/')) == 2:
-                    print(f'''Unexpected format for `{key}`: {d[key]}\n''')
-                    return unspec_val
-                else:
-                    return d[key]
+                return format_date(key, d, None, self.skipped_dates)
             elif key == 'policy_number':
                 if d[key] != '':
                     return int(d[key])
@@ -2031,7 +2052,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 post_creation_attrs[d['id']]['prior_policy'] = set(d[key])
                 return set()
             elif type(d[key]) != str and iterable(d[key]):
-                if len(d[key]) > 0:
+                if key in set_fields:
+                    return list(d.get(key, set()))
+                elif len(d[key]) > 0:
                     return "; ".join(d[key])
                 else:
                     return unspec_val
@@ -2110,6 +2133,8 @@ class CovidPolicyPlugin(IngestPlugin):
         print('Inserted: ' + str(n_inserted))
         print('Updated: ' + str(n_updated))
         print('Deleted: ' + str(n_deleted))
+        print('Skipped dates:')
+        pp.pprint(self.skipped_dates)
 
     @db_session
     def create_plans(self, db):
@@ -2144,13 +2169,7 @@ class CovidPolicyPlugin(IngestPlugin):
         def formatter(key, d):
             unspec_val = 'In progress' if key in show_in_progress else 'Unspecified'
             if key.startswith('date_'):
-                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
-                    return None
-                elif len(d[key].split('/')) == 2:
-                    print(f'''Unexpected format for `{key}`: {d[key]}\n''')
-                    return unspec_val
-                else:
-                    return d[key]
+                return format_date(key, d, None, self.skipped_dates)
             elif key == 'policy_number' or key == 'n_phases':
                 if d[key] != '':
                     return int(d[key])
@@ -2256,13 +2275,7 @@ class CovidPolicyPlugin(IngestPlugin):
             set_to_bool = ('legal_challenge',)
             # correct errors in date entry
             if key.startswith('date_'):
-                if d[key] == '' or d[key] is None or d[key] == 'N/A' or d[key] == 'NA':
-                    return None
-                elif len(d[key].split('/')) == 2:
-                    print(f'''Unexpected format for `{key}`: {d[key]}\n''')
-                    return unspec_val
-                else:
-                    return d[key]
+                return format_date(key, d, None, self.skipped_dates)
             # parse IDs as integers
             elif key == 'id':
                 return int(d[key])
