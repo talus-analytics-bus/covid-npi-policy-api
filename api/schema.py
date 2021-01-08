@@ -376,7 +376,7 @@ def get_policy_number(
         # TODO dynamically set fields returned for Place and other
         # linked entities
         return_fields_by_entity['place'] = [
-            'id', 'level', 'loc'
+            'id', 'level', 'loc', 'home_rule', 'dillons_rule'
         ]
         return_fields_by_entity['auth_entity'] = [
             'id', 'place', 'office', 'name'
@@ -568,7 +568,7 @@ def get_policy(
             # linked entities
             if 'place' not in return_fields_by_entity:
                 return_fields_by_entity['place'] = [
-                    'id', 'level', 'loc'
+                    'id', 'level', 'loc', 'home_rule', 'dillons_rule'
                 ]
             if 'auth_entity' not in return_fields_by_entity:
                 return_fields_by_entity['auth_entity'] = [
