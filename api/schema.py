@@ -1655,7 +1655,10 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         join_policy_nonset_field = entity_class != db.Policy and \
             field in ('primary_ph_measure')
 
-        set_fields = ('policy_categories', 'complaint_subcategory_new', 'complaint_category_new')
+        set_fields = (
+            'policy_categories', 'complaint_subcategory_new',
+            'complaint_category_new', 'subtarget'
+        )
 
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
