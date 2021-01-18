@@ -63,6 +63,7 @@ def format_date(key, d, unspec_val, skipped_dates):
         else:
             return d[key]
 
+
 def iterable(obj):
     """Return True if `obj` is iterable, like a string, set, or list,
     False otherwise.
@@ -570,7 +571,9 @@ class CovidCaseloadPlugin(IngestPlugin):
             """
             print('\nFetching data from JHU GitHub...')
             download_url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv'
+            download_url_deaths = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv'
             data = jhu_caseload_csv_to_dict(download_url, db)
+            data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
             print('Done.')
 
             print('\nUpserting relevant metrics...')
@@ -642,13 +645,34 @@ class CovidCaseloadPlugin(IngestPlugin):
             )
             commit()
 
+            # upsert metric for daily US deaths
+            action, covid_total_deaths_countries = upsert(
+                db.Metric,
+                {
+                    'metric_name': 'covid_total_deaths_countries',
+                    'metric_id': 95
+                },
+                {
+                    'temporal_resolution': 'daily',
+                    'spatial_resolution': 'country',
+                    'spatial_extent': 'planet',
+                    'min_time': '2020-01-01',
+                    'max_time': '2025-01-01',
+                    'unit_type': 'count',
+                    'unit': 'deaths',
+                    'num_type': 'int',
+                    'metric_definition': 'The total cumulative number of COVID-19 deaths by date and country'
+                }
+            )
+            commit()
+
             print('Done.')
 
             print('\nUpserting observations...')
 
             updated_at = datetime.now()
             last_datum_date = None
-            n = len(data)
+            n_cases = len(n_cases)
             with alive_bar(n, title='Importing national-level cases data') as bar:
                 for d in data:
                     bar()
@@ -664,6 +688,32 @@ class CovidCaseloadPlugin(IngestPlugin):
                         db.Observation,
                         {
                             'metric': covid_total_cases_countries,
+                            'date_time': dt['dt_id'],
+                            'place': d['place'],
+                            'data_source': 'JHU CSSE COVID-19 Dataset',
+                        },
+                        {
+                            'value': d['value'],
+                            'updated_at': updated_at,
+                        }
+                    )
+
+            n_deaths = len(data_deaths)
+            with alive_bar(n_deaths, title='Importing national-level deaths data') as bar:
+                for d in data_deaths:
+                    bar()
+                    dt = None
+                    try:
+                        dt = all_dt_dict[d['date']]
+                    except:
+                        input('error: missing dt. Press enter to continue.')
+                        continue
+
+                    last_datum_date = d['date']
+                    action, obs_affected = upsert(
+                        db.Observation,
+                        {
+                            'metric': covid_total_deaths_countries,
                             'date_time': dt['dt_id'],
                             'place': d['place'],
                             'data_source': 'JHU CSSE COVID-19 Dataset',
