@@ -245,13 +245,14 @@ async def post_policy(
     pagesize: int = Query(100, description='Number of records per page'),
     count: bool = Query(
         False, description='If true, return number of records only, otherwise return data for records'),
+    random: bool = Query(
+        False, description='If true, return a random sampling of `pagesize` records, otherwise return according to `ordering` in body'),
 ):
     fields = [v for v in fields if v != PolicyFields.none]
-    print(fields)
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering,
-        count_only=count
+        count_only=count, random=random
     )
 
 

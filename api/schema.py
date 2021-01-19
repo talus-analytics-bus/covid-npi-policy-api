@@ -50,13 +50,14 @@ def cached(func):
 
     @functools.wraps(func)
     def wrapper(*func_args, **kwargs):
-
+        random = kwargs.get('random', False)
         key = str(kwargs)
-        if key in cache:
+        if key in cache and not random:
             return cache[key]
 
         results = func(*func_args, **kwargs)
-        cache[key] = results
+        if not random:
+            cache[key] = results
         return results
 
         # # Code for JWT-friendly caching below.
@@ -448,6 +449,7 @@ def get_policy(
     return_db_instances: bool = False,
     by_category: str = None,
     ordering: list = [],
+    random: bool = False,
     page: int = None,
     pagesize: int = 100,
     count_only: bool = False,
@@ -483,7 +485,7 @@ def get_policy(
 
     # use pagination if all fields are requested, and set value for `page` if
     # none was provided in the URL query args
-    use_pagination = (all or page is not None) and not return_db_instances
+    use_pagination = (all or page is not None) and not return_db_instances and not random
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
@@ -504,35 +506,38 @@ def get_policy(
 
     else:
 
-        # apply ordering
-        ordering.reverse()
-        for field_tmp, direction in ordering:
-            if 'place.' in field_tmp:
-                field = field_tmp.split('.')[1]
-                if direction == 'desc':
-                    q = q.order_by(
-                        lambda i: desc(
-                            group_concat(getattr(p, field) for p in i.place)
+        if not random:
+            # apply ordering
+            ordering.reverse()
+            for field_tmp, direction in ordering:
+                if 'place.' in field_tmp:
+                    field = field_tmp.split('.')[1]
+                    if direction == 'desc':
+                        q = q.order_by(
+                            lambda i: desc(
+                                group_concat(getattr(p, field) for p in i.place)
+                            )
                         )
-                    )
-                else:
-                    q = q.order_by(
-                        lambda i:
-                            group_concat(getattr(p, field) for p in i.place)
+                    else:
+                        q = q.order_by(
+                            lambda i:
+                                group_concat(getattr(p, field) for p in i.place)
 
-                    )
-            else:
-                field = field_tmp
-                if direction == 'desc':
-                    q = q.order_by(desc(getattr(db.Policy, field)))
+                        )
                 else:
-                    q = q.order_by(getattr(db.Policy, field))
+                    field = field_tmp
+                    if direction == 'desc':
+                        q = q.order_by(desc(getattr(db.Policy, field)))
+                    else:
+                        q = q.order_by(getattr(db.Policy, field))
+        else:
+            q = q.random(pagesize)
 
         # get len of query
-        n = count(q) if use_pagination else None
+        n = count(q) if (use_pagination and not random) else None
 
         # apply pagination if using
-        if use_pagination:
+        if use_pagination and not random:
             q = q.page(page, pagesize=pagesize)
 
         # return query object if arguments requested it
