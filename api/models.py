@@ -23,6 +23,7 @@ class FilterFieldsPolicy(str, Enum):
 class PolicyFields(str, Enum):
     id = 'id'
     policy_name = 'policy_name'
+    policy_number = 'policy_number'
     desc = 'desc'
     name_and_desc = 'name_and_desc'
     primary_ph_measure = 'primary_ph_measure'
@@ -158,6 +159,7 @@ class Policy(BaseModel):
 
     # descriptive information
     policy_name: str = None
+    policy_number: int = None
     desc: str = None
     name_and_desc: str = None
     primary_ph_measure: str = None

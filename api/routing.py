@@ -182,7 +182,8 @@ async def get_file_redirect(id: int):
     include_in_schema=False
 )
 async def get_file_title_required(
-    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    id: int = Query(
+        None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
     title: str = Query('Filename', description="Any filename")
 ):
     return schema.get_file(id)
@@ -195,7 +196,8 @@ async def get_file_title_required(
     description=DOWNLOAD_DESCRIPTION
 )
 async def get_file(
-    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    id: int = Query(
+        None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
     title: str = Query('Filename', description="Any filename")
 ):
     return schema.get_file(id)
@@ -241,9 +243,11 @@ async def post_policy(
     ),
     page: int = Query(1, description='Page to return'),
     pagesize: int = Query(100, description='Number of records per page'),
-    count: bool = Query(False, description='If true, return number of records only, otherwise return data for records'),
+    count: bool = Query(
+        False, description='If true, return number of records only, otherwise return data for records'),
 ):
     fields = [v for v in fields if v != PolicyFields.none]
+    print(fields)
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering,
@@ -483,17 +487,21 @@ async def post_plan(
     )
 
 # define standard param sets that are shared across some routes
-geo_res_def = lambda default_val: Query(default_val,
-    description='The geographic resolution for which to return data',
-)
+
+
+def geo_res_def(default_val): return Query(default_val,
+                                           description='The geographic resolution for which to return data',
+                                           )
+
 
 state_name_def = Query(getattr(StateNames, 'All states and territories'),
-   description='For "state" resolution: Which state(s) or territory(ies) to return'
-)
+                       description='For "state" resolution: Which state(s) or territory(ies) to return'
+                       )
 
 iso3_def = Query(Iso3Codes.all_countries,
-    description='For "country" resolution: Which country(ies) to return'
-)
+                 description='For "country" resolution: Which country(ies) to return'
+                 )
+
 
 @ app.get(
     "/get/optionset",
@@ -518,7 +526,8 @@ async def get_optionset(
         fields=fields,
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
-        state_name=state_name.name if (state_name is not None and state_name.name != 'All states and territories') else None,
+        state_name=state_name.name if (
+            state_name is not None and state_name.name != 'All states and territories') else None,
         iso3=iso3.name if (iso3 is not None and iso3.name != 'All countries') else None
     )
 
@@ -543,6 +552,7 @@ async def get_test(test_param: str = 'GET successful'):
 
     """
     return [{'success': True, 'message': 'GET test', 'data': [test_param]}]
+
 
 @ app.get(
     "/get/distancing_levels",
