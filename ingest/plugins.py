@@ -673,7 +673,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             updated_at = datetime.now()
             last_datum_date = None
             n_cases = len(data)
-            with alive_bar(n, title='Importing national-level cases data') as bar:
+            with alive_bar(n_cases, title='Importing national-level cases data') as bar:
                 for d in data:
                     bar()
                     dt = None
