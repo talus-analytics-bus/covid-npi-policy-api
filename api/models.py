@@ -38,6 +38,7 @@ class PolicyFields(str, Enum):
     auth_entity = 'auth_entity'
     auth_entity_place_level = 'auth_entity.place.level'
     auth_entity_place_loc = 'auth_entity.place.loc'
+    court_challenges_id = 'court_challenges.id'
     place = 'place'
     file = 'file'
     none = ''
@@ -154,6 +155,31 @@ class File(BaseModel):
     data_source: str = None
 
 
+class Court_Challenge(BaseModel):
+    id: int = None
+    jurisdiction: str = None
+    case_name: str = None
+    summary_of_action: str = None
+    policy_or_law_name: str = None
+    parties: str = None
+    legal_citation: str = None
+    court: str = None
+    case_number: str = None
+    holding: str = None
+    complaint_category: List[str] = None
+    data_source_for_complaint: str = None
+    data_source_for_decision: str = None
+    date_of_decision: date = None
+    date_of_complaint: date = None
+    government_order_upheld_or_enjoined: str = None
+    parties_or_citation_and_summary_of_action: str = None
+    policy_status: str = None
+    case_status: str = None
+
+    # related entities
+    policies: List['Policy'] = None
+
+
 class Policy(BaseModel):
     id: int = None
 
@@ -176,9 +202,13 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
+    court_challenges: List[Court_Challenge] = None
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+
+
+Court_Challenge.update_forward_refs()
 
 
 class PolicyNumber(BaseModel):
@@ -301,31 +331,6 @@ class PolicyList(Response):
 
 class PolicyNumberList(Response):
     data: List[PolicyNumber]
-
-
-class Court_Challenge(BaseModel):
-    id: int
-    jurisdiction: str = None
-    case_name: str = None
-    summary_of_action: str = None
-    policy_or_law_name: str = None
-    parties: str = None
-    legal_citation: str = None
-    court: str = None
-    case_number: str = None
-    holding: str = None
-    complaint_category: List[str] = None
-    data_source_for_complaint: str = None
-    data_source_for_decision: str = None
-    date_of_decision: date = None
-    date_of_complaint: date = None
-    government_order_upheld_or_enjoined: str = None
-    parties_or_citation_and_summary_of_action: str = None
-    policy_status: str = None
-    case_status: str = None
-
-    # related entities
-    policies: List[Policy] = None
 
 
 class ChallengeList(Response):

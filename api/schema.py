@@ -579,6 +579,10 @@ def get_policy(
                 return_fields_by_entity['auth_entity'] = [
                     'id', 'place', 'office', 'name', 'official', 'area1', 'area2', 'iso3',
                 ]
+            # if 'court_challenges' not in return_fields_by_entity:
+            #     return_fields_by_entity['court_challenges'] = [
+            #         'id',
+            #     ]
 
             # define list of instances to return
             data = []

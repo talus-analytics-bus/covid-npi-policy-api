@@ -330,6 +330,7 @@ class Policy(db.Entity):
 
         # if requested, return only certain fields for certain linked entities
         only_place = return_fields_by_entity.get('place', ())
+        only_challenge = return_fields_by_entity.get('court_challenges', ())
 
         # ensure id field is always returned
         if len(only_place) > 0:
@@ -337,9 +338,15 @@ class Policy(db.Entity):
             only_place.add('id')
             only_place = tuple(only_place)
 
+        if len(only_challenge) > 0:
+            only_challenge = set(only_challenge)
+            only_challenge.add('id')
+            only_challenge = tuple(only_challenge)
+
         # iterate over the items in the Policy instance's dictionary in search
         # for other entity types for which we have unique IDs but need full
         # data dictionaries
+        no_challenges = True
         for k, v in instance_dict.items():
 
             # For each supported entity type, convert its unique ID into a
@@ -357,6 +364,18 @@ class Policy(db.Entity):
                         instances.append(Place[id].to_dict(only=only_place))
                     except:
                         pass
+                instance_dict[k] = instances
+
+            # Place
+            if k == 'court_challenges':
+                instances = list()
+                for id in v:
+                    try:
+                        instances.append(Court_Challenge[id].to_dict(only=only_challenge))
+                    except:
+                        pass
+                if len(instances) > 0:
+                    no_challenges = False
                 instance_dict[k] = instances
 
             # Auth_Entity
@@ -387,6 +406,9 @@ class Policy(db.Entity):
                         )
                     except:
                         pass
+        if no_challenges:
+            del instance_dict['court_challenges']
+        print(instance_dict)
         return instance_dict
 
 
@@ -410,8 +432,7 @@ class Policy_Number(db.Entity):
 
         """
         # get which fields should be returned by entity name
-        return_fields_by_entity = \
-            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
+        return_fields_by_entity = kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
             in kwargs else dict()
 
         # if `only` was specified, use that as the `policy` entity's return
