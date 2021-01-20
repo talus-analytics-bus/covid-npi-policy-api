@@ -406,9 +406,8 @@ class Policy(db.Entity):
                         )
                     except:
                         pass
-        if no_challenges:
+        if no_challenges and 'court_challenges' in instance_dict:
             del instance_dict['court_challenges']
-        print(instance_dict)
         return instance_dict
 
 
