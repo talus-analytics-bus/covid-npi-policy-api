@@ -772,6 +772,7 @@ def get_place(
     iso3=None,
     level=None,
     fields=list(),
+    include_policy_count=False,
 ):
     """Returns Place instance data that match the provided filters.
 
@@ -786,7 +787,15 @@ def get_place(
         )
     )[:][:]
 
-    data = [d.to_dict(only=fields) for d in places]
+    data = None
+    if include_policy_count:
+        data_tmp = [(d.to_dict(only=fields), len(d.policies)) for d in places]
+        data = list()
+        for d, n_policies in data_tmp:
+            d.update({'n_policies': n_policies})
+            data.append(d)
+    else:
+        data = [d.to_dict(only=fields) for d in places]
 
     # create response from output list
     n = len(data)

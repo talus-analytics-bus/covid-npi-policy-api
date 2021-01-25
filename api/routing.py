@@ -298,11 +298,15 @@ async def get_place(
     fields: List[PlaceFields] = Query(None),
     iso3: str = '',
     level: str = '',
+    include_policy_count: bool = False,
 ):
     """Return Place data.
 
     """
-    return schema.get_place(fields=[d.name for d in fields], iso3=iso3.lower(), level=level.lower())
+    return schema.get_place(
+        fields=[d.name for d in fields], iso3=iso3.lower(), level=level.lower(),
+        include_policy_count=include_policy_count
+    )
 
 
 @ app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
