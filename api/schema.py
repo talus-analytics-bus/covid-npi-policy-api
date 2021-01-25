@@ -799,7 +799,6 @@ def get_place(
 
     # create response from output list
     n = len(data)
-    print(n)
     res = ListResponse(
         data=data,
         success=True,
