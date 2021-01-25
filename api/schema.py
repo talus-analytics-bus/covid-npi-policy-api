@@ -24,7 +24,8 @@ from .export import CovidPolicyExportPlugin
 from .models import (
     Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
     Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber,
-    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList
+    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList,
+    ListResponse
 )
 from .util import str_to_date, find, download_file
 from db import db
@@ -763,6 +764,40 @@ def get_challenge(
                 n=n
             )
         return res
+
+
+@db_session
+@cached
+def get_place(
+    iso3=None,
+    level=None,
+    fields=list(),
+):
+    """Returns Place instance data that match the provided filters.
+
+    """
+    places = select(
+        i for i
+        in db.Place
+        if (
+            iso3 == '' or i.iso3.lower() == iso3
+        ) and (
+            level == '' or i.level.lower() == level
+        )
+    )[:][:]
+
+    data = [d.to_dict(only=fields) for d in places]
+
+    # create response from output list
+    n = len(data)
+    print(n)
+    res = ListResponse(
+        data=data,
+        success=True,
+        message=f'''{n} place(s) found''',
+        n=n
+    )
+    return res
 
 
 @db_session

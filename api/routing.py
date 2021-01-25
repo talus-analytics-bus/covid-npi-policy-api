@@ -16,7 +16,7 @@ from .models import (
     MetadataList,
     ListResponse, PolicyStatusList, PolicyStatusCountList,
     PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields,
-    Iso3Codes, StateNames, ExportFiltersNoOrdering
+    PlaceFields, Iso3Codes, StateNames, ExportFiltersNoOrdering
 )
 from .app import app
 from db import db
@@ -284,6 +284,25 @@ async def get_challenge(
 
     """
     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+
+
+@ app.get(
+    "/get/place",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Places"],
+    summary="Return places matching filters",
+
+)
+async def get_place(
+    fields: List[PlaceFields] = Query(None),
+    iso3: str = '',
+    level: str = '',
+):
+    """Return Place data.
+
+    """
+    return schema.get_place(fields=[d.name for d in fields], iso3=iso3.lower(), level=level.lower())
 
 
 @ app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)

@@ -19,6 +19,10 @@ tags_metadata = [
         "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
     },
     {
+        "name": "Places",
+        "description": "Operations to get data for places that are affected by policies, including name and number of policies affecting (overall).",
+    },
+    {
         "name": "Distancing levels",
         "description": "Operations to get data describing the level of distancing (e.g., \"Lockdown\", \"Partially open\") that was in effect in a given US state or a given country on a given date.",
     },

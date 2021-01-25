@@ -114,6 +114,23 @@ class CourtChallengeFields(str, Enum):
     none = ''
 
 
+class PlaceFields(str, Enum):
+    id = 'id'
+    level = 'level'
+    iso3 = 'iso3'
+    country_name = 'country_name'
+    area1 = 'area1'
+    area2 = 'area2'
+    loc = 'loc'
+    home_rule = 'home_rule'
+    dillons_rule = 'dillons_rule'
+    policies = 'policies'
+    plans = 'plans'
+    auth_entities = 'auth_entities'
+    observations = 'observations'
+    policy_numbers = 'policy_numbers'
+
+
 class Response(BaseModel):
     success: bool
     message: str
