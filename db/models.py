@@ -201,6 +201,7 @@ class Plan(db.Entity):
             # Place
             if k == 'place':
                 instances = list()
+
                 for id in v:
                     try:
                         instances.append(Place[id].to_dict())
@@ -246,7 +247,7 @@ class Policy(db.Entity):
     intended_duration = Optional(str)
     announcement_data_source = Optional(str)
     policy_data_source = Optional(str)
-    subtarget = Optional(str)  # multiselect, concat
+    subtarget = Optional(StrArray)  # multiselect, concat
     policy_number = Optional(int, nullable=True)
     group_number = Optional(int, nullable=True)
     relaxing_or_restricting = Optional(str)
@@ -328,9 +329,25 @@ class Policy(db.Entity):
         else:
             instance_dict = Policy.to_dict(self, **kwargs)
 
+        # if requested, return only certain fields for certain linked entities
+        only_place = return_fields_by_entity.get('place', ())
+        only_challenge = return_fields_by_entity.get('court_challenges', ())
+
+        # ensure id field is always returned
+        if len(only_place) > 0:
+            only_place = set(only_place)
+            only_place.add('id')
+            only_place = tuple(only_place)
+
+        if len(only_challenge) > 0:
+            only_challenge = set(only_challenge)
+            only_challenge.add('id')
+            only_challenge = tuple(only_challenge)
+
         # iterate over the items in the Policy instance's dictionary in search
         # for other entity types for which we have unique IDs but need full
         # data dictionaries
+        no_challenges = True
         for k, v in instance_dict.items():
 
             # For each supported entity type, convert its unique ID into a
@@ -345,9 +362,21 @@ class Policy(db.Entity):
                 instances = list()
                 for id in v:
                     try:
-                        instances.append(Place[id].to_dict())
+                        instances.append(Place[id].to_dict(only=only_place))
                     except:
                         pass
+                instance_dict[k] = instances
+
+            # Place
+            if k == 'court_challenges':
+                instances = list()
+                for id in v:
+                    try:
+                        instances.append(Court_Challenge[id].to_dict(only=only_challenge))
+                    except:
+                        pass
+                if len(instances) > 0:
+                    no_challenges = False
                 instance_dict[k] = instances
 
             # Auth_Entity
@@ -355,11 +384,9 @@ class Policy(db.Entity):
                 instances = list()
                 for id in v:
                     try:
-                        only = return_fields_by_entity['auth_entity'] if \
-                            'auth_entity' in return_fields_by_entity else \
-                            None
+                        only = return_fields_by_entity.get('auth_entity', ())
                         instances.append(
-                            Auth_Entity[id].to_dict_2(only=only)
+                            Auth_Entity[id].to_dict_2(only=only, only_place=only_place)
                         )
                     except:
                         pass
@@ -380,6 +407,8 @@ class Policy(db.Entity):
                         )
                     except:
                         pass
+        if no_challenges and 'court_challenges' in instance_dict:
+            del instance_dict['court_challenges']
         return instance_dict
 
 
@@ -403,8 +432,7 @@ class Policy_Number(db.Entity):
 
         """
         # get which fields should be returned by entity name
-        return_fields_by_entity = \
-            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
+        return_fields_by_entity = kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
             in kwargs else dict()
 
         # if `only` was specified, use that as the `policy` entity's return
@@ -524,12 +552,14 @@ class Auth_Entity(db.Entity):
         d = self.to_dict(
             with_collections=True,
             related_objects=True,
-            only=only
+            # only=only
         )
 
         # process place
         if 'place' in d:
-            d['place'] = d['place'].to_dict()
+            only_place = kwargs.get('only_place', ())
+            d['place'] = d['place'].to_dict(only=only_place)
+
         return d
 
 
@@ -634,6 +664,8 @@ only = {
         'id',
         'policy_name',
     ]
+
+
 }
 
 

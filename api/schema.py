@@ -4,7 +4,8 @@ import functools
 import math
 import itertools
 import logging
-import pprint
+from logging import info, warn
+# import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -15,7 +16,7 @@ from pony.orm import (
     db_session, select, get, commit, desc, count, raw_sql, concat, coalesce,
     exists, group_concat
 )
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from fuzzywuzzy import fuzz
 
 # local modules
@@ -23,7 +24,8 @@ from .export import CovidPolicyExportPlugin
 from .models import (
     Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
     Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber,
-    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList
+    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList,
+    ListResponse
 )
 from .util import str_to_date, find, download_file
 from db import db
@@ -37,8 +39,8 @@ from db import db
 s3 = boto3.client('s3')
 S3_BUCKET_NAME = 'covid-npi-policy-storage'
 
-# pretty printing: for printing JSON objects legibly
-pp = pprint.PrettyPrinter(indent=4)
+# # pretty printing: for printing JSON objects legibly
+# pp = pprint.PrettyPrinter(indent=4)
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
 
@@ -49,13 +51,14 @@ def cached(func):
 
     @functools.wraps(func)
     def wrapper(*func_args, **kwargs):
-
+        random = kwargs.get('random', False)
         key = str(kwargs)
-        if key in cache:
+        if key in cache and not random:
             return cache[key]
 
         results = func(*func_args, **kwargs)
-        cache[key] = results
+        if not random:
+            cache[key] = results
         return results
 
         # # Code for JWT-friendly caching below.
@@ -163,7 +166,8 @@ def get_count(class_names):
         Description of returned object.
 
     """
-    supported_entities = ('Policy', 'Plan', 'Court_Challenge')
+    supported_entities = ('Policy', 'Plan')
+    # supported_entities = ('Policy', 'Plan', 'Court_Challenge')
     data = dict()
     for d in class_names:
         if d not in supported_entities or not hasattr(db, d):
@@ -375,7 +379,7 @@ def get_policy_number(
         # TODO dynamically set fields returned for Place and other
         # linked entities
         return_fields_by_entity['place'] = [
-            'id', 'level', 'loc'
+            'id', 'level', 'loc', 'home_rule', 'dillons_rule', 'area1', 'area2', 'iso3'
         ]
         return_fields_by_entity['auth_entity'] = [
             'id', 'place', 'office', 'name'
@@ -447,6 +451,7 @@ def get_policy(
     return_db_instances: bool = False,
     by_category: str = None,
     ordering: list = [],
+    random: bool = False,
     page: int = None,
     pagesize: int = 100,
     count_only: bool = False,
@@ -482,7 +487,7 @@ def get_policy(
 
     # use pagination if all fields are requested, and set value for `page` if
     # none was provided in the URL query args
-    use_pagination = (all or page is not None) and not return_db_instances
+    use_pagination = (all or page is not None) and not return_db_instances and not random
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
@@ -503,35 +508,38 @@ def get_policy(
 
     else:
 
-        # apply ordering
-        ordering.reverse()
-        for field_tmp, direction in ordering:
-            if 'place.' in field_tmp:
-                field = field_tmp.split('.')[1]
-                if direction == 'desc':
-                    q = q.order_by(
-                        lambda i: desc(
-                            group_concat(getattr(p, field) for p in i.place)
+        if not random:
+            # apply ordering
+            ordering.reverse()
+            for field_tmp, direction in ordering:
+                if 'place.' in field_tmp:
+                    field = field_tmp.split('.')[1]
+                    if direction == 'desc':
+                        q = q.order_by(
+                            lambda i: desc(
+                                group_concat(getattr(p, field) for p in i.place)
+                            )
                         )
-                    )
-                else:
-                    q = q.order_by(
-                        lambda i:
-                            group_concat(getattr(p, field) for p in i.place)
+                    else:
+                        q = q.order_by(
+                            lambda i:
+                                group_concat(getattr(p, field) for p in i.place)
 
-                    )
-            else:
-                field = field_tmp
-                if direction == 'desc':
-                    q = q.order_by(desc(getattr(db.Policy, field)))
+                        )
                 else:
-                    q = q.order_by(getattr(db.Policy, field))
+                    field = field_tmp
+                    if direction == 'desc':
+                        q = q.order_by(desc(getattr(db.Policy, field)))
+                    else:
+                        q = q.order_by(getattr(db.Policy, field))
+        else:
+            q = q.random(pagesize)
 
         # get len of query
-        n = count(q) if use_pagination else None
+        n = count(q) if (use_pagination and not random) else None
 
         # apply pagination if using
-        if use_pagination:
+        if use_pagination and not random:
             q = q.page(page, pagesize=pagesize)
 
         # return query object if arguments requested it
@@ -541,17 +549,42 @@ def get_policy(
         # otherwise prepare list of dictionaries to return
         else:
             return_fields_by_entity = defaultdict(list)
+
             if fields is not None:
-                return_fields_by_entity['policy'] = fields
+                return_fields_by_entity['policy'] = \
+                    [f for f in fields if '.' not in f]
+
+            # get any linked entity fields and parse them
+            for f in fields:
+                if '.' in f:
+                    f_arr = f.split('.')
+                    ent = None
+                    if len(f_arr) == 2:
+                        ent, field_name = f_arr
+                        return_fields_by_entity[ent].append(field_name)
+                    elif len(f_arr) == 3:
+                        ent, linked_ent, field_name = f_arr
+                        return_fields_by_entity[ent].append(linked_ent)
+                        return_fields_by_entity[linked_ent].append(field_name)
+                    return_fields_by_entity['policy'].append(ent)
+
+            for ent in return_fields_by_entity:
+                return_fields_by_entity[ent] = list(set(return_fields_by_entity[ent]))
 
             # TODO dynamically set fields returned for Place and other
             # linked entities
-            return_fields_by_entity['place'] = [
-                'id', 'level', 'loc'
-            ]
-            return_fields_by_entity['auth_entity'] = [
-                'id', 'place', 'office', 'name', 'official'
-            ]
+            if 'place' not in return_fields_by_entity:
+                return_fields_by_entity['place'] = [
+                    'id', 'level', 'loc', 'home_rule', 'dillons_rule', 'area1', 'area2', 'iso3',
+                ]
+            if 'auth_entity' not in return_fields_by_entity:
+                return_fields_by_entity['auth_entity'] = [
+                    'id', 'place', 'office', 'name', 'official', 'area1', 'area2', 'iso3',
+                ]
+            # if 'court_challenges' not in return_fields_by_entity:
+            #     return_fields_by_entity['court_challenges'] = [
+            #         'id',
+            #     ]
 
             # define list of instances to return
             data = []
@@ -595,143 +628,185 @@ def get_policy(
             return res
 
 
+# @db_session
+# @cached
+# def get_challenge(
+#     filters: dict = None,
+#     fields: list = None,
+#     order_by_field: str = 'date_of_complaint',
+#     return_db_instances: bool = False,
+#     by_category: str = None,
+#     ordering: list = [],
+#     page: int = None,
+#     pagesize: int = 100
+# ):
+#     """Returns Challenge instance data that match the provided filters.
+#
+#     Parameters
+#     ----------
+#     filters : dict
+#         Dictionary of filters to be applied to data (see function
+#         `apply_entity_filters` below).
+#     fields : list
+#         List of instance fields that should be returned. If None, then
+#         all fields are returned.
+#     order_by_field : type
+#         String defining the field in the class that is used to
+#         order the policies returned.
+#     return_db_instances : bool
+#         If true, returns the PonyORM database query object containing the
+#         filtered instances, otherwise returns the list of dictionaries
+#         containing the instance data as part of a response dictionary
+#
+#     Returns
+#     -------
+#     pony.orm.Query **or** dict
+#         Query instance if `return_db_instances` is true, otherwise a list of
+#         dictionaries in a response dictionary
+#
+#     """
+#     # return all fields?
+#     all = fields is None
+#
+#     # use pagination if all fields are requested, and set value for `page` if
+#     # none was provided in the URL query args
+#     use_pagination = (all or page is not None) and not return_db_instances
+#     if use_pagination and (page is None or page == 0):
+#         page = 1
+#     q = select(i for i in db.Court_Challenge)
+#
+#     # apply filters if any
+#     if filters is not None:
+#         q = apply_entity_filters(q, db.Court_Challenge, filters)
+#
+#     # apply ordering
+#     ordering.reverse()
+#     for field_tmp, direction in ordering:
+#         if 'place.' in field_tmp:
+#             field = field_tmp.split('.')[1]
+#             if direction == 'desc':
+#                 q = q.order_by(
+#                     lambda i: desc(
+#                         group_concat(getattr(p, field) for p in i.place)
+#                     )
+#                 )
+#             else:
+#                 q = q.order_by(
+#                     lambda i:
+#                         group_concat(getattr(p, field) for p in i.place)
+#
+#                 )
+#         else:
+#             field = field_tmp
+#             if direction == 'desc':
+#                 q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
+#             else:
+#                 q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
+#
+#     # get len of query
+#     n = count(q) if use_pagination else None
+#
+#     # apply pagination if using
+#     if use_pagination:
+#         q = q.page(page, pagesize=pagesize)
+#
+#     # return query object if arguments requested it
+#     if return_db_instances:
+#         return q
+#
+#     # otherwise prepare list of dictionaries to return
+#     else:
+#         return_fields_by_entity = defaultdict(list)
+#         return_fields_by_entity['court_challenge'] = fields
+#
+#         # TODO dynamically set fields returned for Place and other
+#         # linked entities
+#         return_fields_by_entity['place'] = [
+#             'id', 'level', 'loc']
+#
+#         # define list of instances to return
+#         data = []
+#         # for each policy
+#         for d in q:
+#             # convert it to a dictionary returning only the specified fields
+#             d_dict = d.to_dict_2(
+#                 return_fields_by_entity=return_fields_by_entity)
+#             # add it to the output list
+#             data.append(d_dict)
+#
+#         # if pagination is being used, get next page URL if there is one
+#         n_pages = None if not use_pagination else math.ceil(n / pagesize)
+#         more_pages = use_pagination and page < n_pages
+#         next_page_url = None if not more_pages else \
+#             f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
+#
+#         # if by category: transform data to organize by category
+#         # NOTE: assumes one `primary_ph_measure` per Court_Challenge
+#         if by_category is not None:
+#             return []
+#             # data_by_category = defaultdict(list)
+#             # for i in data:
+#             #     data_by_category[i[by_category]].append(i)
+#             #
+#             # res = PolicyDict(
+#             #     data=data_by_category,
+#             #     success=True,
+#             #     message=f'''{len(q)} challenges found''',
+#             #     next_page_url=next_page_url,
+#             #     n=n
+#             # )
+#         else:
+#             # create response from output list
+#             res = ChallengeList(
+#                 data=data,
+#                 success=True,
+#                 message=f'''{n} challenge(s) found''',
+#                 next_page_url=next_page_url,
+#                 n=n
+#             )
+#         return res
+
+
 @db_session
 @cached
-def get_challenge(
-    filters: dict = None,
-    fields: list = None,
-    order_by_field: str = 'date_of_complaint',
-    return_db_instances: bool = False,
-    by_category: str = None,
-    ordering: list = [],
-    page: int = None,
-    pagesize: int = 100
+def get_place(
+    iso3=None,
+    level=None,
+    fields=list(),
+    include_policy_count=False,
 ):
-    """Returns Challenge instance data that match the provided filters.
-
-    Parameters
-    ----------
-    filters : dict
-        Dictionary of filters to be applied to data (see function
-        `apply_entity_filters` below).
-    fields : list
-        List of instance fields that should be returned. If None, then
-        all fields are returned.
-    order_by_field : type
-        String defining the field in the class that is used to
-        order the policies returned.
-    return_db_instances : bool
-        If true, returns the PonyORM database query object containing the
-        filtered instances, otherwise returns the list of dictionaries
-        containing the instance data as part of a response dictionary
-
-    Returns
-    -------
-    pony.orm.Query **or** dict
-        Query instance if `return_db_instances` is true, otherwise a list of
-        dictionaries in a response dictionary
+    """Returns Place instance data that match the provided filters.
 
     """
-    # return all fields?
-    all = fields is None
+    places = select(
+        i for i
+        in db.Place
+        if (
+            iso3 == '' or i.iso3.lower() == iso3
+        ) and (
+            level == '' or i.level.lower() == level
+        )
+    )[:][:]
 
-    # use pagination if all fields are requested, and set value for `page` if
-    # none was provided in the URL query args
-    use_pagination = (all or page is not None) and not return_db_instances
-    if use_pagination and (page is None or page == 0):
-        page = 1
-    q = select(i for i in db.Court_Challenge)
-
-    # apply filters if any
-    if filters is not None:
-        q = apply_entity_filters(q, db.Court_Challenge, filters)
-
-    # apply ordering
-    ordering.reverse()
-    for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
-                q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
-                )
-            else:
-                q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
-                )
-        else:
-            field = field_tmp
-            if direction == 'desc':
-                q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
-            else:
-                q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
-
-    # get len of query
-    n = count(q) if use_pagination else None
-
-    # apply pagination if using
-    if use_pagination:
-        q = q.page(page, pagesize=pagesize)
-
-    # return query object if arguments requested it
-    if return_db_instances:
-        return q
-
-    # otherwise prepare list of dictionaries to return
+    data = None
+    if include_policy_count:
+        data_tmp = [(d.to_dict(only=fields), len(d.policies)) for d in places]
+        data = list()
+        for d, n_policies in data_tmp:
+            d.update({'n_policies': n_policies})
+            data.append(d)
     else:
-        return_fields_by_entity = defaultdict(list)
-        return_fields_by_entity['court_challenge'] = fields
+        data = [d.to_dict(only=fields) for d in places]
 
-        # TODO dynamically set fields returned for Place and other
-        # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc']
-
-        # define list of instances to return
-        data = []
-        # for each policy
-        for d in q:
-            # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
-            # add it to the output list
-            data.append(d_dict)
-
-        # if pagination is being used, get next page URL if there is one
-        n_pages = None if not use_pagination else math.ceil(n / pagesize)
-        more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
-
-        # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
-        if by_category is not None:
-            return []
-            # data_by_category = defaultdict(list)
-            # for i in data:
-            #     data_by_category[i[by_category]].append(i)
-            #
-            # res = PolicyDict(
-            #     data=data_by_category,
-            #     success=True,
-            #     message=f'''{len(q)} challenges found''',
-            #     next_page_url=next_page_url,
-            #     n=n
-            # )
-        else:
-            # create response from output list
-            res = ChallengeList(
-                data=data,
-                success=True,
-                message=f'''{n} challenge(s) found''',
-                next_page_url=next_page_url,
-                n=n
-            )
-        return res
+    # create response from output list
+    n = len(data)
+    res = ListResponse(
+        data=data,
+        success=True,
+        message=f'''{n} place(s) found''',
+        n=n
+    )
+    return res
 
 
 @db_session
@@ -876,78 +951,11 @@ def get_plan(
 
 @cached
 @db_session
-def get_policy_status_by_date(
-    geo_res: str = None,
-    name: str = None,
-    start: str = None,
-    end: str = None,
-    filters: dict = dict()
-):
-    """Given a range of dates, returns the t/f policy status for each date in
-    the range for each geography of the specified geographic resolution
-    `geo_res`.
-
-    Parameters
-    ----------
-    is_lockdown_level : bool
-        Description of parameter `is_lockdown_level`.
-    geo_res : str
-        Description of parameter `geo_res`.
-    name : str
-        Description of parameter `name`.
-    filters : dict
-        Description of parameter `filters`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-
-    # get all policies
-    q = select(i for i in db.Policy)
-
-    # for each date between start and end, call `get_policy_status` with the
-    # appropriate parameters and concatenate the results
-    dt_start = datetime.strptime(start, '%Y-%m-%d')
-    dt_end = datetime.strptime(end, '%Y-%m-%d')
-    dt_cur = dt_start
-    dt_prv = dt_start
-    done = False
-    data = list()
-    while not done:
-        dt_prv = dt_cur
-        # do stuff
-        dt_cur_str = dt_cur.strftime('%Y-%m-%d')
-        cur_policy_status = get_policy_status(
-            geo_res=geo_res,
-            filters={
-                'primary_ph_measure': filters.get('primary_ph_measure', []),
-                'ph_measure_details': filters.get('ph_measure_details', []),
-                'dates_in_effect': [dt_cur_str, dt_cur_str]
-            },
-        )
-        data += cur_policy_status.data
-        dt_cur = dt_cur + timedelta(days=1)
-        done = dt_cur > dt_end
-
-    # Fake data for debugging
-    return {
-        'data': data,
-        'success': True,
-        'message': 'TODO'
-    }
-
-
-@cached
-@db_session
 def get_policy_status(
-    q: any = None,
     is_lockdown_level: bool = None,
     geo_res: str = None,
     name: str = None,
-    filters: dict = dict(),
+    filters: dict = dict()
 ):
     """TODO"""
 
@@ -959,7 +967,7 @@ def get_policy_status(
     if geo_res == 'country':
         level = 'Country'
 
-    q = select(i for i in db.Policy) if q is None else q
+    q = select(i for i in db.Policy)
     # q = select(i for i in db.Policy if i.place.level == level)
 
     # initialize output data
@@ -1000,8 +1008,9 @@ def get_policy_status(
             if name is None:
                 q = db.Observation.select_by_sql(
                     f'''
-                            select *
+                            select distinct on (place) *
                             from observation o
+                            where date <= '{str(start)}'
                             order by place, date desc
                     ''')
                 data = [
@@ -1051,18 +1060,12 @@ def get_policy_status(
 
         q_loc = select(getattr(i.place, loc_field) for i in q)
 
-        # if date was provided then add it to the response
-        start = None
-        if 'dates_in_effect' in filters:
-            start, end = filters['dates_in_effect']
-
         data_tmp = dict()
         for i in q_loc:
             if i not in data_tmp:
                 data_tmp[i] = PolicyStatus(
                     place_name=i,
-                    value="t",
-                    datestamp=start
+                    value="t"
                 )
         data = list(data_tmp.values())
 
@@ -1169,13 +1172,6 @@ def get_lockdown_level(
 
     # if date is not provided, return it in the response
     specify_date = date is None
-    print(geo_res)
-    print(iso3)
-    print(name)
-    print(date)
-    print(end_date)
-    print(deltas_only)
-    print(type(end_date))
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1212,7 +1208,6 @@ def get_lockdown_level(
                 #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
-                    print(i.place.to_dict())
                     datum['place_name'] = i.place.area1
                 elif i.place.area1 != name:
                     continue
@@ -1280,7 +1275,13 @@ def get_lockdown_level(
 
 @db_session
 # @cached
-def get_optionset(fields: list = list(), class_name: str = 'Policy'):
+def get_optionset(
+    fields: list = list(),
+    class_name: str = 'Policy',
+    geo_res: str = None,
+    state_name: str = None,
+    iso3: str = None,
+):
     """Given a list of data fields and an entity name, returns the possible
     values for those fields based on what data are currently in the database.
 
@@ -1347,16 +1348,28 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
         # TODO handle other special values like "Unspecified" as needed
         options = None
         if field == 'country_name' or field == 'level':
+            if (iso3 is not None or state_name is not None) and geo_res is not None:
+                raise NotImplementedError(
+                    f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
             options = select(
                 getattr(i, field) for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
-            ).filter(lambda x: x is not None)[:][:]
+            ).filter(lambda x: x is not None)
         else:
-            options = select(
-                getattr(i, field) for i in entity_class
-            ).filter(lambda x: x is not None)[:][:]
+            if entity_name not in ("Policy", "Plan"):
+                options = select(
+                    getattr(i, field) for i in entity_class
+                ).filter(lambda x: x is not None)
+            else:
+                options = select(
+                    getattr(i, field) for i in entity_class
+                    if (iso3 in i.place.iso3 or iso3 is None or geo_res != 'country')
+                    and (state_name in i.place.area1 or state_name is None or geo_res != 'state')
+                ).filter(lambda x: x is not None)
 
-        if isinstance(options[0], list):
+        # get objects
+        options = options[:][:]
+        if len(options) > 0 and isinstance(options[0], list):
             options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
@@ -1464,16 +1477,6 @@ def get_optionset(fields: list = list(), class_name: str = 'Policy'):
             data['government_order_upheld_or_enjoined'].append(
                 {'id': -1, 'value': 'Pending', 'label': 'Pending'},
             )
-
-    # # Disable profiling
-    # p.disable()
-    #
-    # # Dump the stats to a file
-    # p.dump_stats("res_focus.prof")
-    # p2 = pstats.Stats('res_focus.prof')
-    # p2.sort_stats('cumulative').print_stats(10)
-
-    # return all optionset values
 
     # apply special ordering
     if 'ph_measure_details' in data:
@@ -1705,7 +1708,10 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         join_policy_nonset_field = entity_class != db.Policy and \
             field in ('primary_ph_measure')
 
-        set_fields = ('policy_categories', 'complaint_subcategory_new', 'complaint_category_new')
+        set_fields = (
+            'policy_categories', 'complaint_subcategory_new',
+            'complaint_category_new', 'subtarget'
+        )
 
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
@@ -1785,7 +1791,6 @@ def get_policy_search_text(i):
                 'desc',
                 'primary_ph_measure',
                 'ph_measure_details',
-                'subtarget',
                 'relaxing_or_restricting',
                 'authority_name',
             ]
@@ -1793,6 +1798,7 @@ def get_policy_search_text(i):
         {
             'type': list,
             'fields': [
+                'subtarget',
                 'primary_impact',
             ]
         },
@@ -1876,62 +1882,62 @@ def get_plan_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
-@db_session
-def get_challenge_search_text(i):
-    """Given Court_Challenge instance `i`, returns the search text string that
-    should be checked against by plain text search.
-
-    """
-
-    # Define fields on entity class to concatenate
-    fields_by_type = [
-        {
-            'type': str,
-            'fields': [
-                'jurisdiction',
-                'court',
-                'legal_authority_challenged',
-                'parties',
-                'case_number',
-                'legal_citation',
-                'filed_in_state_or_federal_court',
-                'summary_of_action',
-                'case_name',
-                'procedural_history',
-                'holding',
-                'government_order_upheld_or_enjoined',
-                'subsequent_action_or_current_status',
-                'did_doj_file_statement_of_interest',
-                'summary_of_doj_statement_of_interest',
-                'data_source_for_complaint',
-                'data_source_for_decision',
-                'data_source_for_doj_statement_of_interest',
-                'policy_or_law_name',
-                'source_id',
-                'search_text'
-            ]
-        },
-        {
-            'type': list,
-            'fields': [
-                'complaint_category',
-            ]
-        },
-    ]
-
-    # Define the same but for linked entities
-    linked_fields_by_type = [
-        {
-            'linked_field': 'policies',
-            'linked_type': list,
-            'type': str,
-            'fields': [
-                'policy_name',
-            ]
-        }
-    ]
-
-    return get_search_text(i, fields_by_type, linked_fields_by_type)
+# @db_session
+# def get_challenge_search_text(i):
+#     """Given Court_Challenge instance `i`, returns the search text string that
+#     should be checked against by plain text search.
+#
+#     """
+#
+#     # Define fields on entity class to concatenate
+#     fields_by_type = [
+#         {
+#             'type': str,
+#             'fields': [
+#                 'jurisdiction',
+#                 'court',
+#                 'legal_authority_challenged',
+#                 'parties',
+#                 'case_number',
+#                 'legal_citation',
+#                 'filed_in_state_or_federal_court',
+#                 'summary_of_action',
+#                 'case_name',
+#                 'procedural_history',
+#                 'holding',
+#                 'government_order_upheld_or_enjoined',
+#                 'subsequent_action_or_current_status',
+#                 'did_doj_file_statement_of_interest',
+#                 'summary_of_doj_statement_of_interest',
+#                 'data_source_for_complaint',
+#                 'data_source_for_decision',
+#                 'data_source_for_doj_statement_of_interest',
+#                 'policy_or_law_name',
+#                 'source_id',
+#                 'search_text'
+#             ]
+#         },
+#         {
+#             'type': list,
+#             'fields': [
+#                 'complaint_category',
+#             ]
+#         },
+#     ]
+#
+#     # Define the same but for linked entities
+#     linked_fields_by_type = [
+#         {
+#             'linked_field': 'policies',
+#             'linked_type': list,
+#             'type': str,
+#             'fields': [
+#                 'policy_name',
+#             ]
+#         }
+#     ]
+#
+#     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
 def get_search_text(i, fields_by_type, linked_fields_by_type):
@@ -2003,8 +2009,8 @@ def add_search_text():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
         i.search_text = get_plan_search_text(i)
-    for i in db.Court_Challenge.select():
-        i.search_text = get_challenge_search_text(i)
+    # for i in db.Court_Challenge.select():
+    #     i.search_text = get_challenge_search_text(i)
 
 
 @db_session

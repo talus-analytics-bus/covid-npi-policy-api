@@ -23,6 +23,7 @@ class FilterFieldsPolicy(str, Enum):
 class PolicyFields(str, Enum):
     id = 'id'
     policy_name = 'policy_name'
+    policy_number = 'policy_number'
     desc = 'desc'
     name_and_desc = 'name_and_desc'
     primary_ph_measure = 'primary_ph_measure'
@@ -35,6 +36,9 @@ class PolicyFields(str, Enum):
     date_end_anticipated = 'date_end_anticipated'
     date_end_actual = 'date_end_actual'
     auth_entity = 'auth_entity'
+    auth_entity_place_level = 'auth_entity.place.level'
+    auth_entity_place_loc = 'auth_entity.place.loc'
+    court_challenges_id = 'court_challenges.id'
     place = 'place'
     file = 'file'
     none = ''
@@ -110,6 +114,23 @@ class CourtChallengeFields(str, Enum):
     none = ''
 
 
+class PlaceFields(str, Enum):
+    id = 'id'
+    level = 'level'
+    iso3 = 'iso3'
+    country_name = 'country_name'
+    area1 = 'area1'
+    area2 = 'area2'
+    loc = 'loc'
+    home_rule = 'home_rule'
+    dillons_rule = 'dillons_rule'
+    policies = 'policies'
+    plans = 'plans'
+    auth_entities = 'auth_entities'
+    observations = 'observations'
+    policy_numbers = 'policy_numbers'
+
+
 class Response(BaseModel):
     success: bool
     message: str
@@ -151,18 +172,44 @@ class File(BaseModel):
     data_source: str = None
 
 
+class Court_Challenge(BaseModel):
+    id: int = None
+    jurisdiction: str = None
+    case_name: str = None
+    summary_of_action: str = None
+    policy_or_law_name: str = None
+    parties: str = None
+    legal_citation: str = None
+    court: str = None
+    case_number: str = None
+    holding: str = None
+    complaint_category: List[str] = None
+    data_source_for_complaint: str = None
+    data_source_for_decision: str = None
+    date_of_decision: date = None
+    date_of_complaint: date = None
+    government_order_upheld_or_enjoined: str = None
+    parties_or_citation_and_summary_of_action: str = None
+    policy_status: str = None
+    case_status: str = None
+
+    # related entities
+    policies: List['Policy'] = None
+
+
 class Policy(BaseModel):
     id: int = None
 
     # descriptive information
     policy_name: str = None
+    policy_number: int = None
     desc: str = None
     name_and_desc: str = None
     primary_ph_measure: str = None
     ph_measure_details: str = None
     policy_type: str = None
     authority_name: str = None
-    subtarget: str = None
+    subtarget: List[str] = None
 
     # key dates
     date_issued: date = None
@@ -172,9 +219,13 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
+    court_challenges: List[Court_Challenge] = None
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+
+
+Court_Challenge.update_forward_refs()
 
 
 class PolicyNumber(BaseModel):
@@ -297,31 +348,6 @@ class PolicyList(Response):
 
 class PolicyNumberList(Response):
     data: List[PolicyNumber]
-
-
-class Court_Challenge(BaseModel):
-    id: int
-    jurisdiction: str = None
-    case_name: str = None
-    summary_of_action: str = None
-    policy_or_law_name: str = None
-    parties: str = None
-    legal_citation: str = None
-    court: str = None
-    case_number: str = None
-    holding: str = None
-    complaint_category: List[str] = None
-    data_source_for_complaint: str = None
-    data_source_for_decision: str = None
-    date_of_decision: date = None
-    date_of_complaint: date = None
-    government_order_upheld_or_enjoined: str = None
-    parties_or_citation_and_summary_of_action: str = None
-    policy_status: str = None
-    case_status: str = None
-
-    # related entities
-    policies: List[Policy] = None
 
 
 class ChallengeList(Response):

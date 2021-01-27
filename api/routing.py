@@ -16,7 +16,7 @@ from .models import (
     MetadataList,
     ListResponse, PolicyStatusList, PolicyStatusCountList,
     PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields,
-    Iso3Codes, StateNames, ExportFiltersNoOrdering
+    PlaceFields, Iso3Codes, StateNames, ExportFiltersNoOrdering
 )
 from .app import app
 from db import db
@@ -29,7 +29,8 @@ ClassNameExport = Enum(
         ('all_static', 'All_data'),
         ('Policy', 'Policy'),
         ('Plan', 'Plan'),
-        ('Court_Challenge', 'Court_Challenge'),
+        ('All_data_recreate', 'All_data_recreate'),
+        # ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
@@ -40,7 +41,7 @@ ClassName = Enum(
     names=[
         ('Policy', 'Policy'),
         ('Plan', 'Plan'),
-        ('Court_Challenge', 'Court_Challenge'),
+        # ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
@@ -181,7 +182,8 @@ async def get_file_redirect(id: int):
     include_in_schema=False
 )
 async def get_file_title_required(
-    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    id: int = Query(
+        None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
     title: str = Query('Filename', description="Any filename")
 ):
     return schema.get_file(id)
@@ -194,7 +196,8 @@ async def get_file_title_required(
     description=DOWNLOAD_DESCRIPTION
 )
 async def get_file(
-    id: int = Query(None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
+    id: int = Query(
+        None, description="Unique ID of file, as listed in `file` attribute of Policy records"),
     title: str = Query('Filename', description="Any filename")
 ):
     return schema.get_file(id)
@@ -240,44 +243,70 @@ async def post_policy(
     ),
     page: int = Query(1, description='Page to return'),
     pagesize: int = Query(100, description='Number of records per page'),
-    count: bool = Query(False, description='If true, return number of records only, otherwise return data for records'),
+    count: bool = Query(
+        False, description='If true, return number of records only, otherwise return data for records'),
+    random: bool = Query(
+        False, description='If true, return a random sampling of `pagesize` records, otherwise return according to `ordering` in body'),
 ):
     fields = [v for v in fields if v != PolicyFields.none]
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering,
-        count_only=count
+        count_only=count, random=random
     )
 
 
+# @ app.get(
+#     "/get/challenge",
+#     response_model=ListResponse,
+#     response_model_exclude_unset=True,
+#     tags=["Court challenges"],
+#     include_in_schema=False,
+#     summary="Return court challenges (to policies) matching filters",
+#
+# )
+# async def get_challenge(
+#     fields: List[str] = Query(None),
+#     page: int = None,
+#     pagesize: int = 100,
+# ):
+#     """Return Court_Challenge data.
+#
+#     Parameters
+#     ----------
+#     fields : List[str]
+#         Data fields to return.
+#
+#     Returns
+#     -------
+#     dict
+#         Challenge response dictionary.
+#
+#     """
+#     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+
+
 @ app.get(
-    "/get/challenge",
+    "/get/place",
     response_model=ListResponse,
     response_model_exclude_unset=True,
-    tags=["Court challenges"],
-    include_in_schema=False,
-    summary="Return court challenges (to policies) matching filters",
+    tags=["Places"],
+    summary="Return places matching filters",
 
 )
-async def get_challenge(
-    fields: List[str] = Query(None),
-    page: int = None,
-    pagesize: int = 100,
+async def get_place(
+    fields: List[PlaceFields] = Query(None),
+    iso3: str = '',
+    level: str = '',
+    include_policy_count: bool = False,
 ):
-    """Return Court_Challenge data.
-
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Challenge response dictionary.
+    """Return Place data.
 
     """
-    return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+    return schema.get_place(
+        fields=[d.name for d in fields], iso3=iso3.lower(), level=level.lower(),
+        include_policy_count=include_policy_count
+    )
 
 
 @ app.get("/get/plan", response_model=ListResponse, response_model_exclude_unset=True, tags=["Plans"], include_in_schema=False)
@@ -436,27 +465,27 @@ async def post_policy_number(
     )
 
 
-@ app.post(
-    "/post/challenge",
-    response_model=ListResponse,
-    response_model_exclude_unset=True,
-    tags=["Court challenges"],
-    summary="Return data for court challenges (to policies) matching filters",
-)
-async def post_challenge(
-    body: ChallengeFilters,
-    fields: List[CourtChallengeFields] = Query(
-        [CourtChallengeFields.id],
-        description='List of data fields that should be returned for each court challenge'
-    ),
-    page: int = Query(1, description='Page to return'),
-    pagesize: int = Query(100, description='Number of records per page'),
-):
-    fields = [v for v in fields if v != CourtChallengeFields.none]
-    return schema.get_challenge(
-        filters=body.filters, fields=fields, by_category=None,
-        page=page, pagesize=pagesize, ordering=body.ordering
-    )
+# @ app.post(
+#     "/post/challenge",
+#     response_model=ListResponse,
+#     response_model_exclude_unset=True,
+#     tags=["Court challenges"],
+#     summary="Return data for court challenges (to policies) matching filters",
+# )
+# async def post_challenge(
+#     body: ChallengeFilters,
+#     fields: List[CourtChallengeFields] = Query(
+#         [CourtChallengeFields.id],
+#         description='List of data fields that should be returned for each court challenge'
+#     ),
+#     page: int = Query(1, description='Page to return'),
+#     pagesize: int = Query(100, description='Number of records per page'),
+# ):
+#     fields = [v for v in fields if v != CourtChallengeFields.none]
+#     return schema.get_challenge(
+#         filters=body.filters, fields=fields, by_category=None,
+#         page=page, pagesize=pagesize, ordering=body.ordering
+#     )
 
 
 @ app.post(
@@ -481,6 +510,22 @@ async def post_plan(
         page=page, pagesize=pagesize, ordering=body.ordering
     )
 
+# define standard param sets that are shared across some routes
+
+
+def geo_res_def(default_val): return Query(default_val,
+                                           description='The geographic resolution for which to return data',
+                                           )
+
+
+state_name_def = Query(getattr(StateNames, 'All states and territories'),
+                       description='For "state" resolution: Which state(s) or territory(ies) to return'
+                       )
+
+iso3_def = Query(Iso3Codes.all_countries,
+                 description='For "country" resolution: Which country(ies) to return'
+                 )
+
 
 @ app.get(
     "/get/optionset",
@@ -496,9 +541,19 @@ async def get_optionset(
     ),
     fields: List[str] = Query(
         ['Policy.primary_ph_measure', 'Policy.ph_measure_details'],
-        description='A list of fields for which optionsets are requested, prefixed by the data type name and a period')
+        description='A list of fields for which optionsets are requested, prefixed by the data type name and a period'),
+    geo_res: GeoRes = geo_res_def(None),
+    state_name: StateNames = state_name_def,
+    iso3: Iso3Codes = iso3_def,
 ):
-    return schema.get_optionset(fields=fields, class_name=class_name.name)
+    return schema.get_optionset(
+        fields=fields,
+        class_name=class_name.name,
+        geo_res=geo_res.name if geo_res is not None else None,
+        state_name=state_name.name if (
+            state_name is not None and state_name.name != 'All states and territories') else None,
+        iso3=iso3.name if (iso3 is not None and iso3.name != 'All countries') else None
+    )
 
 
 ##
@@ -530,15 +585,9 @@ async def get_test(test_param: str = 'GET successful'):
     tags=["Distancing levels"]
 )
 async def get_distancing_levels(
-    geo_res: GeoRes = Query(GeoRes.state,
-                            description='The geographic resolution for which to return data'
-                            ),
-    iso3: Iso3Codes = Query(Iso3Codes.all_countries,
-                            description='For "country" resolution: Which country(ies) to return'
-                            ),
-    state_name: StateNames = Query(getattr(StateNames, 'All states and territories'),
-                                   description='For "state" resolution: Which state(s) or territory(ies) to return'
-                                   ),
+    geo_res: GeoRes = geo_res_def(GeoRes.state),
+    iso3: Iso3Codes = iso3_def,
+    state_name: StateNames = state_name_def,
     date: date = Query(
         date.today(),
         description='The date for which data are requested, YYYY-MM-DD, defaults to today. If no data available, data for most recent date before this date are returned.'
