@@ -38,7 +38,7 @@ class PolicyFields(str, Enum):
     auth_entity = 'auth_entity'
     auth_entity_place_level = 'auth_entity.place.level'
     auth_entity_place_loc = 'auth_entity.place.loc'
-    court_challenges_id = 'court_challenges.id'
+    # court_challenges_id = 'court_challenges.id'
     place = 'place'
     file = 'file'
     none = ''
