@@ -166,7 +166,8 @@ def get_count(class_names):
         Description of returned object.
 
     """
-    supported_entities = ('Policy', 'Plan', 'Court_Challenge')
+    supported_entities = ('Policy', 'Plan')
+    # supported_entities = ('Policy', 'Plan', 'Court_Challenge')
     data = dict()
     for d in class_names:
         if d not in supported_entities or not hasattr(db, d):
@@ -627,143 +628,143 @@ def get_policy(
             return res
 
 
-@db_session
-@cached
-def get_challenge(
-    filters: dict = None,
-    fields: list = None,
-    order_by_field: str = 'date_of_complaint',
-    return_db_instances: bool = False,
-    by_category: str = None,
-    ordering: list = [],
-    page: int = None,
-    pagesize: int = 100
-):
-    """Returns Challenge instance data that match the provided filters.
-
-    Parameters
-    ----------
-    filters : dict
-        Dictionary of filters to be applied to data (see function
-        `apply_entity_filters` below).
-    fields : list
-        List of instance fields that should be returned. If None, then
-        all fields are returned.
-    order_by_field : type
-        String defining the field in the class that is used to
-        order the policies returned.
-    return_db_instances : bool
-        If true, returns the PonyORM database query object containing the
-        filtered instances, otherwise returns the list of dictionaries
-        containing the instance data as part of a response dictionary
-
-    Returns
-    -------
-    pony.orm.Query **or** dict
-        Query instance if `return_db_instances` is true, otherwise a list of
-        dictionaries in a response dictionary
-
-    """
-    # return all fields?
-    all = fields is None
-
-    # use pagination if all fields are requested, and set value for `page` if
-    # none was provided in the URL query args
-    use_pagination = (all or page is not None) and not return_db_instances
-    if use_pagination and (page is None or page == 0):
-        page = 1
-    q = select(i for i in db.Court_Challenge)
-
-    # apply filters if any
-    if filters is not None:
-        q = apply_entity_filters(q, db.Court_Challenge, filters)
-
-    # apply ordering
-    ordering.reverse()
-    for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
-                q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
-                )
-            else:
-                q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
-                )
-        else:
-            field = field_tmp
-            if direction == 'desc':
-                q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
-            else:
-                q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
-
-    # get len of query
-    n = count(q) if use_pagination else None
-
-    # apply pagination if using
-    if use_pagination:
-        q = q.page(page, pagesize=pagesize)
-
-    # return query object if arguments requested it
-    if return_db_instances:
-        return q
-
-    # otherwise prepare list of dictionaries to return
-    else:
-        return_fields_by_entity = defaultdict(list)
-        return_fields_by_entity['court_challenge'] = fields
-
-        # TODO dynamically set fields returned for Place and other
-        # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc', 'area1', 'area2']
-
-        # define list of instances to return
-        data = []
-        # for each policy
-        for d in q:
-            # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
-            # add it to the output list
-            data.append(d_dict)
-
-        # if pagination is being used, get next page URL if there is one
-        n_pages = None if not use_pagination else math.ceil(n / pagesize)
-        more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
-
-        # if by category: transform data to organize by category
-        # NOTE: assumes one `primary_ph_measure` per Court_Challenge
-        if by_category is not None:
-            return []
-            # data_by_category = defaultdict(list)
-            # for i in data:
-            #     data_by_category[i[by_category]].append(i)
-            #
-            # res = PolicyDict(
-            #     data=data_by_category,
-            #     success=True,
-            #     message=f'''{len(q)} challenges found''',
-            #     next_page_url=next_page_url,
-            #     n=n
-            # )
-        else:
-            # create response from output list
-            res = ChallengeList(
-                data=data,
-                success=True,
-                message=f'''{n} challenge(s) found''',
-                next_page_url=next_page_url,
-                n=n
-            )
-        return res
+# @db_session
+# @cached
+# def get_challenge(
+#     filters: dict = None,
+#     fields: list = None,
+#     order_by_field: str = 'date_of_complaint',
+#     return_db_instances: bool = False,
+#     by_category: str = None,
+#     ordering: list = [],
+#     page: int = None,
+#     pagesize: int = 100
+# ):
+#     """Returns Challenge instance data that match the provided filters.
+#
+#     Parameters
+#     ----------
+#     filters : dict
+#         Dictionary of filters to be applied to data (see function
+#         `apply_entity_filters` below).
+#     fields : list
+#         List of instance fields that should be returned. If None, then
+#         all fields are returned.
+#     order_by_field : type
+#         String defining the field in the class that is used to
+#         order the policies returned.
+#     return_db_instances : bool
+#         If true, returns the PonyORM database query object containing the
+#         filtered instances, otherwise returns the list of dictionaries
+#         containing the instance data as part of a response dictionary
+#
+#     Returns
+#     -------
+#     pony.orm.Query **or** dict
+#         Query instance if `return_db_instances` is true, otherwise a list of
+#         dictionaries in a response dictionary
+#
+#     """
+#     # return all fields?
+#     all = fields is None
+#
+#     # use pagination if all fields are requested, and set value for `page` if
+#     # none was provided in the URL query args
+#     use_pagination = (all or page is not None) and not return_db_instances
+#     if use_pagination and (page is None or page == 0):
+#         page = 1
+#     q = select(i for i in db.Court_Challenge)
+#
+#     # apply filters if any
+#     if filters is not None:
+#         q = apply_entity_filters(q, db.Court_Challenge, filters)
+#
+#     # apply ordering
+#     ordering.reverse()
+#     for field_tmp, direction in ordering:
+#         if 'place.' in field_tmp:
+#             field = field_tmp.split('.')[1]
+#             if direction == 'desc':
+#                 q = q.order_by(
+#                     lambda i: desc(
+#                         group_concat(getattr(p, field) for p in i.place)
+#                     )
+#                 )
+#             else:
+#                 q = q.order_by(
+#                     lambda i:
+#                         group_concat(getattr(p, field) for p in i.place)
+#
+#                 )
+#         else:
+#             field = field_tmp
+#             if direction == 'desc':
+#                 q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
+#             else:
+#                 q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
+#
+#     # get len of query
+#     n = count(q) if use_pagination else None
+#
+#     # apply pagination if using
+#     if use_pagination:
+#         q = q.page(page, pagesize=pagesize)
+#
+#     # return query object if arguments requested it
+#     if return_db_instances:
+#         return q
+#
+#     # otherwise prepare list of dictionaries to return
+#     else:
+#         return_fields_by_entity = defaultdict(list)
+#         return_fields_by_entity['court_challenge'] = fields
+#
+#         # TODO dynamically set fields returned for Place and other
+#         # linked entities
+#         return_fields_by_entity['place'] = [
+#             'id', 'level', 'loc']
+#
+#         # define list of instances to return
+#         data = []
+#         # for each policy
+#         for d in q:
+#             # convert it to a dictionary returning only the specified fields
+#             d_dict = d.to_dict_2(
+#                 return_fields_by_entity=return_fields_by_entity)
+#             # add it to the output list
+#             data.append(d_dict)
+#
+#         # if pagination is being used, get next page URL if there is one
+#         n_pages = None if not use_pagination else math.ceil(n / pagesize)
+#         more_pages = use_pagination and page < n_pages
+#         next_page_url = None if not more_pages else \
+#             f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
+#
+#         # if by category: transform data to organize by category
+#         # NOTE: assumes one `primary_ph_measure` per Court_Challenge
+#         if by_category is not None:
+#             return []
+#             # data_by_category = defaultdict(list)
+#             # for i in data:
+#             #     data_by_category[i[by_category]].append(i)
+#             #
+#             # res = PolicyDict(
+#             #     data=data_by_category,
+#             #     success=True,
+#             #     message=f'''{len(q)} challenges found''',
+#             #     next_page_url=next_page_url,
+#             #     n=n
+#             # )
+#         else:
+#             # create response from output list
+#             res = ChallengeList(
+#                 data=data,
+#                 success=True,
+#                 message=f'''{n} challenge(s) found''',
+#                 next_page_url=next_page_url,
+#                 n=n
+#             )
+#         return res
 
 
 @db_session
@@ -1881,62 +1882,62 @@ def get_plan_search_text(i):
     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
-@db_session
-def get_challenge_search_text(i):
-    """Given Court_Challenge instance `i`, returns the search text string that
-    should be checked against by plain text search.
-
-    """
-
-    # Define fields on entity class to concatenate
-    fields_by_type = [
-        {
-            'type': str,
-            'fields': [
-                'jurisdiction',
-                'court',
-                'legal_authority_challenged',
-                'parties',
-                'case_number',
-                'legal_citation',
-                'filed_in_state_or_federal_court',
-                'summary_of_action',
-                'case_name',
-                'procedural_history',
-                'holding',
-                'government_order_upheld_or_enjoined',
-                'subsequent_action_or_current_status',
-                'did_doj_file_statement_of_interest',
-                'summary_of_doj_statement_of_interest',
-                'data_source_for_complaint',
-                'data_source_for_decision',
-                'data_source_for_doj_statement_of_interest',
-                'policy_or_law_name',
-                'source_id',
-                'search_text'
-            ]
-        },
-        {
-            'type': list,
-            'fields': [
-                'complaint_category',
-            ]
-        },
-    ]
-
-    # Define the same but for linked entities
-    linked_fields_by_type = [
-        {
-            'linked_field': 'policies',
-            'linked_type': list,
-            'type': str,
-            'fields': [
-                'policy_name',
-            ]
-        }
-    ]
-
-    return get_search_text(i, fields_by_type, linked_fields_by_type)
+# @db_session
+# def get_challenge_search_text(i):
+#     """Given Court_Challenge instance `i`, returns the search text string that
+#     should be checked against by plain text search.
+#
+#     """
+#
+#     # Define fields on entity class to concatenate
+#     fields_by_type = [
+#         {
+#             'type': str,
+#             'fields': [
+#                 'jurisdiction',
+#                 'court',
+#                 'legal_authority_challenged',
+#                 'parties',
+#                 'case_number',
+#                 'legal_citation',
+#                 'filed_in_state_or_federal_court',
+#                 'summary_of_action',
+#                 'case_name',
+#                 'procedural_history',
+#                 'holding',
+#                 'government_order_upheld_or_enjoined',
+#                 'subsequent_action_or_current_status',
+#                 'did_doj_file_statement_of_interest',
+#                 'summary_of_doj_statement_of_interest',
+#                 'data_source_for_complaint',
+#                 'data_source_for_decision',
+#                 'data_source_for_doj_statement_of_interest',
+#                 'policy_or_law_name',
+#                 'source_id',
+#                 'search_text'
+#             ]
+#         },
+#         {
+#             'type': list,
+#             'fields': [
+#                 'complaint_category',
+#             ]
+#         },
+#     ]
+#
+#     # Define the same but for linked entities
+#     linked_fields_by_type = [
+#         {
+#             'linked_field': 'policies',
+#             'linked_type': list,
+#             'type': str,
+#             'fields': [
+#                 'policy_name',
+#             ]
+#         }
+#     ]
+#
+#     return get_search_text(i, fields_by_type, linked_fields_by_type)
 
 
 def get_search_text(i, fields_by_type, linked_fields_by_type):
@@ -2008,5 +2009,113 @@ def add_search_text():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
         i.search_text = get_plan_search_text(i)
-    for i in db.Court_Challenge.select():
-        i.search_text = get_challenge_search_text(i)
+    # for i in db.Court_Challenge.select():
+    #     i.search_text = get_challenge_search_text(i)
+
+
+@db_session
+def add_missing_daily_observations(
+    metric: int = None,
+):
+    """For observations of the given metric ID, extrapolates values for all
+    dates prior to the current max date that do not have values in a location.
+
+
+    """
+    # error handling
+    # TODO
+
+    # function to clone an observation
+    def get_observation_clone(obs_dict, dt_cur, interp_or_exterp):
+        new_obs = {
+            k: v for (k, v) in obs_dict.items()
+            if k != 'id'
+        }
+        new_obs['date'] = dt_cur
+        new_obs['source_id'] += ' - ' + interp_or_exterp
+        return new_obs
+
+    # get all observations of this metric
+    obs = select(
+        i for i in db.Observation
+        if i.metric == metric
+    )
+
+    # get max date of metric as datetime.date
+    max_metric = select(i.date for i in obs).max()
+
+    # get all places
+    places = db.Place.select()
+
+    # track number of observations added
+    num_added = 0
+
+    # for each place
+    for p in places:
+
+        # get this place's obs.
+        obs_place = obs.filter(lambda x: x.place == p)
+
+        # if it has none, continue
+        if obs_place.count() == 0:
+            continue
+        else:
+
+            # get earliest obs. for this place
+            obs_place_earliest = obs_place.first()
+            obs_place_earliest_dict = obs_place_earliest.to_dict()
+
+            # get this place's most recent obs.
+            obs_place = obs_place.order_by(desc(db.Observation.date))
+            obs_place_latest_dict = obs_place.first().to_dict()
+
+            # get this place's max date of metric as datetime.date
+            max_place = select(i.date for i in obs_place).max()
+
+            # get this place's min date of metric as datetime.date
+            min_place = select(i.date for i in obs_place).min()
+
+            # starting with max date, if obs. doesn't exist, add one
+            # repeat for all dates between place's max obs. date and the
+            # max overall
+            dt_cur = max_metric
+            while not dt_cur <= max_place:
+
+                # add a copy of the latest obs. that has the correct date and
+                # shows "Extrapolated" in the source ID so it can be
+                # distinguished from true obs.
+                new_obs = get_observation_clone(
+                    obs_place_latest_dict, dt_cur, 'Extrapolated'
+                )
+                db.Observation(**new_obs)
+                commit()
+                num_added += 1
+                dt_cur = dt_cur - timedelta(days=1)
+
+            # starting with first date in original set of obs. for this place,
+            # step forward and check whether an obs. exists for the "next"
+            # date, and if not, carry the most recent one forward
+            dt_cur = min_place + timedelta(days=1)
+            new_obs_list = list()
+            while not dt_cur >= max_place:
+                # check whether an obs. on `dt_cur` exists
+                dt_cur_obs = obs_place.filter(lambda x: x.date == dt_cur).first()
+
+                # if so, adv. the date and continue
+                if dt_cur_obs is not None:
+                    obs_place_earliest = dt_cur_obs
+                    pass
+                else:
+                    # if not, add one based on the most recent obs, and adv. the
+                    # date and continue
+                    obs_place_earliest_dict = obs_place_earliest.to_dict()
+                    new_obs = get_observation_clone(
+                        obs_place_earliest_dict, dt_cur, 'Interpolated'
+                    )
+                    db.Observation(**new_obs)
+                    commit()
+                    num_added += 1
+
+                dt_cur = dt_cur + timedelta(days=1)
+
+    return 'Added ' + str(num_added) + ' observation(s)'
