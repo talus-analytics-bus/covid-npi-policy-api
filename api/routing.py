@@ -248,12 +248,7 @@ async def post_policy(
     random: bool = Query(
         False, description='If true, return a random sampling of `pagesize` records, otherwise return according to `ordering` in body'),
 ):
-    fields = [
-        v for v in fields if v not in (
-            PolicyFields.none,
-            PolicyFields.court_challenges_id
-        )
-    ]
+    fields = [v for v in fields if v != PolicyFields.none]
     return schema.get_policy(
         filters=body.filters, fields=fields, by_category=None,
         page=page, pagesize=pagesize, ordering=body.ordering,
