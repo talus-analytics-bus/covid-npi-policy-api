@@ -117,7 +117,7 @@ def export(filters: dict = None, class_name: str = 'Policy'):
     if class_name == 'all_static':
         today = date.today()
         file = download_file(
-            'https://gida.ghscosting.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx', 'COVID AMP - Full Data Export - ' + str(today).replace('-', ''), None, as_object=True)
+            'https://ghssidea.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx', 'COVID AMP - Full Data Export - ' + str(today).replace('-', ''), None, as_object=True)
         return Response(
             content=file,
             media_type=media_type
