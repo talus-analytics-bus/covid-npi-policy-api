@@ -74,7 +74,6 @@ async def post_export(
         The XLSX data export file.
 
     """
-    print(class_name)
     if class_name == 'All_data':
         class_name = 'all_static'
     if class_name == ClassNameExport.none or class_name is None:
