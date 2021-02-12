@@ -13,7 +13,7 @@ jobs:
           name: Installing Deployment Dependencies
           working_directory: /
           command: |
-            sudo pip install awsebcli --upgrade
+            pip install awsebcli --upgrade
 
       - run:
           name: Deploying
@@ -31,7 +31,7 @@ jobs:
           name: Installing Deployment Dependencies
           working_directory: /
           command: |
-            sudo pip install awsebcli --upgrade
+            pip install awsebcli --upgrade
 
       - run:
           name: Deploying
