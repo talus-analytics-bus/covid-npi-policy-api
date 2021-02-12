@@ -13,7 +13,7 @@ jobs:
           name: Installing Deployment Dependencies
           working_directory: /
           command: |
-            sudo pip3 install awsebcli --upgrade
+            sudo pip install awsebcli --upgrade
 
       - run:
           name: Deploying
@@ -22,7 +22,7 @@ jobs:
     working_directory: ~/repo
 
     docker:
-      - image: cimg/python:3.6
+      - image: cimg/python:3.8
 
     steps:
       - checkout
@@ -31,7 +31,7 @@ jobs:
           name: Installing Deployment Dependencies
           working_directory: /
           command: |
-            sudo pip3 install awsebcli --upgrade
+            sudo pip install awsebcli --upgrade
 
       - run:
           name: Deploying
