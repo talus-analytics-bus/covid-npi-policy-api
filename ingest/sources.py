@@ -54,8 +54,9 @@ class AirtableSource(DataSource):
             print(e)
             print('\nFailed to open worksheet with name ' + str(name))
 
-    def as_dataframe(self, header_row: int = 0, view: str = None, max_records: int = 10000000, fields: list = None):
+    def as_dataframe(self, view: str = None, max_records: int = 10000000, fields: list = None):
         try:
+            print("\n\nFetching data from Airtable...")
             get_all_kwargs = {'view': view}
             if fields is not None:
                 get_all_kwargs['fields'] = fields
@@ -79,59 +80,3 @@ class AirtableSource(DataSource):
         except Exception as e:
             print(e)
             print('\nFailed to open worksheet')
-
-
-class GoogleSheetSource(DataSource):
-    def __init__(
-        self,
-        name: str,
-        config_json_relpath: str
-    ):
-        DataSource.__init__(self, name)
-
-    def connect(self):
-        scope = ['https://spreadsheets.google.com/feeds',
-                 'https://www.googleapis.com/auth/drive']
-        cur_dir = os.path.dirname(os.path.abspath(__file__))
-        config_file = os.path.join(cur_dir, 'config/googleKey.json')
-        credentials = ServiceAccountCredentials.from_json_keyfile_name(
-            config_file,
-            scope
-        )
-
-        try:
-            self.client = gspread.authorize(credentials)
-            return self
-        except Exception as e:
-            print(e)
-            self.client = None
-            print('Failed to connect to Google Sheets service.')
-            return False
-
-    def workbook(self, key: str):
-        try:
-            wb = self.client.open_by_key(key)
-            self.wb = wb
-            return self
-        except Exception as e:
-            print(e)
-            print('Failed to open workbook with key ' + str(key))
-
-    def worksheet(self, name: str):
-        try:
-            ws = self.wb.worksheet(name)
-            self.ws = ws
-            return self
-        except Exception as e:
-            print(e)
-            print('Failed to open worksheet with name ' + str(name))
-
-    def as_dataframe(self, header_row: int = 0):
-        try:
-            data = self.ws.get_all_values()
-            headers = data.pop(header_row)
-            df = pd.DataFrame(data, columns=headers)
-            return df
-        except Exception as e:
-            print(e)
-            print('Failed to open worksheet with name ' + str(name))

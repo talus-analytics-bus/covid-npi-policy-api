@@ -1,7 +1,6 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
 import os
-import pytz
 import time
 import random
 import itertools
@@ -12,8 +11,7 @@ from collections import defaultdict
 # 3rd party modules
 import boto3
 import pprint
-from pony.orm import db_session, commit, get, select, delete, StrArray
-from pony.orm.core import CacheIndexError, ObjectNotFound
+from pony.orm import db_session, commit, select, delete, StrArray
 from alive_progress import alive_bar
 
 # local modules
@@ -1098,7 +1096,7 @@ class CovidPolicyPlugin(IngestPlugin):
             #                != '') & (self.data['Authorizing level of government'] != 'Local'), 'Authorizing local area (e.g., county, city)'] = ''
 
             # analyze for QA/QC and quit if errors detected
-            valid = self.check(self.data)
+            valid = self.run_tests(self.data)
             if not valid:
                 print('Data are invalid. Please correct issues and try again.')
                 # sys.exit(0)
@@ -1249,7 +1247,7 @@ class CovidPolicyPlugin(IngestPlugin):
             data = data.loc[data['Plan PDF'] != '', :]
 
             # analyze for QA/QC and quit if errors detected
-            valid = self.check(data)
+            valid = self.run_tests(data)
             if not valid:
                 print('Data are invalid. Please correct issues and try again.')
                 # sys.exit(0)
@@ -3013,7 +3011,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 f'''\n{bcolors.BOLD}[Warning] Files could not be downloaded from the following {n_failed} sources:{bcolors.ENDC}''')
             print(bcolors.BOLD + str(", ".join(could_not_download)) + bcolors.ENDC)
 
-    def check(self, data):
+    def run_tests(self, data: pd.DataFrame) -> bool:
         """Perform QA/QC on the data and return a report.
         TODO
 
@@ -3030,47 +3028,29 @@ class CovidPolicyPlugin(IngestPlugin):
         """
         print('\n\n[1] Performing QA/QC on dataset...')
 
-        valid = True
-
         # unique primary key `id`
-        dupes = data.duplicated(['Unique ID'])
-        if dupes.any():
-            print('\nDetected duplicate unique IDs:')
-            print(data[dupes == True].loc[:, 'Unique ID'])
-            valid = False
+        valid = self.test_unique_ids(data)
 
         # dates formatted well
         # TODO
 
         return valid
 
-    # Deprecated / Unused methods ##############################################
-
-    def load_data_google(self):
-        """Retrieve Google Sheets as Pandas DataFrames corresponding to the (1)
-        data, (2) data dictionary, and (3) glossary of terms.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        key = '135XlMpxubqpq6UFOOIMVrNqSU0tuA0ZZtaXFEIICZX4'
-
-        self.client.connect() \
-            .workbook(key=key)
-
-        self.data = self.client \
-            .worksheet(name='data') \
-            .as_dataframe(header_row=1)
-
-        self.data_dictionary = self.client \
-            .worksheet(name='appendix: data dictionary') \
-            .as_dataframe()
-
-        self.glossary = self.client \
-            .worksheet(name='appendix: glossary') \
-            .as_dataframe()
-
-        return self
+    def test_unique_ids(self, data: pd.DataFrame) -> bool:
+        ids_seen: set(int) = set()
+        ids_duplicated: set(int) = set()
+        for d in data.iterrows():
+            id: int = d[1]['Unique ID']
+            id_is_blank: bool = str(id).strip() == ''
+            if not id_is_blank:
+                if id in ids_seen:
+                    ids_duplicated.add(id)
+                else:
+                    ids_seen.add(id)
+        if len(ids_duplicated) > 0:
+            print('\n[ERROR] Found the following unique IDs that are duplicated in the data:')
+            for id in ids_duplicated:
+                print("   " + str(id))
+            return False
+        else:
+            return True
