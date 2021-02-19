@@ -412,6 +412,12 @@ class Policy(db.Entity):
         return instance_dict
 
 
+class PolicyCountsByPlace(db.Entity):
+    level = Optional(str)
+    iso3 = Optional(str)
+    policy_count = Optional(int)
+
+
 class Policy_Number(db.Entity):
     """Policy numbers grouping sets of policies (i.e., policy
     sections) together.

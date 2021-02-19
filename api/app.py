@@ -14,10 +14,10 @@ tags_metadata = [
         "name": "Plans",
         "description": "Operations to get data for plans in certain categories and/or subcategories.",
     },
-    # {
-    #     "name": "Court challenges",
-    #     "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
-    # },
+    {
+        "name": "Court challenges",
+        "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
+    },
     {
         "name": "Places",
         "description": "Operations to get data for places that are affected by policies, including name and number of policies affecting (overall).",
@@ -28,7 +28,7 @@ tags_metadata = [
     },
     {
         "name": "Metadata",
-        "description": "Operations to get metadata including field definitions, optionset values for dropdowns based on data fields, counts of policies or plans in the database, and the current version of different data types (i.e., date last updated).",
+        "description": "Operations to get metadata including field definitions, optionset values for dropdowns based on data fields, counts of policies, plans, or court challenges in the database, and the current version of different data types (i.e., date last updated).",
         # "externalDocs": {
         #     "description": "Items external docs",
         #     "url": "https://fastapi.tiangolo.com/",
@@ -36,7 +36,7 @@ tags_metadata = [
     },
     {
         "name": "Downloads",
-        "description": "Operations to download data (.xlsx or .pdf). Excel-exportable data types can be downloaded with `/post/export` and include policies and plans. Filters may be applied. Individual PDF files associated with those data types can be downloaded using the `/get/file` endpoint.",
+        "description": "Operations to download data (.xlsx or .pdf). Excel-exportable data types can be downloaded with `/post/export` and include policies, plans, and court challenges. Filters may be applied. Individual PDF files associated with those data types can be downloaded using the `/get/file` endpoint.",
     },
 ]
 app = FastAPI()

@@ -29,8 +29,8 @@ ClassNameExport = Enum(
         ('all_static', 'All_data'),
         ('Policy', 'Policy'),
         ('Plan', 'Plan'),
+        ('Court_Challenge', 'Court_Challenge'),
         ('All_data_recreate', 'All_data_recreate'),
-        # ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
@@ -41,7 +41,7 @@ ClassName = Enum(
     names=[
         ('Policy', 'Policy'),
         ('Plan', 'Plan'),
-        # ('Court_Challenge', 'Court_Challenge'),
+        ('Court_Challenge', 'Court_Challenge'),
         ('none', ''),
     ]
 )
@@ -260,34 +260,34 @@ async def post_policy(
     )
 
 
-# @ app.get(
-#     "/get/challenge",
-#     response_model=ListResponse,
-#     response_model_exclude_unset=True,
-#     tags=["Court challenges"],
-#     include_in_schema=False,
-#     summary="Return court challenges (to policies) matching filters",
-#
-# )
-# async def get_challenge(
-#     fields: List[str] = Query(None),
-#     page: int = None,
-#     pagesize: int = 100,
-# ):
-#     """Return Court_Challenge data.
-#
-#     Parameters
-#     ----------
-#     fields : List[str]
-#         Data fields to return.
-#
-#     Returns
-#     -------
-#     dict
-#         Challenge response dictionary.
-#
-#     """
-#     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+@ app.get(
+    "/get/challenge",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Court challenges"],
+    include_in_schema=False,
+    summary="Return court challenges (to policies) matching filters",
+
+)
+async def get_challenge(
+    fields: List[str] = Query(None),
+    page: int = None,
+    pagesize: int = 100,
+):
+    """Return Court_Challenge data.
+
+    Parameters
+    ----------
+    fields : List[str]
+        Data fields to return.
+
+    Returns
+    -------
+    dict
+        Challenge response dictionary.
+
+    """
+    return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
 
 
 @ app.get(
@@ -469,27 +469,27 @@ async def post_policy_number(
     )
 
 
-# @ app.post(
-#     "/post/challenge",
-#     response_model=ListResponse,
-#     response_model_exclude_unset=True,
-#     tags=["Court challenges"],
-#     summary="Return data for court challenges (to policies) matching filters",
-# )
-# async def post_challenge(
-#     body: ChallengeFilters,
-#     fields: List[CourtChallengeFields] = Query(
-#         [CourtChallengeFields.id],
-#         description='List of data fields that should be returned for each court challenge'
-#     ),
-#     page: int = Query(1, description='Page to return'),
-#     pagesize: int = Query(100, description='Number of records per page'),
-# ):
-#     fields = [v for v in fields if v != CourtChallengeFields.none]
-#     return schema.get_challenge(
-#         filters=body.filters, fields=fields, by_category=None,
-#         page=page, pagesize=pagesize, ordering=body.ordering
-#     )
+@ app.post(
+    "/post/challenge",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Court challenges"],
+    summary="Return data for court challenges (to policies) matching filters",
+)
+async def post_challenge(
+    body: ChallengeFilters,
+    fields: List[CourtChallengeFields] = Query(
+        [CourtChallengeFields.id],
+        description='List of data fields that should be returned for each court challenge'
+    ),
+    page: int = Query(1, description='Page to return'),
+    pagesize: int = Query(100, description='Number of records per page'),
+):
+    fields = [v for v in fields if v != CourtChallengeFields.none]
+    return schema.get_challenge(
+        filters=body.filters, fields=fields, by_category=None,
+        page=page, pagesize=pagesize, ordering=body.ordering
+    )
 
 
 @ app.post(
