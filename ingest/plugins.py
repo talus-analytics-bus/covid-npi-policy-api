@@ -1956,7 +1956,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 level = 'Country'
             else:
                 print('place')
-                print(place)
+                print(d)
                 input('ERROR: Could not determine a `level` for place')
 
             # assign synthetic "level"
