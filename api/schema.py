@@ -4,6 +4,7 @@ import functools
 import math
 import itertools
 import logging
+import os
 from logging import info, warn
 # import pprint
 from io import BytesIO
@@ -18,8 +19,11 @@ from pony.orm import (
 )
 from fastapi.responses import Response
 from fuzzywuzzy import fuzz
+from pony.orm.core import Query
 
 # local modules
+from . import test
+from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
 from .models import (
     Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
@@ -1091,7 +1095,6 @@ def get_policy_status(
     )
     return res
 
-
 @cached
 @db_session
 def get_policy_status_counts(
@@ -1099,6 +1102,8 @@ def get_policy_status_counts(
     name: str = None,
     filters: dict = dict(),
     by_group_number: bool = True,
+    count_sub: bool = True,
+    run_tests: bool = False
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
@@ -1106,27 +1111,78 @@ def get_policy_status_counts(
     # DEBUG filter by USA only
     filters['iso3'] = ['USA'] if geo_res == 'state' else []
 
+    # run tests
+    is_dev: bool = os.environ.get('env', None) == 'dev'
+    if run_tests or is_dev:
+        test.get_policy_status_counts()
+
     # get ordered policies from database
-    level = 'State / Province'
-    if geo_res == 'country':
-        level = 'Country'
-    filters['level'] = level
+    # if not counting sub-[geo] only, then filter by level = [sub_geo]
+    # otherwise, below filter by level != [geo or higher]
+    if not count_sub:
+        level: str = 'State / Province'
+        if geo_res == 'country':
+            level = 'Country'
+        filters['level'] = level        
 
     # get policies
     q = select(i for i in db.Policy)
 
     # initialize output data
-    data = None
+    data: list = None
 
     # apply filters if any
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
 
+    # apply special filters if counting sub-[geo] only
+    # TODO finish and generalize
+    # TODO finish testing, appeared correct for AL policies
+    
+    def apply_level_filters(q: Query, geo_res: GeoRes) -> Query:
+        """Filters policies in query to keep only those that are below the defined geographic resolution.
+
+        Args:
+            q (Query): The query selecting policies to be filtered
+            geo_res (GeoRes): The geographic resolution of the area related to those policies
+
+        Raises:
+            NotImplementedError: Only country and state geographic resolutions are implemented.
+
+        Returns:
+            Query: Filtered policies
+        """
+        if geo_res == GeoRes.state:
+            q = q.filter(
+                    lambda i:
+                        not exists(
+                            t for t in i.place
+                            if t.level in ('State / Province', 'Country')
+                        )
+            )
+        elif geo_res == GeoRes.country:
+            q = q.filter(
+                    lambda i:
+                        not exists(
+                            t for t in i.place
+                            if t.level in ('Country',)
+                        )
+            )
+        else:
+            raise NotImplementedError(
+                "Unimplemented geographic resolution: " + geo_res
+            )
+        return q
+
+    # filter policies by correct levels if counting only sub-[geo] policies
+    if count_sub:
+        q = apply_level_filters(q, geo_res)
+
     # get correct location field
-    loc_field = 'area1' if geo_res != 'country' else 'iso3'
+    loc_field: str = 'area1' if geo_res != 'country' else 'iso3'
 
     # get locations
-    q_loc = None
+    q_loc: Query = None
     if not by_group_number:
         q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
     else:
@@ -1142,11 +1198,13 @@ def get_policy_status_counts(
     data = list(data_tmp.values())
 
     # create response from output list
+    res_counted: str = geo_res if not count_sub else "sub-" + geo_res
     res = PolicyStatusCountList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} values'''
+        message=f'''Found {str(len(data))} values counting {res_counted} policies, grouped by {geo_res}'''
     )
+
     return res
 
 

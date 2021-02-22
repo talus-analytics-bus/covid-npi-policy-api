@@ -18,7 +18,7 @@ from .models import (
     PolicyFiltersNoOrdering, PolicyFields, PlanFields, CourtChallengeFields,
     PlaceFields, Iso3Codes, StateNames, ExportFiltersNoOrdering
 )
-from .app import app
+from . import app
 from db import db
 
 DOWNLOAD_DESCRIPTION = '**Note:** This endpoint results in a file download and may only work if you make the API request either (1) in your address bar or (2) using cURL.'
@@ -438,14 +438,22 @@ async def post_policy_status_counts(
     geo_res: GeoRes = Query(GeoRes.state,
                             description='The geographic resolution for which to return data'
                             ),
+    count_sub: bool = Query(True,
+                            description='If true, counts all policies *beneath* the selected `geo_res` (geographic resolution). If false, only counts policies *at* it.'),
     merge_like_policies: bool = Query(
         True,
         description="If true, more accurately weights policy counts by merging like policies, e.g., counting policies that affected multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging."
+    ),
+    run_tests: bool = Query(
+        False,
+        description="[DEV] If true, takes time to run some tests on the endpoint."
     )
 ):
     res = schema.get_policy_status_counts(
         geo_res=geo_res, filters=body.filters,
-        by_group_number=merge_like_policies)
+        by_group_number=merge_like_policies,
+        count_sub=count_sub, run_tests=run_tests
+        )
     return res
 
 
