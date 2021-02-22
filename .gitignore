@@ -4,8 +4,9 @@ sh/
 ingest/sh
 db/config-local.ini
 
-# VSCode workspaces
+# VSCode files
 *.code-workspace
+launch.json
 
 # PDFs
 /api/pdf
