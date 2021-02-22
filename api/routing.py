@@ -438,7 +438,7 @@ async def post_policy_status_counts(
     geo_res: GeoRes = Query(GeoRes.state,
                             description='The geographic resolution for which to return data'
                             ),
-    count_sub: bool = Query(True,
+    count_sub: bool = Query(False,
                             description='If true, counts all policies *beneath* the selected `geo_res` (geographic resolution). If false, only counts policies *at* it.'),
     merge_like_policies: bool = Query(
         True,
