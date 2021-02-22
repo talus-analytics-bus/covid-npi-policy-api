@@ -1198,7 +1198,7 @@ def get_policy_status_counts(
     data = list(data_tmp.values())
 
     # create response from output list
-    res_counted: str = geo_res if not count_sub else "sub-" + geo_res
+    res_counted: str = (geo_res + " or lower") if not count_sub else "sub-" + geo_res
     res = PolicyStatusCountList(
         data=data,
         success=True,
