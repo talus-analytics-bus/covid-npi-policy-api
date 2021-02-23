@@ -15,7 +15,7 @@ from pony.orm import db_session, commit, select, delete, StrArray
 from alive_progress import alive_bar
 
 # local modules
-from .sources import GoogleSheetSource, AirtableSource
+from .sources import AirtableSource
 from .util import upsert, download_file, bcolors, nyt_caseload_csv_to_dict, \
     jhu_caseload_csv_to_dict, find_all
 import pandas as pd
