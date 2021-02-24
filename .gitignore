@@ -6,6 +6,7 @@ db/config-local.ini
 
 # VSCode files
 .vscode
+*.code-workspace
 
 # PDFs
 /api/pdf
