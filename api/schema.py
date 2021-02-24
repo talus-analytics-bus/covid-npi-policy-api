@@ -542,10 +542,10 @@ def get_policy(
                         )
                 else:
                     field = field_tmp
-                    if direction == 'desc':
-                        q = q.order_by(desc(getattr(db.Policy, field)))
+                    if direction == "desc":
+                        q = q.order_by(raw_sql(f"""i.{field} DESC NULLS LAST"""))
                     else:
-                        q = q.order_by(getattr(db.Policy, field))
+                        q = q.order_by(raw_sql(f"""i.{field} NULLS LAST"""))
         else:
             q = q.random(pagesize)
 
