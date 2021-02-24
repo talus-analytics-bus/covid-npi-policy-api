@@ -87,7 +87,6 @@ async def post_export(
         The XLSX data export file.
 
     """
-    print(class_name)
     if class_name == "All_data":
         class_name = "all_static"
     if class_name == ClassNameExport.none or class_name is None:
@@ -282,7 +281,11 @@ async def post_policy(
         description="If true, return a random sampling of `pagesize` records, otherwise return according to `ordering` in body",
     ),
 ):
-    fields = [v for v in fields if v != PolicyFields.none]
+    fields = [
+        v
+        for v in fields
+        if v not in (PolicyFields.none, PolicyFields.court_challenges_id)
+    ]
     return schema.get_policy(
         filters=body.filters,
         fields=fields,
