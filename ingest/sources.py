@@ -17,7 +17,7 @@ from .util import bcolors
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
-__all__ = ['GoogleSheetSource']
+__all__ = []
 
 
 class DataSource():
