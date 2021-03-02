@@ -4,6 +4,9 @@ sh/
 ingest/sh
 db/config-local.ini
 
+# mypy config
+mypy.ini
+
 # VSCode files
 .vscode
 *.code-workspace
