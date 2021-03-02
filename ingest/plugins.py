@@ -1,12 +1,13 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
+from typing import DefaultDict, List
 from api.util import use_relpath
 import os
 import time
 import random
 import itertools
 import logging
-from os import sys
+import os
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 
@@ -27,6 +28,7 @@ from .util import (
     find_all,
 )
 import pandas as pd
+from db.config import db as models
 
 
 # constants
@@ -57,8 +59,11 @@ def format_date(key, d, unspec_val, skipped_dates):
         return unspec_val
     else:
         # ignore dates before Dec 1, 2019
-        date_arr = d[key].split("-")
-        date_arr_int = list(map(lambda x: int(x), date_arr))
+        date_arr: List[str] = d[key].split("-")
+        date_arr_int: List[int] = list(map(lambda x: int(x), date_arr))
+        yyyy: int
+        mm: int
+        dd: int
         yyyy, mm, dd = date_arr_int
         if yyyy < 2019:
             skipped_dates.add(
@@ -128,7 +133,7 @@ def get_name_from_iso3(iso3: str):
         return None
 
 
-def get_place_loc(i):
+def get_place_loc(i: models.Place):
     """Get well-known text location string for a place.
 
     Parameters
@@ -765,7 +770,10 @@ class CovidPolicyPlugin(IngestPlugin):
     def __init__(self):
         # configure logger
         # TODO with instance from `getLogger`
-        filename: str = use_relpath(f"""logs/ingest_policies_{datetime.now().strftime('%Y-%m-%d %X')}.log""", __file__)
+        filename: str = use_relpath(
+            f"""logs/ingest_policies_{datetime.now().strftime('%Y-%m-%d %X')}.log""",
+            __file__,
+        )
         logging.basicConfig(
             filename=filename,
             level=logging.DEBUG,
@@ -787,7 +795,7 @@ class CovidPolicyPlugin(IngestPlugin):
         client = AirtableSource(
             name="Airtable",
             base_key=base_key,
-            api_key=os.environ.get("AIRTABLE_API_KEY"),
+            api_key=os.environ.get("AIRTABLE_API_KEY", ""),
         )
         self.client = client
 
@@ -1029,7 +1037,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
                     if place is None:
                         print("[FATAL ERROR] Missing place")
-                        sys.exit(0)
 
                     action, d = upsert(
                         db.Observation,
@@ -2175,7 +2182,7 @@ class CovidPolicyPlugin(IngestPlugin):
         )[:]
 
         # maintain dict of attributes to set post-creation
-        post_creation_attrs = defaultdict(dict)
+        post_creation_attrs: DefaultDict = defaultdict(dict)
 
         # define fields that should stay sets
         set_fields = ("subtarget",)
@@ -2316,7 +2323,7 @@ class CovidPolicyPlugin(IngestPlugin):
         )[:]
 
         # maintain dict of attributes to set post-creation
-        post_creation_attrs = defaultdict(dict)
+        post_creation_attrs: DefaultDict = defaultdict(dict)
 
         def formatter(key, d):
             unspec_val = (
@@ -2421,7 +2428,7 @@ class CovidPolicyPlugin(IngestPlugin):
         )[:]
 
         # maintain dict of attributes to set post-creation
-        post_creation_attrs = defaultdict(dict)
+        post_creation_attrs: DefaultDict = defaultdict(dict)
 
         def formatter(key, d):
 
@@ -3211,11 +3218,14 @@ class CovidPolicyPlugin(IngestPlugin):
                 else:
                     ids_seen.add(id)
         if len(ids_duplicated) > 0:
+            warning: str  = 'Found the following unique IDs that are duplicated in the data'
             print(
-                "\n[ERROR] Found the following unique IDs that are duplicated in the data:"
+                "\n[ERROR] " + warning
             )
+            logging.warning(warning)
             for id in ids_duplicated:
                 print("   " + str(id))
+                logging.warning("   " + str(id))
             return False
         else:
             return True

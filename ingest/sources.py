@@ -1,6 +1,7 @@
 """Define data sources for ingesting data into databases"""
 # standard packages
 import os
+from typing import List
 
 # 3rd party packages for AirtableSource
 from airtable import Airtable
@@ -17,21 +18,16 @@ from .util import bcolors
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
-__all__ = []
+__all__: List[str] = ["AirtableSource"]
 
 
-class DataSource():
+class DataSource:
     def __init__(self, name: str):
         self.name = name
 
 
 class AirtableSource(DataSource):
-    def __init__(
-        self,
-        name: str,
-        base_key: str,
-        api_key: str
-    ):
+    def __init__(self, name: str, base_key: str, api_key: str):
         DataSource.__init__(self, name)
         self.base_key = base_key
         self.api_key = api_key
@@ -40,7 +36,7 @@ class AirtableSource(DataSource):
         return self
 
     def workbook(self, key: str):
-        print('WARNING: `workbook` method not implemented for AirtableSource.')
+        print("WARNING: `workbook` method not implemented for AirtableSource.")
         return self
 
     def worksheet(self, name: str):
@@ -52,31 +48,40 @@ class AirtableSource(DataSource):
 
         except Exception as e:
             print(e)
-            print('\nFailed to open worksheet with name ' + str(name))
+            print("\nFailed to open worksheet with name " + str(name))
 
-    def as_dataframe(self, view: str = None, max_records: int = 10000000, fields: list = None):
+    def as_dataframe(
+        self,
+        view: str = None,
+        max_records: int = 10000000,
+        fields: list = None,
+    ):
         try:
             print("\n\nFetching data from Airtable...")
-            get_all_kwargs = {'view': view}
+            get_all_kwargs = {"view": view}
             if fields is not None:
-                get_all_kwargs['fields'] = fields
-            records_tmp = self.ws.get_all(max_records=max_records) if view is None else \
-                self.ws.get_all(**get_all_kwargs)
+                get_all_kwargs["fields"] = fields
+            records_tmp = (
+                self.ws.get_all(max_records=max_records)
+                if view is None
+                else self.ws.get_all(**get_all_kwargs)
+            )
             records = list()
             for r_tmp in records_tmp:
-                r = r_tmp['fields']
-                r['source_id'] = r_tmp['id']
+                r = r_tmp["fields"]
+                r["source_id"] = r_tmp["id"]
                 records.append(r)
 
             df = pd.DataFrame.from_records(records)
 
             print(
-                f'''\n{bcolors.OKGREEN}Found {len(df)} records in worksheet "{self.ws_name}"{bcolors.ENDC}''')
+                f"""\n{bcolors.OKGREEN}Found {len(df)} records in worksheet "{self.ws_name}"{bcolors.ENDC}"""
+            )
 
             # remove NaN values
-            df = df.replace(np.nan, '', regex=True)
+            df = df.replace(np.nan, "", regex=True)
             # print(df)
             return df
         except Exception as e:
             print(e)
-            print('\nFailed to open worksheet')
+            print("\nFailed to open worksheet")
