@@ -776,7 +776,7 @@ class CovidPolicyPlugin(IngestPlugin):
         )
         logging.basicConfig(
             filename=filename,
-            level=logging.DEBUG,
+            level=logging.WARNING,
         )
         logging.info("Created new data ingest plugin.")
         return None

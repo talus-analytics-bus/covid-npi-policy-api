@@ -6,34 +6,60 @@ from os import sys
 # local modules
 from api import schema
 from db import db
-from ingest import CovidPolicyPlugin
+from ingest.plugins import CovidPolicyPlugin
 
 # setup arguments
-parser = argparse.ArgumentParser(description='Define which data ingest routines to run')
-parser.add_argument('-a', '--all', default=False,
-                    action='store_const',
-                    const=True,
-                    help='ingest all data types')
-parser.add_argument('-p', '--policies', default=False,
-                    action='store_const',
-                    const=True,
-                    help='ingest policies')
-parser.add_argument('-g', '--group-numbers', default=False,
-                    action='store_const',
-                    const=True,
-                    help='assign policy group numbers')
-parser.add_argument('-c', '--challenges', default=False,
-                    action='store_const',
-                    const=True,
-                    help='ingest court challenges')
-parser.add_argument('-d', '--distancing-levels', default=False,
-                    action='store_const',
-                    const=True,
-                    help='ingest distancing levels')
-parser.add_argument('-m', '--metadata', default=False,
-                    action='store_const',
-                    const=True,
-                    help='ingest metadata')
+parser = argparse.ArgumentParser(
+    description="Define which data ingest routines to run"
+)
+parser.add_argument(
+    "-a",
+    "--all",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest all data types",
+)
+parser.add_argument(
+    "-p",
+    "--policies",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest policies",
+)
+parser.add_argument(
+    "-g",
+    "--group-numbers",
+    default=False,
+    action="store_const",
+    const=True,
+    help="assign policy group numbers",
+)
+parser.add_argument(
+    "-c",
+    "--challenges",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest court challenges",
+)
+parser.add_argument(
+    "-d",
+    "--distancing-levels",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest distancing levels",
+)
+parser.add_argument(
+    "-m",
+    "--metadata",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest metadata",
+)
 
 if __name__ == "__main__":
     # constants
@@ -41,7 +67,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # define red and green airtable keys and pick the one to use
-    green_airtable_key = 'appoXaOlIgpiHK3I2'
+    green_airtable_key = "appoXaOlIgpiHK3I2"
     airtable_key = green_airtable_key
 
     # ingest policies?
@@ -86,7 +112,7 @@ if __name__ == "__main__":
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
-        plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+        plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
 
     if ingest_court:
         # TODO remove this when court challenge complaint categories and
