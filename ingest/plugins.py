@@ -978,7 +978,10 @@ class CovidPolicyPlugin(IngestPlugin):
                     if "Name" not in d:
                         skipped += 1
                         continue
-                    if not d["Date"].startswith("2020"):
+                    if not (
+                            d['Date'].startswith('2020') or
+                            d['Date'].startswith('2021')
+                    ):
                         skipped += 1
                         continue
 
