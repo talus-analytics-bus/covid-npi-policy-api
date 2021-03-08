@@ -68,7 +68,7 @@ pp = pprint.PrettyPrinter(indent=4)
 IS_DEV: bool = os.environ.get("env", None) == "dev"
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
-
+USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
 
 def cached(func):
     """ Caching """
@@ -76,15 +76,18 @@ def cached(func):
 
     @functools.wraps(func)
     def wrapper(*func_args, **kwargs):
-        random = kwargs.get("random", False)
-        key = str(kwargs)
-        if key in cache and not random:
-            return cache[key]
+        if USE_CACHING:
+            random = kwargs.get("random", False)
+            key = str(kwargs)
+            if key in cache and not random:
+                return cache[key]
 
-        results = func(*func_args, **kwargs)
-        if not random:
-            cache[key] = results
-        return results
+            results = func(*func_args, **kwargs)
+            if not random:
+                cache[key] = results
+            return results
+        else:
+            return func(*func_args, **kwargs)
 
         # # Code for JWT-friendly caching below.
         # # get jwt
