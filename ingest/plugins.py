@@ -272,23 +272,6 @@ def reject(x):
                 country_level_with_prov = True
     reject = no_desc or country_level_with_prov
     return reject
-    # multi_iso_aff = 'place.iso3' in x and \
-    #     (
-    #         ';' in x['place.iso3'] or
-    #         (
-    #             type(x['place.iso3']) == list and len(x['place.iso3']) > 1
-    #         )
-    #     )
-    #
-    # multi_iso_auth = 'auth_entity.iso3' in x and \
-    #     (
-    #         ';' in x['auth_entity.iso3'] or
-    #         (
-    #             type(x['auth_entity.iso3']) == list and
-    #             len(x['auth_entity.iso3']) > 1
-    #         )
-    #     )
-    # return no_desc or multi_iso_aff or multi_iso_auth
 
 
 class CovidCaseloadPlugin(IngestPlugin):
@@ -1104,13 +1087,19 @@ class CovidPolicyPlugin(IngestPlugin):
             # remove records without a unique ID and other features
             if "Flag for Review" in self.data.columns:
                 self.data = self.data.loc[
-                    self.data["Flag for Review"] != True, :
+                    self.data["Flag for Review"] is not True, :
                 ]
+
+            # unique ID is not empty
             self.data = self.data.loc[self.data["Unique ID"] != "", :]
+
+            # not "Non-policy guidance"
             if "Policy/law type" in self.data.columns:
                 self.data = self.data.loc[
                     self.data["Policy/law type"] != "Non-policy guidance", :
                 ]
+
+            # authorizing level of gov. is not empty
             if "Authorizing level of government" in self.data.columns:
                 self.data = self.data.loc[
                     self.data["Authorizing level of government"] != "", :
@@ -1495,47 +1484,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        # Local methods ########################################################
-        def get_auth_entities_from_raw_data(d):
-            """Given a datum `d` from raw data, create a list of authorizing
-            entities that are implied by the semicolon-delimited names and
-            offices on that datum.
-
-            Parameters
-            ----------
-            d : type
-                Description of parameter `d`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            entity_names = d["name"].split("; ")
-            entity_offices = d["office"].split("; ")
-            num_entities = len(entity_names)
-            if num_entities == 1:
-                return [d]
-            else:
-                i = 0
-                entities = list()
-                for instance in entity_names:
-                    office: str = (
-                        entity_offices[i]
-                        if i < len(entity_offices)
-                        else entity_offices[len(entity_offices) - 1]
-                    )
-                    entities.append(
-                        {
-                            "id": d["id"],
-                            "name": entity_names[i],
-                            "office": office,
-                        }
-                    )
-                    i = i + 1
-                return entities
-
+        # Local methods #######################################################
         # TODO move formatter to higher-level scope
         def formatter(key, d):
             """Return 'Unspecified' if a null value, otherwise return value.
@@ -1577,14 +1526,6 @@ class CovidPolicyPlugin(IngestPlugin):
             and i.export == True
         )[:][:]
 
-        auth_entity_place_keys = select(
-            i.ingest_field
-            for i in db.Metadata
-            if i.ingest_field != ""
-            and i.entity_name == "Auth_Entity.Place"
-            and i.export == True
-        )[:][:]
-
         # track upserted records
         n_deleted = 0
         n_inserted_auth_entity = 0
@@ -1599,13 +1540,13 @@ class CovidPolicyPlugin(IngestPlugin):
             # TODO handle on ingest
             try:
                 int(d["id"])
-            except:
+            except Exception:
                 continue
 
             if reject(d):
                 continue
 
-            ## Add places ######################################################
+            # Add places ######################################################
             # the affected place is different from the auth entity's place if it
             # exists (is defined in the record) and is different
             # TODO fix possible bug where this is False when it should be True
@@ -1632,15 +1573,15 @@ class CovidPolicyPlugin(IngestPlugin):
             # TODO consider flagging updates here
             db.Policy[d["id"]].place = place_affected_list
 
-            ## Add auth_entities ##############################################
+            # Add auth_entities ##############################################
             # parse auth entities in raw data record (there may be more than
             # one defined for each record)
-            raw_data = get_auth_entities_from_raw_data(d)
+            auth_entity_officials = self.get_auth_entities_from_raw_data(d)
 
             # for each individual auth entity
             db.Policy[d["id"]].auth_entity = set()
             if len(place_auth_list) > 0:
-                for dd in raw_data:
+                for dd in auth_entity_officials:
 
                     # get or create auth entity
                     auth_entity_instance_data = {
@@ -1677,7 +1618,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     db.Policy[d["id"]].auth_entity.add(auth_entity)
             commit()
 
-        ## Delete unused instances ############################################
+        # Delete unused instances #############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i for i in db.Auth_Entity if len(i.policies) == 0
@@ -1705,54 +1646,6 @@ class CovidPolicyPlugin(IngestPlugin):
         print("\n\n[8] Ingesting authorizing entities...")
         print("Total in database: " + str(len(db.Auth_Entity.select())))
         print("Deleted: " + str(n_deleted_auth_entity))
-
-    # def add_upserted_subplaces(
-    #     self,
-    #     db,
-    #     place_affected,
-    #     place_affected_list,
-    #     subplace_names,
-    #     place_field,
-    #     n_updated,
-    #     n_inserted,
-    # ):
-    #     for name in subplace_names:
-    #         cur_place_affected = dict()
-    #         cur_place_affected.update(place_affected)
-    #         cur_place_affected[place_field] = name
-    #         upserted_aff_place = self.upsert_aff_place(
-    #             db, cur_place_affected, n_updated, n_inserted
-    #         )
-    #         place_affected_list.append(upserted_aff_place)
-
-    # def upsert_aff_place(self, db, place_affected, n_updated, n_inserted):
-    #     place_affected_get_keys = ["level", "iso3", "area1", "area2"]
-    #     place_affected_set_keys = [
-    #         "dillons_rule",
-    #         "home_rule",
-    #         "country_name",
-    #     ]
-    #     place_affected_get = {
-    #         k: place_affected[k]
-    #         for k in place_affected_get_keys
-    #         if k in place_affected
-    #     }
-    #     place_affected_set = {
-    #         k: place_affected[k]
-    #         for k in place_affected_set_keys
-    #         if k in place_affected
-    #     }
-    #     action, place_affected = upsert(
-    #         db.Place,
-    #         place_affected_get,
-    #         place_affected_set,
-    #     )
-    #     place_affected.loc = get_place_loc(place_affected)
-    #     if action == "update":
-    #         n_updated += 1
-    #     elif action == "insert":
-    #         n_inserted += 1
-    #     return place_affected
 
     def is_aff_diff_from_auth(self, d) -> bool:
         """Returns True if the authorizing entity's place is different from the
@@ -3125,8 +3018,8 @@ class CovidPolicyPlugin(IngestPlugin):
         self, db, d: dict, type: str = "affected"
     ) -> list:
 
-        # TODO perhaps do upsert in this function as well
-        # place_keys: List[str] = ["level", "iso3", "area1", "area2"]
+        # get prefix of dict keys based on type of place needed, affected
+        # or authorizing
         prefix: str = "place" if type == "affected" else "auth_entity"
 
         # create aff place dicts
@@ -3186,9 +3079,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area2_info is None:
                     continue
 
-                if area2_info is None:
-                    continue
-
                 area1: str = area2_info.get("Intermediate Area Name", None)[0]
                 if area1 is None or area1 == "":
                     raise ValueError(
@@ -3221,9 +3111,6 @@ class CovidPolicyPlugin(IngestPlugin):
                         ),
                     )
                 )
-
-        # create auth place dicts
-        # TODO
 
         # add location strings
         for p in places:
@@ -3261,3 +3148,43 @@ class CovidPolicyPlugin(IngestPlugin):
             )
             if area2_info is not None:
                 d["area2"] = area1_info.get("Name")
+
+    def get_auth_entities_from_raw_data(self, d):
+        """Given a datum `d` from raw data, create a list of authorizing
+        entities that are implied by the semicolon-delimited names and
+        offices on that datum.
+
+        Parameters
+        ----------
+        d : type
+            Description of parameter `d`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        entity_names = d["name"].split("; ")
+        entity_offices = d["office"].split("; ")
+        num_entities = len(entity_names)
+        if num_entities == 1:
+            return [d]
+        else:
+            i = 0
+            entities = list()
+            for instance in entity_names:
+                office: str = (
+                    entity_offices[i]
+                    if i < len(entity_offices)
+                    else entity_offices[len(entity_offices) - 1]
+                )
+                entities.append(
+                    {
+                        "id": d["id"],
+                        "name": entity_names[i],
+                        "office": office,
+                    }
+                )
+                i = i + 1
+            return entities
