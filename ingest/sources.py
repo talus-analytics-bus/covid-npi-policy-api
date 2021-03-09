@@ -18,7 +18,7 @@ from .util import bcolors
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
-__all__: List[str] = ["AirtableSource"]
+__all__ = []
 
 
 class DataSource:

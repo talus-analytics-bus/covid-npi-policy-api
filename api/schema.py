@@ -4,8 +4,9 @@ import functools
 import math
 import itertools
 import logging
+import os
 from logging import info, warn
-# import pprint
+import pprint
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -13,19 +14,42 @@ from collections import defaultdict
 # 3rd party modules
 import boto3
 from pony.orm import (
-    db_session, select, get, commit, desc, count, raw_sql, concat, coalesce,
-    exists, group_concat
+    db_session,
+    select,
+    get,
+    commit,
+    desc,
+    count,
+    raw_sql,
+    concat,
+    coalesce,
+    exists,
+    group_concat,
 )
 from fastapi.responses import Response
 from fuzzywuzzy import fuzz
+from pony.orm.core import Query
 
 # local modules
+from . import test
+from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
 from .models import (
-    Policy, PolicyList, PolicyDict, PolicyStatus, PolicyStatusList,
-    Auth_Entity, Place, File, PlanList, ChallengeList, PolicyNumber,
-    PolicyNumberList, PolicyStatusCount, PolicyStatusCountList,
-    ListResponse
+    Policy,
+    PolicyList,
+    PolicyDict,
+    PolicyStatus,
+    PolicyStatusList,
+    Auth_Entity,
+    Place,
+    File,
+    PlanList,
+    ChallengeList,
+    PolicyNumber,
+    PolicyNumberList,
+    PolicyStatusCount,
+    PolicyStatusCountList,
+    ListResponse,
 )
 from .util import str_to_date, find, download_file
 from db import db
@@ -36,14 +60,15 @@ from db import db
 # p = cProfile.Profile()
 
 # constants
-s3 = boto3.client('s3')
-S3_BUCKET_NAME = 'covid-npi-policy-storage'
+s3 = boto3.client("s3")
+S3_BUCKET_NAME = "covid-npi-policy-storage"
 
-# # pretty printing: for printing JSON objects legibly
-# pp = pprint.PrettyPrinter(indent=4)
+# pretty printing: for printing JSON objects legibly
+pp = pprint.PrettyPrinter(indent=4)
+IS_DEV: bool = os.environ.get("env", None) == "dev"
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
-
+USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
 
 def cached(func):
     """ Caching """
@@ -51,15 +76,18 @@ def cached(func):
 
     @functools.wraps(func)
     def wrapper(*func_args, **kwargs):
-        random = kwargs.get('random', False)
-        key = str(kwargs)
-        if key in cache and not random:
-            return cache[key]
+        if USE_CACHING:
+            random = kwargs.get("random", False)
+            key = str(kwargs)
+            if key in cache and not random:
+                return cache[key]
 
-        results = func(*func_args, **kwargs)
-        if not random:
-            cache[key] = results
-        return results
+            results = func(*func_args, **kwargs)
+            if not random:
+                cache[key] = results
+            return results
+        else:
+            return func(*func_args, **kwargs)
 
         # # Code for JWT-friendly caching below.
         # # get jwt
@@ -83,14 +111,12 @@ def cached(func):
 @cached
 def get_countries_with_lockdown_levels():
     countries_with_lockdown_levels = select(
-        i.place.iso3
-        for i in db.Observation
-        if i.metric == 0
+        i.place.iso3 for i in db.Observation if i.metric == 0
     )
     return {
-        'success': True,
-        'message': 'Success',
-        'data': countries_with_lockdown_levels[:][:]
+        "success": True,
+        "message": "Success",
+        "data": countries_with_lockdown_levels[:][:],
     }
 
 
@@ -98,20 +124,18 @@ def get_countries_with_lockdown_levels():
 @cached
 def get_countries_with_policies():
     countries_with_policies = select(
-        i.iso3
-        for i in db.PolicyCountsByPlace
-        if i.policy_count > 0
+        i.iso3 for i in db.PolicyCountsByPlace if i.policy_count > 0
     )
     return {
-        'success': True,
-        'message': 'Success',
-        'data': countries_with_policies[:][:]
+        "success": True,
+        "message": "Success",
+        "data": countries_with_policies[:][:],
     }
 
 
 @db_session
 @cached
-def export(filters: dict = None, class_name: str = 'Policy'):
+def export(filters: dict = None, class_name: str = "Policy"):
     """Return XLSX data export for policies with the given filters applied.
 
     Parameters
@@ -125,44 +149,40 @@ def export(filters: dict = None, class_name: str = 'Policy'):
         The XLSX data export file.
 
     """
-    media_type = 'application/' + \
-        'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    media_type = (
+        "application/" + "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
     # If all data: return static Excel file
-    if class_name == 'all_static':
+    if class_name == "all_static":
         today = date.today()
         file = download_file(
-            'https://ghssidea.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx', 'COVID AMP - Full Data Export - ' + str(today).replace('-', ''), None, as_object=True)
-        return Response(
-            content=file,
-            media_type=media_type
+            "https://ghssidea.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx",
+            "COVID AMP - Full Data Export - " + str(today).replace("-", ""),
+            None,
+            as_object=True,
         )
+        return Response(content=file, media_type=media_type)
     else:
         # Create Excel export file
         genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
         content = genericExcelExport.build()
 
-        return Response(
-            content=content,
-            media_type=media_type
-        )
+        return Response(content=content, media_type=media_type)
 
 
 @db_session
 def get_version():
-    data_tmp = db.Version.select_by_sql(f'''
+    data_tmp = db.Version.select_by_sql(
+        f"""
         SELECT distinct on ("type") * FROM "version"
         ORDER BY "type", "date" desc
-                                    ''')
-    data = [i.to_dict(only=['type', 'date', 'last_datum_date'])
-            for i in data_tmp]
-    data.sort(key=lambda x: x['type'], reverse=True)
-    data.sort(key=lambda x: x['date'], reverse=True)
-    return {
-        'success': True,
-        'data': data,
-        'message': 'Success'
-    }
+                                    """
+    )
+    data = [i.to_dict(only=["type", "date", "last_datum_date"]) for i in data_tmp]
+    data.sort(key=lambda x: x["type"], reverse=True)
+    data.sort(key=lambda x: x["date"], reverse=True)
+    return {"success": True, "data": data, "message": "Success"}
 
 
 @db_session
@@ -181,7 +201,7 @@ def get_count(class_names):
         Description of returned object.
 
     """
-    supported_entities = ('Policy', 'Plan', 'Court_Challenge')
+    supported_entities = ("Policy", "Plan", "Court_Challenge")
     data = dict()
     for d in class_names:
         if d not in supported_entities or not hasattr(db, d):
@@ -189,11 +209,7 @@ def get_count(class_names):
         else:
             n = get(count(i) for i in getattr(db, d))
             data[d] = n
-    return {
-        'success': True,
-        'data': data,
-        'message': 'Success'
-    }
+    return {"success": True, "data": data, "message": "Success"}
 
 
 @db_session
@@ -222,17 +238,18 @@ def get_metadata(fields: list, entity_class_name: str):
 
         # get entity class name and field
         try:
-            entity_name, field = d.split('.')
+            entity_name, field = d.split(".")
         except:
             return {
-                'success': False,
-                'message': 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
-                'data': []
+                "success": False,
+                "message": 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
+                "data": [],
             }
 
         # get metadata instance from db that matches this field
         metadatum = get(
-            i for i in db.Metadata
+            i
+            for i in db.Metadata
             if i.field == field
             and i.entity_name.lower() == entity_name.lower()
             and i.class_name == entity_class_name
@@ -246,11 +263,7 @@ def get_metadata(fields: list, entity_class_name: str):
             data[d] = dict()
 
     # return response dictionary
-    return {
-        'success': True,
-        'message': f'''Found {n} metadata values.''',
-        'data': data
-    }
+    return {"success": True, "message": f"""Found {n} metadata values.""", "data": data}
 
 
 @db_session
@@ -304,7 +317,7 @@ def get_file(id: int):
         s3.download_fileobj(S3_BUCKET_NAME, key, data)
     except Exception as e:
         logging.exception(e)
-        return 'Document not found (404)'
+        return "Document not found (404)"
 
     # return to start of IO stream
     data.seek(0)
@@ -313,9 +326,9 @@ def get_file(id: int):
     content = data.read()
 
     # return file with correct media type given its extension
-    media_type = 'application'
-    if key.endswith('.pdf'):
-        media_type = 'application/pdf'
+    media_type = "application"
+    if key.endswith(".pdf"):
+        media_type = "application/pdf"
     return Response(content=content, media_type=media_type)
 
 
@@ -324,12 +337,12 @@ def get_file(id: int):
 def get_policy_number(
     filters: dict = None,
     fields: list = None,
-    order_by_field: str = 'date_start_effective',
+    order_by_field: str = "date_start_effective",
     return_db_instances: bool = False,
     by_category: str = None,
     ordering: list = [],
     page: int = None,
-    pagesize: int = 100
+    pagesize: int = 100,
 ):
 
     # return all fields?
@@ -352,23 +365,19 @@ def get_policy_number(
     # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
+        if "place." in field_tmp:
+            field = field_tmp.split(".")[1]
+            if direction == "desc":
                 q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
+                    lambda i: desc(group_concat(getattr(p, field) for p in i.place))
                 )
             else:
                 q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
+                    lambda i: group_concat(getattr(p, field) for p in i.place)
                 )
         else:
             field = field_tmp
-            if direction == 'desc':
+            if direction == "desc":
                 q = q.order_by(desc(getattr(entity_class, field)))
             else:
                 q = q.order_by(getattr(entity_class, field))
@@ -388,16 +397,21 @@ def get_policy_number(
     else:
         return_fields_by_entity = defaultdict(list)
         if fields is not None:
-            return_fields_by_entity['policy_number'] = fields
+            return_fields_by_entity["policy_number"] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc', 'home_rule', 'dillons_rule', 'area1', 'area2', 'iso3'
+        return_fields_by_entity["place"] = [
+            "id",
+            "level",
+            "loc",
+            "home_rule",
+            "dillons_rule",
+            "area1",
+            "area2",
+            "iso3",
         ]
-        return_fields_by_entity['auth_entity'] = [
-            'id', 'place', 'office', 'name'
-        ]
+        return_fields_by_entity["auth_entity"] = ["id", "place", "office", "name"]
 
         # define list of instances to return
         data = []
@@ -407,27 +421,32 @@ def get_policy_number(
             d_dict = d.to_dict_2(
                 with_collections=True,
                 related_objects=True,
-                return_fields_by_entity=return_fields_by_entity)
+                return_fields_by_entity=return_fields_by_entity,
+            )
             datum = PolicyNumber(
-                policy_number=d_dict['id'],
-                titles=d_dict['names'],
-                auth_entity_offices=[ae.office for ae in d_dict['auth_entity']],
+                policy_number=d_dict["id"],
+                titles=d_dict["names"],
+                auth_entity_offices=[ae.office for ae in d_dict["auth_entity"]],
                 policies=[
                     Policy(
                         id=p.id,
                         primary_ph_measure=p.primary_ph_measure,
                         ph_measure_details=p.ph_measure_details,
-                        date_start_effective=p.date_start_effective
-                    ) for p in d_dict['policy']
-                ]
+                        date_start_effective=p.date_start_effective,
+                    )
+                    for p in d_dict["policy"]
+                ],
             )
             data.append(datum)
 
         # if pagination is being used, get next page URL if there is one
         n_pages = None if not use_pagination else math.ceil(n / pagesize)
         more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/policy_number?page={str(page + 1)}&pagesize={str(pagesize)}'''
+        next_page_url = (
+            None
+            if not more_pages
+            else f"""/get/policy_number?page={str(page + 1)}&pagesize={str(pagesize)}"""
+        )
 
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Policy
@@ -449,9 +468,9 @@ def get_policy_number(
             res = PolicyNumberList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} policy numbers found''',
+                message=f"""{len(q)} policy numbers found""",
                 next_page_url=next_page_url,
-                n=n
+                n=n,
             )
         return res
 
@@ -461,7 +480,7 @@ def get_policy_number(
 def get_policy(
     filters: dict = None,
     fields: list = None,
-    order_by_field: str = 'date_start_effective',
+    order_by_field: str = "date_start_effective",
     return_db_instances: bool = False,
     by_category: str = None,
     ordering: list = [],
@@ -469,7 +488,7 @@ def get_policy(
     page: int = None,
     pagesize: int = 100,
     count_only: bool = False,
-    by_group_number: bool = True,
+    merge_like_policies: bool = True,
 ):
     """Returns Policy instance data that match the provided filters.
 
@@ -501,7 +520,9 @@ def get_policy(
 
     # use pagination if all fields are requested, and set value for `page` if
     # none was provided in the URL query args
-    use_pagination = (all or page is not None) and not return_db_instances and not random
+    use_pagination = (
+        (all or page is not None) and not return_db_instances and not random
+    )
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
@@ -512,13 +533,10 @@ def get_policy(
 
     # if only a count was requested, return it
     if count_only:
-        if by_group_number:
+        if merge_like_policies:
             q = select(i.group_number for i in q)
         n = q.count()
-        return {
-            'data': [{'n': n}],
-            'success': True, 'message': 'Number of policies'
-        }
+        return {"data": [{"n": n}], "success": True, "message": "Number of policies"}
 
     else:
 
@@ -526,9 +544,9 @@ def get_policy(
             # apply ordering
             ordering.reverse()
             for field_tmp, direction in ordering:
-                if 'place.' in field_tmp:
-                    field = field_tmp.split('.')[1]
-                    if direction == 'desc':
+                if "place." in field_tmp:
+                    field = field_tmp.split(".")[1]
+                    if direction == "desc":
                         q = q.order_by(
                             lambda i: desc(
                                 group_concat(getattr(p, field) for p in i.place)
@@ -536,9 +554,7 @@ def get_policy(
                         )
                     else:
                         q = q.order_by(
-                            lambda i:
-                                group_concat(getattr(p, field) for p in i.place)
-
+                            lambda i: group_concat(getattr(p, field) for p in i.place)
                         )
                 else:
                     field = field_tmp
@@ -565,13 +581,12 @@ def get_policy(
             return_fields_by_entity = defaultdict(list)
 
             if fields is not None:
-                return_fields_by_entity['policy'] = \
-                    [f for f in fields if '.' not in f]
+                return_fields_by_entity["policy"] = [f for f in fields if "." not in f]
 
             # get any linked entity fields and parse them
             for f in fields:
-                if '.' in f:
-                    f_arr = f.split('.')
+                if "." in f:
+                    f_arr = f.split(".")
                     ent = None
                     if len(f_arr) == 2:
                         ent, field_name = f_arr
@@ -580,20 +595,34 @@ def get_policy(
                         ent, linked_ent, field_name = f_arr
                         return_fields_by_entity[ent].append(linked_ent)
                         return_fields_by_entity[linked_ent].append(field_name)
-                    return_fields_by_entity['policy'].append(ent)
+                    return_fields_by_entity["policy"].append(ent)
 
             for ent in return_fields_by_entity:
                 return_fields_by_entity[ent] = list(set(return_fields_by_entity[ent]))
 
             # TODO dynamically set fields returned for Place and other
             # linked entities
-            if 'place' not in return_fields_by_entity:
-                return_fields_by_entity['place'] = [
-                    'id', 'level', 'loc', 'home_rule', 'dillons_rule', 'area1', 'area2', 'iso3',
+            if "place" not in return_fields_by_entity:
+                return_fields_by_entity["place"] = [
+                    "id",
+                    "level",
+                    "loc",
+                    "home_rule",
+                    "dillons_rule",
+                    "area1",
+                    "area2",
+                    "iso3",
                 ]
-            if 'auth_entity' not in return_fields_by_entity:
-                return_fields_by_entity['auth_entity'] = [
-                    'id', 'place', 'office', 'name', 'official', 'area1', 'area2', 'iso3',
+            if "auth_entity" not in return_fields_by_entity:
+                return_fields_by_entity["auth_entity"] = [
+                    "id",
+                    "place",
+                    "office",
+                    "name",
+                    "official",
+                    "area1",
+                    "area2",
+                    "iso3",
                 ]
             # if 'court_challenges' not in return_fields_by_entity:
             #     return_fields_by_entity['court_challenges'] = [
@@ -605,16 +634,18 @@ def get_policy(
             # for each policy
             for d in q:
                 # convert it to a dictionary returning only the specified fields
-                d_dict = d.to_dict_2(
-                    return_fields_by_entity=return_fields_by_entity)
+                d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
                 # add it to the output list
                 data.append(d_dict)
 
             # if pagination is being used, get next page URL if there is one
             n_pages = None if not use_pagination else math.ceil(n / pagesize)
             more_pages = use_pagination and page < n_pages
-            next_page_url = None if not more_pages else \
-                f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+            next_page_url = (
+                None
+                if not more_pages
+                else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            )
 
             # if by category: transform data to organize by category
             # NOTE: assumes one `primary_ph_measure` per Policy
@@ -626,18 +657,18 @@ def get_policy(
                 res = PolicyDict(
                     data=data_by_category,
                     success=True,
-                    message=f'''{len(q)} policies found''',
+                    message=f"""{len(q)} policies found""",
                     next_page_url=next_page_url,
-                    n=n
+                    n=n,
                 )
             else:
                 # create response from output list
                 res = PolicyList(
                     data=data,
                     success=True,
-                    message=f'''{len(q)} policies found''',
+                    message=f"""{len(q)} policies found""",
                     next_page_url=next_page_url,
-                    n=n
+                    n=n,
                 )
             return res
 
@@ -647,12 +678,12 @@ def get_policy(
 def get_challenge(
     filters: dict = None,
     fields: list = None,
-    order_by_field: str = 'date_of_complaint',
+    order_by_field: str = "date_of_complaint",
     return_db_instances: bool = False,
     by_category: str = None,
     ordering: list = [],
     page: int = None,
-    pagesize: int = 100
+    pagesize: int = 100,
 ):
     """Returns Challenge instance data that match the provided filters.
 
@@ -696,26 +727,22 @@ def get_challenge(
     # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
+        if "place." in field_tmp:
+            field = field_tmp.split(".")[1]
+            if direction == "desc":
                 q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
+                    lambda i: desc(group_concat(getattr(p, field) for p in i.place))
                 )
             else:
                 q = q.order_by(
-                    lambda i:
-                        group_concat(getattr(p, field) for p in i.place)
-
+                    lambda i: group_concat(getattr(p, field) for p in i.place)
                 )
         else:
             field = field_tmp
-            if direction == 'desc':
-                q = q.order_by(raw_sql(f'''i.{field} DESC NULLS LAST'''))
+            if direction == "desc":
+                q = q.order_by(raw_sql(f"""i.{field} DESC NULLS LAST"""))
             else:
-                q = q.order_by(raw_sql(f'''i.{field} NULLS LAST'''))
+                q = q.order_by(raw_sql(f"""i.{field} NULLS LAST"""))
 
     # get len of query
     n = count(q) if use_pagination else None
@@ -731,28 +758,29 @@ def get_challenge(
     # otherwise prepare list of dictionaries to return
     else:
         return_fields_by_entity = defaultdict(list)
-        return_fields_by_entity['court_challenge'] = fields
+        return_fields_by_entity["court_challenge"] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc', 'area1', 'area2']
+        return_fields_by_entity["place"] = ["id", "level", "loc", "area1", "area2"]
 
         # define list of instances to return
         data = []
         # for each policy
         for d in q:
             # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
+            d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
             # add it to the output list
             data.append(d_dict)
 
         # if pagination is being used, get next page URL if there is one
         n_pages = None if not use_pagination else math.ceil(n / pagesize)
         more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}'''
+        next_page_url = (
+            None
+            if not more_pages
+            else f"""/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}"""
+        )
 
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Court_Challenge
@@ -774,9 +802,9 @@ def get_challenge(
             res = ChallengeList(
                 data=data,
                 success=True,
-                message=f'''{n} challenge(s) found''',
+                message=f"""{n} challenge(s) found""",
                 next_page_url=next_page_url,
-                n=n
+                n=n,
             )
         return res
 
@@ -789,17 +817,12 @@ def get_place(
     fields=list(),
     include_policy_count=False,
 ):
-    """Returns Place instance data that match the provided filters.
-
-    """
+    """Returns Place instance data that match the provided filters."""
     places = select(
-        i for i
-        in db.Place
-        if (
-            iso3 == '' or i.iso3.lower() == iso3
-        ) and (
-            level == '' or i.level.lower() == level
-        )
+        i
+        for i in db.Place
+        if (iso3 == "" or i.iso3.lower() == iso3)
+        and (level == "" or i.level.lower() == level)
     )[:][:]
 
     data = None
@@ -807,19 +830,14 @@ def get_place(
         data_tmp = [(d.to_dict(only=fields), len(d.policies)) for d in places]
         data = list()
         for d, n_policies in data_tmp:
-            d.update({'n_policies': n_policies})
+            d.update({"n_policies": n_policies})
             data.append(d)
     else:
         data = [d.to_dict(only=fields) for d in places]
 
     # create response from output list
     n = len(data)
-    res = ListResponse(
-        data=data,
-        success=True,
-        message=f'''{n} place(s) found''',
-        n=n
-    )
+    res = ListResponse(data=data, success=True, message=f"""{n} place(s) found""", n=n)
     return res
 
 
@@ -829,11 +847,11 @@ def get_plan(
     filters: dict = None,
     ordering: list = [],
     fields: list = None,
-    order_by_field: str = 'date_issued',
+    order_by_field: str = "date_issued",
     return_db_instances: bool = False,
     by_category: str = None,
     page: int = None,
-    pagesize: int = 100
+    pagesize: int = 100,
 ):
     """Returns Plan instance data that match the provided filters.
 
@@ -877,19 +895,15 @@ def get_plan(
     # apply ordering
     ordering.reverse()
     for field_tmp, direction in ordering:
-        if 'place.' in field_tmp:
-            field = field_tmp.split('.')[1]
-            if direction == 'desc':
-                q = q.order_by(
-                    lambda i: desc(str(getattr(i.place, field)))
-                )
+        if "place." in field_tmp:
+            field = field_tmp.split(".")[1]
+            if direction == "desc":
+                q = q.order_by(lambda i: desc(str(getattr(i.place, field))))
             else:
-                q = q.order_by(
-                    lambda i: str(getattr(i.place, field))
-                )
+                q = q.order_by(lambda i: str(getattr(i.place, field)))
         else:
             field = field_tmp
-            if direction == 'desc':
+            if direction == "desc":
                 q = q.order_by(desc(getattr(db.Plan, field)))
             else:
                 q = q.order_by(getattr(db.Plan, field))
@@ -910,14 +924,12 @@ def get_plan(
 
         return_fields_by_entity = defaultdict(list)
         if fields is not None:
-            return_fields_by_entity['plan'] = fields
+            return_fields_by_entity["plan"] = fields
 
         # TODO dynamically set fields returned for Place and other
         # linked entities
-        return_fields_by_entity['place'] = [
-            'id', 'level', 'loc']
-        return_fields_by_entity['auth_entity'] = [
-            'id', 'name']
+        return_fields_by_entity["place"] = ["id", "level", "loc"]
+        return_fields_by_entity["auth_entity"] = ["id", "name"]
 
         # define list of instances to return
         data = []
@@ -926,8 +938,7 @@ def get_plan(
         for d in q:
 
             # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity)
+            d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
 
             # add it to the output list
             data.append(d_dict)
@@ -935,8 +946,11 @@ def get_plan(
         # if pagination is being used, get next page URL if there is one
         n_pages = None if not use_pagination else math.ceil(n / pagesize)
         more_pages = use_pagination and page < n_pages
-        next_page_url = None if not more_pages else \
-            f'''/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}'''
+        next_page_url = (
+            None
+            if not more_pages
+            else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+        )
 
         # if by category: transform data to organize by category
         # NOTE: assumes one `primary_ph_measure` per Court_Challenge
@@ -956,9 +970,9 @@ def get_plan(
             res = PlanList(
                 data=data,
                 success=True,
-                message=f'''{len(q)} plans found''',
+                message=f"""{len(q)} plans found""",
                 next_page_url=next_page_url,
-                n=n
+                n=n,
             )
         return res
 
@@ -969,17 +983,17 @@ def get_policy_status(
     is_lockdown_level: bool = None,
     geo_res: str = None,
     name: str = None,
-    filters: dict = dict()
+    filters: dict = dict(),
 ):
     """TODO"""
 
     # DEBUG filter by USA only
-    filters['iso3'] = ['USA'] if geo_res == 'state' else []
+    filters["iso3"] = ["USA"] if geo_res == "state" else []
 
     # get ordered policies from database
-    level = 'State / Province'
-    if geo_res == 'country':
-        level = 'Country'
+    level = "State / Province"
+    if geo_res == "country":
+        level = "Country"
 
     q = select(i for i in db.Policy)
     # q = select(i for i in db.Policy if i.place.level == level)
@@ -990,18 +1004,18 @@ def get_policy_status(
     # Case A: Lockdown level
     if is_lockdown_level is None:
         is_lockdown_level = (
-            'lockdown_level' in filters and
-            filters['lockdown_level'][0] == 'lockdown_level'
+            "lockdown_level" in filters
+            and filters["lockdown_level"][0] == "lockdown_level"
         )
     if is_lockdown_level:
 
         # get dates to check
         start = None
         end = None
-        if 'dates_in_effect' in filters:
-            start, end = filters['dates_in_effect']
-            start = datetime.strptime(start, '%Y-%m-%d').date()
-            end = datetime.strptime(end, '%Y-%m-%d').date()
+        if "dates_in_effect" in filters:
+            start, end = filters["dates_in_effect"]
+            start = datetime.strptime(start, "%Y-%m-%d").date()
+            end = datetime.strptime(end, "%Y-%m-%d").date()
 
         # If a date range is provided and the dates aren't the same, return
         # a not implemented message
@@ -1009,7 +1023,7 @@ def get_policy_status(
             return PolicyStatusList(
                 data=list(),
                 success=False,
-                message=f'''Start and end dates must be identical.'''
+                message=f"""Start and end dates must be identical.""",
             )
         else:
             # if date is not provided, return it in the response
@@ -1021,46 +1035,46 @@ def get_policy_status(
             # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
             if name is None:
                 q = db.Observation.select_by_sql(
-                    f'''
+                    f"""
                             select distinct on (place) *
                             from observation o
                             where date <= '{str(start)}'
                             order by place, date desc
-                    ''')
+                    """
+                )
                 data = [
                     {
-                        'place_name': i.place.area1 if geo_res == 'state' else i.place.iso3,
-                        'value': i.value,
-                        'datestamp': i.date,
-                    } for i in q if i.place.level == level
+                        "place_name": i.place.area1
+                        if geo_res == "state"
+                        else i.place.iso3,
+                        "value": i.value,
+                        "datestamp": i.date,
+                    }
+                    for i in q
+                    if i.place.level == level
                 ]
             else:
 
                 # get all observations for the current date and convert them into
                 # policy statuses
                 observations = select(
-                    i for i in db.Observation
-                    if i.metric == 0
-                    and (start is None or i.date == start)
+                    i
+                    for i in db.Observation
+                    if i.metric == 0 and (start is None or i.date == start)
                 ).order_by(db.Observation.date)
 
                 if name is not None:
-                    observations = observations.filter(
-                        lambda x: x.place.area1 == name)
+                    observations = observations.filter(lambda x: x.place.area1 == name)
 
                 for d in observations:
                     datum = {
-                        'value': d.value,
+                        "value": d.value,
                     }
                     if specify_date:
-                        datum['datestamp'] = d.date
+                        datum["datestamp"] = d.date
                     if name is None:
-                        datum['place_name'] = d.place.area1
-                    data.append(
-                        PolicyStatus(
-                            **datum
-                        )
-                    )
+                        datum["place_name"] = d.place.area1
+                    data.append(PolicyStatus(**datum))
     else:
 
         # Case B: Any other category
@@ -1068,26 +1082,23 @@ def get_policy_status(
         if filters is not None:
             q = apply_entity_filters(q, db.Policy, filters)
 
-        loc_field = 'area1'
-        if geo_res == 'country':
-            loc_field = 'iso3'
+        loc_field = "area1"
+        if geo_res == "country":
+            loc_field = "iso3"
 
         q_loc = select(getattr(i.place, loc_field) for i in q)
 
         data_tmp = dict()
         for i in q_loc:
             if i not in data_tmp:
-                data_tmp[i] = PolicyStatus(
-                    place_name=i,
-                    value="t"
-                )
+                data_tmp[i] = PolicyStatus(place_name=i, value="t")
         data = list(data_tmp.values())
 
     # create response from output list
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} status(es){'' if name is None else ' for ' + name}'''
+        message=f"""Found {str(len(data))} status(es){'' if name is None else ' for ' + name}""",
     )
     return res
 
@@ -1099,34 +1110,92 @@ def get_policy_status_counts(
     name: str = None,
     filters: dict = dict(),
     by_group_number: bool = True,
+    count_sub: bool = True,
+    run_tests: bool = False,
+    include_zeros: bool = True,
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
 
     # DEBUG filter by USA only
-    filters['iso3'] = ['USA'] if geo_res == 'state' else []
+    if geo_res == "state":
+        filters["iso3"] = ["USA"]
+
+    # run tests
+    if run_tests or IS_DEV:
+        test.get_policy_status_counts()
 
     # get ordered policies from database
-    level = 'State / Province'
-    if geo_res == 'country':
-        level = 'Country'
-    filters['level'] = level
+    # if not counting sub-[geo] only, then filter by level = [sub_geo]
+    # otherwise, below filter by level != [geo or higher]
+    if not count_sub:
+        level: str = "State / Province"
+        if geo_res == "country":
+            level = "Country"
+        filters["level"] = [level]
 
     # get policies
     q = select(i for i in db.Policy)
 
+    # get all locations with any data (before filters)
+    q_any_data = select(i for i in db.Policy)
+
+    # TODO
+    # apply level filters
+    # apply special filters if counting sub-[geo] only
+    def apply_level_filters(q: Query, geo_res: GeoRes) -> Query:
+        """Filters policies in query to keep only those that are below the defined geographic resolution.
+
+        Args:
+            q (Query): The query selecting policies to be filtered
+            geo_res (GeoRes): The geographic resolution of the area related to those policies
+
+        Raises:
+            NotImplementedError: Only country and state geographic resolutions are implemented.
+
+        Returns:
+            Query: Filtered policies
+        """
+        if geo_res == GeoRes.state:
+            q = q.filter(
+                lambda i: not exists(
+                    t for t in i.place if t.level in ("State / Province", "Country")
+                )
+            )
+        elif geo_res == GeoRes.country:
+            q = q.filter(
+                lambda i: not exists(t for t in i.place if t.level in ("Country",))
+            )
+        else:
+            raise NotImplementedError("Unimplemented geographic resolution: " + geo_res)
+        return q
+
+    # filter policies by correct levels if counting only sub-[geo] policies
+    if count_sub:
+        q = apply_level_filters(q, geo_res)
+        q_any_data = apply_level_filters(q_any_data, geo_res)
+
     # initialize output data
-    data = None
+    data: list = None
 
     # apply filters if any
+    # TODO resume here by adding "zeros" to response based on which keys are in `q_any_data` but
+    # not in the `q` filtered data.
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
+        if "level" in filters:
+            q_any_data = apply_entity_filters(
+                q_any_data, db.Policy, dict(level=filters["level"])
+            )
+    q_any_data = select(
+        (i.place.iso3, i.place.area1, i.place.level) for i in q_any_data
+    )
 
     # get correct location field
-    loc_field = 'area1' if geo_res != 'country' else 'iso3'
+    loc_field: str = "area1" if geo_res != "country" else "iso3"
 
     # get locations
-    q_loc = None
+    q_loc: Query = None
     if not by_group_number:
         q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
     else:
@@ -1135,18 +1204,31 @@ def get_policy_status_counts(
     data_tmp = dict()
     for name, num in q_loc:
         if name not in data_tmp:
-            data_tmp[name] = PolicyStatusCount(
-                place_name=name,
-                value=num
-            )
+            data_tmp[name] = PolicyStatusCount(place_name=name, value=num)
     data = list(data_tmp.values())
 
     # create response from output list
+    res_counted: str = geo_res if not count_sub else "sub-" + geo_res
+
+    # add "zeros" to the data if requested
+    # TODO validate and test
+    if include_zeros:
+        for iso3, area1, level in q_any_data:
+            if geo_res == GeoRes.country:
+                if iso3 not in data_tmp:
+                    data.append(PolicyStatusCount(place_name=iso3, value=0))
+            elif geo_res == GeoRes.state:
+                if iso3 == "USA" and area1 not in data_tmp:
+                    data.append(PolicyStatusCount(place_name=area1, value=0))
+
+    # order by value
+    data.sort(key=lambda x: -x.value)
     res = PolicyStatusCountList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} values'''
+        message=f"""Found {str(len(data))} values counting {res_counted} policies, grouped by {geo_res}""",
     )
+
     return res
 
 
@@ -1191,38 +1273,40 @@ def get_lockdown_level(
     data = list()
 
     # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
-    distinct_clause = 'distinct on (place)' if end_date is None else \
-        'distinct on (place, date)'
+    distinct_clause = (
+        "distinct on (place)" if end_date is None else "distinct on (place, date)"
+    )
     q = db.Observation.select_by_sql(
-        f'''
+        f"""
                 select {distinct_clause} *
                 from observation o
                 where date <= '{date if end_date is None else end_date}'
                 order by place, date desc
-        ''')
+        """
+    )
 
-    country_only = geo_res == 'country'
+    country_only = geo_res == "country"
     for i in q:
-        if country_only and i.place.level != 'Country':
+        if country_only and i.place.level != "Country":
             continue
-        elif not country_only and i.place.level != 'State / Province':
+        elif not country_only and i.place.level != "State / Province":
             continue
         else:
 
             datum = {
-                'value': i.value,
-                'datestamp': i.date,
+                "value": i.value,
+                "datestamp": i.date,
             }
             if country_only:
-                if iso3 == 'all':
-                    datum['place_name'] = i.place.iso3
+                if iso3 == "all":
+                    datum["place_name"] = i.place.iso3
                 elif i.place.iso3 != iso3:
                     continue
                 # else:
                 #     datum['place_name'] = i.place.iso3
             else:
                 if name is None:
-                    datum['place_name'] = i.place.area1
+                    datum["place_name"] = i.place.area1
                 elif i.place.area1 != name:
                     continue
             data.append(datum)
@@ -1231,38 +1315,35 @@ def get_lockdown_level(
     if end_date is not None and len(data) > 0:
 
         # enddate date instance
-        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        end_date_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
 
-        pull_final_value_forward = data[0]['datestamp'] < end_date_dt
+        pull_final_value_forward = data[0]["datestamp"] < end_date_dt
         if pull_final_value_forward:
             last_datum = data[0]
-            prv_date = last_datum['datestamp']
+            prv_date = last_datum["datestamp"]
             cur_date = prv_date + timedelta(days=1)
             while prv_date < end_date_dt:
                 datum = {
-                    'value': last_datum['value'],
-                    'datestamp': str(cur_date),
+                    "value": last_datum["value"],
+                    "datestamp": str(cur_date),
                 }
-                if 'place_name' in last_datum:
-                    datum['place_name'] = last_datum['place_name']
+                if "place_name" in last_datum:
+                    datum["place_name"] = last_datum["place_name"]
 
-                data.insert(
-                    0,
-                    datum
-                )
+                data.insert(0, datum)
                 prv_date = cur_date
                 cur_date = cur_date + timedelta(days=1)
 
     # if only the deltas are needed, return one datum representing the date
     # each different distancing level was entered, instead of all dates
-    message_noun = 'status(es)'
+    message_noun = "status(es)"
     if deltas_only:
 
         # create list to hold output
         deltas_only_data = list()
 
         # Get iter funcs; assumes sorted by desc. datestamp
-        by_level = itertools.groupby(data, key=lambda x: x['value'])
+        by_level = itertools.groupby(data, key=lambda x: x["value"])
 
         # Create iterator to iterate over groups of dates that had a given
         # continous distancing level and keep only the oldest date
@@ -1270,7 +1351,7 @@ def get_lockdown_level(
             items = list(items)
             deltas_only_data.append(items[len(items) - 1])
         data = deltas_only_data
-        message_noun = 'status change(s)'
+        message_noun = "status change(s)"
 
     # create response from output list
     message_name = None
@@ -1282,7 +1363,7 @@ def get_lockdown_level(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f'''Found {str(len(data))} {message_noun}{'' if message_name is None else ' for ' + message_name}'''
+        message=f"""Found {str(len(data))} {message_noun}{'' if message_name is None else ' for ' + message_name}""",
     )
     return res
 
@@ -1291,7 +1372,7 @@ def get_lockdown_level(
 # @cached
 def get_optionset(
     fields: list = list(),
-    class_name: str = 'Policy',
+    class_name: str = "Policy",
     geo_res: str = None,
     state_name: str = None,
     iso3: str = None,
@@ -1326,59 +1407,72 @@ def get_optionset(
 
     # define which data fields use groups
     # TODO dynamically
-    fields_using_groups = ('Policy.ph_measure_details', 'Court_Challenge.complaint_subcategory_new')
-    fields_using_geo_groups = ('Place.area1', 'Place.area2')
+    fields_using_groups = (
+        "Policy.ph_measure_details",
+        "Court_Challenge.complaint_subcategory_new",
+    )
+    fields_using_geo_groups = ("Place.area1", "Place.area2")
 
     # define output data dict
     data = dict()
 
     # get all glossary terms if needed
     need_glossary_terms = any(d_str in fields_using_groups for d_str in fields)
-    glossary_terms = select(i for i in db.Glossary)[:][:] if need_glossary_terms \
-        else list()
+    glossary_terms = (
+        select(i for i in db.Glossary)[:][:] if need_glossary_terms else list()
+    )
 
     # check places relevant only for the entity of `class_name`
-    class_name_field = 'policies' if class_name == 'Policy' \
-        else 'plans'
+    class_name_field = "policies" if class_name == "Policy" else "plans"
 
     # get all places if needed
     need_places = any(d_str in fields_using_geo_groups for d_str in fields)
-    place_instances = select(
-        (i.area1, i.area2, i.country_name)
-        for i in db.Place
-        if len(getattr(i, class_name_field)) > 0
-    )[:][:] if need_places \
+    place_instances = (
+        select(
+            (i.area1, i.area2, i.country_name)
+            for i in db.Place
+            if len(getattr(i, class_name_field)) > 0
+        )[:][:]
+        if need_places
         else list()
+    )
 
     # for each field to get optionset values for:
     for d_str in fields:
 
         # split into entity class name and field
-        entity_name, field = d_str.split('.')
+        entity_name, field = d_str.split(".")
         entity_class = getattr(db, entity_name)
 
         # get all possible values for the field in the database, and sort them
         # such that "Unspecified" is last
         # TODO handle other special values like "Unspecified" as needed
         options = None
-        if field == 'country_name' or field == 'level':
+        if field == "country_name" or field == "level":
             if (iso3 is not None or state_name is not None) and geo_res is not None:
                 raise NotImplementedError(
-                    f'''Cannot request optionset for `{field}` when filtering by `{geo_res}`''')
+                    f"""Cannot request optionset for `{field}` when filtering by `{geo_res}`"""
+                )
             options = select(
-                getattr(i, field) for i in entity_class
+                getattr(i, field)
+                for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
             ).filter(lambda x: x is not None)
         else:
             if entity_name not in ("Policy", "Plan"):
-                options = select(
-                    getattr(i, field) for i in entity_class
-                ).filter(lambda x: x is not None)
+                options = select(getattr(i, field) for i in entity_class).filter(
+                    lambda x: x is not None
+                )
             else:
                 options = select(
-                    getattr(i, field) for i in entity_class
-                    if (iso3 in i.place.iso3 or iso3 is None or geo_res != 'country')
-                    and (state_name in i.place.area1 or state_name is None or geo_res != 'state')
+                    getattr(i, field)
+                    for i in entity_class
+                    if (iso3 in i.place.iso3 or iso3 is None or geo_res != "country")
+                    and (
+                        state_name in i.place.area1
+                        or state_name is None
+                        or geo_res != "state"
+                    )
                 ).filter(lambda x: x is not None)
 
         # get objects
@@ -1387,13 +1481,13 @@ def get_optionset(
             options = list(set([item for sublist in options for item in sublist]))
 
         options.sort()
-        options.sort(key=lambda x: x != 'Face mask')
-        options.sort(key=lambda x: x != 'Social distancing')
-        options.sort(key=lambda x: x == 'Other')
-        options.sort(key=lambda x: x in ('Unspecified', 'Local'))
+        options.sort(key=lambda x: x != "Face mask")
+        options.sort(key=lambda x: x != "Social distancing")
+        options.sort(key=lambda x: x == "Other")
+        options.sort(key=lambda x: x in ("Unspecified", "Local"))
 
         # skip blank strings
-        options = list(filter(lambda x: x.strip() != '', options))
+        options = list(filter(lambda x: x.strip() != "", options))
 
         # assign groups, if applicable
         uses_nongeo_groups = d_str in fields_using_groups
@@ -1404,11 +1498,10 @@ def get_optionset(
             for option in options:
                 # get group from glossary data
                 parent = find(
-                    lambda i:
-                        i.entity_name == entity_name
-                        and i.field == field
-                        and i.subterm == option,
-                    glossary_terms
+                    lambda i: i.entity_name == entity_name
+                    and i.field == field
+                    and i.subterm == option,
+                    glossary_terms,
                 )
 
                 # if a parent was found use its term as the group, otherwise
@@ -1417,36 +1510,31 @@ def get_optionset(
                     options_with_groups.append([option, parent.term])
                 else:
                     # TODO figure out best way to handle "Other" cases
-                    options_with_groups.append([option, 'Other'])
+                    options_with_groups.append([option, "Other"])
             options = options_with_groups
         elif uses_geo_groups:
             options_with_groups = list()
 
-            if field == 'area1':
+            if field == "area1":
                 for option in options:
                     # get group from glossary data
                     parent = find(
-                        lambda i:
-                            i[0] == option and i[2] != 'N/A',
-                        place_instances
+                        lambda i: i[0] == option and i[2] != "N/A", place_instances
                     )
 
                     # if a parent was found use its term as the group, otherwise
                     # specify "Other" as the group
                     if parent:
-                        options_with_groups.append(
-                            [option, parent[2]])
+                        options_with_groups.append([option, parent[2]])
                     else:
                         continue
                         # # TODO figure out best way to handle "Other" cases
                         # options_with_groups.append([option, 'Other'])
-            elif field == 'area2':
+            elif field == "area2":
                 for option in options:
                     # get group from glossary data
                     parent = find(
-                        lambda i:
-                            i[1] == option and i[2] != 'N/A',
-                        place_instances
+                        lambda i: i[1] == option and i[2] != "N/A", place_instances
                     )
 
                     # if a parent was found use its term as the group, otherwise
@@ -1473,33 +1561,33 @@ def get_optionset(
             value = dd if not uses_groups else dd[0]
 
             # skip unspecified values
-            if value == 'Unspecified':
+            if value == "Unspecified":
                 continue
 
             group = None if not uses_groups else dd[1]
             datum = {
-                'id': id,
-                'value': value,
-                'label': value,
+                "id": id,
+                "value": value,
+                "label": value,
             }
             if uses_groups:
-                datum['group'] = group
+                datum["group"] = group
             data[field].append(datum)
             id = id + 1
 
-        if d_str == 'Court_Challenge.government_order_upheld_or_enjoined':
-            data['government_order_upheld_or_enjoined'].append(
-                {'id': -1, 'value': 'Pending', 'label': 'Pending'},
+        if d_str == "Court_Challenge.government_order_upheld_or_enjoined":
+            data["government_order_upheld_or_enjoined"].append(
+                {"id": -1, "value": "Pending", "label": "Pending"},
             )
 
     # apply special ordering
-    if 'ph_measure_details' in data:
-        data['ph_measure_details'].sort(key=lambda x: 'other' in x['value'].lower())
+    if "ph_measure_details" in data:
+        data["ph_measure_details"].sort(key=lambda x: "other" in x["value"].lower())
 
     return {
-        'data': data,
-        'success': True,
-        'message': f'''Returned {len(fields)} optionset lists''',
+        "data": data,
+        "success": True,
+        "message": f"""Returned {len(fields)} optionset lists""",
     }
 
 
@@ -1522,11 +1610,11 @@ def get_label_from_value(field, value):
         Description of returned object.
 
     """
-    if field == 'level':
-        if value == 'Intermediate area':
-            return 'State / province'
-        elif value == 'Local area':
-            return 'Local'
+    if field == "level":
+        if value == "Intermediate area":
+            return "State / province"
+        elif value == "Local area":
+            return "Local"
         else:
             return value
     else:
@@ -1562,7 +1650,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             continue
 
         # custom text search with fuzzy matching
-        if field == '_text':
+        if field == "_text":
             if len(allowed_values) > 0 and allowed_values[0] is not None:
                 text = allowed_values[0].lower()
                 thresh = 80
@@ -1578,16 +1666,11 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                         if exact_match:
                             new_q_ids.append(id)
                         else:
-                            ratio = fuzz.partial_ratio(
-                                text, search_text)
+                            ratio = fuzz.partial_ratio(text, search_text)
                             partial_match = ratio >= thresh
                             if partial_match:
                                 new_q_ids.append(id)
-                q = select(
-                    i
-                    for i in entity_class
-                    if i.id in new_q_ids
-                )
+                q = select(i for i in entity_class if i.id in new_q_ids)
 
                 # # Text match with direct case insensitive matches only
                 # q = select(
@@ -1600,109 +1683,117 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
 
         # Complaint category field needs to be handled separately
         # because the field contains arrays instead of strings
-        if field == 'complaint_category':
+        if field == "complaint_category":
 
             for value in allowed_values:
-                q = select(
-                    i for i in q if value in i.complaint_category
-                )
+                q = select(i for i in q if value in i.complaint_category)
 
             continue
 
-        if field == 'government_order_upheld_or_enjoined':
-            if 'Pending' in allowed_values:
+        if field == "government_order_upheld_or_enjoined":
+            if "Pending" in allowed_values:
                 q = select(
                     i
                     for i in q
-                    if getattr(i, field) in allowed_values
-                    or getattr(i, field) == ''
+                    if getattr(i, field) in allowed_values or getattr(i, field) == ""
                 )
 
             else:
-                q = select(
-                    i
-                    for i in q
-                    if getattr(i, field) in allowed_values
-                )
+                q = select(i for i in q if getattr(i, field) in allowed_values)
 
             continue
 
         # if it is a date field, handle it specially
-        if field.startswith('date'):
+        if field.startswith("date"):
 
             # set allowed values to be start and end date instances
-            allowed_values = list(
-                map(str_to_date, allowed_values)
-            )
+            allowed_values = list(map(str_to_date, allowed_values))
 
             # if it's the special "dates_in_effect" filter, handle it
             # and continue
-            if field == 'dates_in_effect':
+            if field == "dates_in_effect":
                 start = allowed_values[0]
                 end = allowed_values[1]
 
                 q = select(
-                    i for i in q
+                    i
+                    for i in q
                     # starts before or during `start` when end date unknown
                     if (
-                        i.date_end_actual is None and i.date_end_anticipated \
-                        is None and i.date_start_effective <= start
+                        i.date_end_actual is None
+                        and i.date_end_anticipated is None
+                        and i.date_start_effective <= start
                     )
                     # starts before AND ends after
                     or (
-                        i.date_start_effective < start and (i.date_end_actual > end or (
-                            i.date_end_actual is None and i.date_end_anticipated > end))
-                    )
-
-                    # starts during OR ends during
-                    or (
-                        (i.date_start_effective >= start and i.date_start_effective <= end) or (
-                            (i.date_end_actual >= start and i.date_end_actual <= end) or (
-                                i.date_end_actual is None and (
-                                    i.date_end_anticipated >= start and i.date_end_anticipated <= end)
+                        i.date_start_effective < start
+                        and (
+                            i.date_end_actual > end
+                            or (
+                                i.date_end_actual is None
+                                and i.date_end_anticipated > end
                             )
                         )
                     )
-
+                    # starts during OR ends during
+                    or (
+                        (
+                            i.date_start_effective >= start
+                            and i.date_start_effective <= end
+                        )
+                        or (
+                            (i.date_end_actual >= start and i.date_end_actual <= end)
+                            or (
+                                i.date_end_actual is None
+                                and (
+                                    i.date_end_anticipated >= start
+                                    and i.date_end_anticipated <= end
+                                )
+                            )
+                        )
+                    )
                 )
                 continue
 
-            if field == 'date_of_decision':
+            if field == "date_of_decision":
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
                 start = allowed_values[0]
                 end = allowed_values[1]
 
                 q = select(
-                    i for i in q
+                    i
+                    for i in q
                     if i.date_of_decision is not None
                     and i.date_of_decision <= end
                     and i.date_of_decision >= start
                 )
                 continue
 
-            if field == 'date_of_complaint':
+            if field == "date_of_complaint":
                 # return instances where `date_of_complaint` falls within the
                 # specified range, inclusive
                 start = allowed_values[0]
                 end = allowed_values[1]
 
                 q = select(
-                    i for i in q
+                    i
+                    for i in q
                     if i.date_of_complaint is not None
                     and i.date_of_complaint <= end
                     and i.date_of_complaint >= start
                 )
                 continue
 
-            elif field == 'date_issued':
+            elif field == "date_issued":
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
                 start = allowed_values[0]
                 end = allowed_values[1]
 
                 q = select(
-                    i for i in q
+                    i
+                    for i in q
                     if i.date_issued is not None
                     and i.date_issued <= end
                     and i.date_issued >= start
@@ -1712,49 +1803,46 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
         # is the filter applied by joining a policy instance to a
         # different entity?
         # TODO generalize this and rename function `apply_entity_filters`
-        join_place = field in ('level', 'loc', 'area1',
-                               'iso3', 'country_name', 'area2')
+        join_place = field in ("level", "loc", "area1", "iso3", "country_name", "area2")
 
-        join_policy_number = not join_place and field == 'policy.policy_number'
+        join_policy_number = not join_place and field == "policy.policy_number"
 
         # determine whether this field is obtained by joining to policies
         # TODO more dynamically determine set of fields to check
-        join_policy_nonset_field = entity_class != db.Policy and \
-            field in ('primary_ph_measure')
+        join_policy_nonset_field = entity_class != db.Policy and field in (
+            "primary_ph_measure"
+        )
 
         set_fields = (
-            'policy_categories', 'complaint_subcategory_new',
-            'complaint_category_new', 'subtarget'
+            "policy_categories",
+            "complaint_subcategory_new",
+            "complaint_category_new",
+            "subtarget",
         )
 
         # if filter is a join, apply the filter to the linked entity
         # joined to place entity
+        print(allowed_values)
         if join_place:
             q = q.filter(
-                lambda i:
-                    exists(
-                        t for t in i.place
-                        if getattr(t, field) in allowed_values
-                    )
+                lambda i: exists(
+                    t for t in i.place if getattr(t, field) in allowed_values
+                )
             )
         # joined to policy entity: policy number field
         elif join_policy_number:
             q = q.filter(
-                lambda i:
-                    exists(
-                        t for t in i.policies
-                        if t.policy_number in allowed_values
-                    )
+                lambda i: exists(
+                    t for t in i.policies if t.policy_number in allowed_values
+                )
             )
 
         # joined to policy entity: any other non-set field
         elif join_policy_nonset_field:
             q = q.filter(
-                lambda i:
-                    exists(
-                        t for t in i.policies
-                        if getattr(t, field) in allowed_values
-                    )
+                lambda i: exists(
+                    t for t in i.policies if getattr(t, field) in allowed_values
+                )
             )
 
         # if field is an array, and possible values are also an array, use
@@ -1764,16 +1852,11 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             raw_sql_allowed_values = ", ".join(allowed_values)
             raw_sql_allowed_values = "'{" + raw_sql_allowed_values + "}'::text[]"
             q = q.filter(
-                lambda x:
-                    raw_sql(raw_sql_allowed_values + ' && "i"."' + field + '"')
+                lambda x: raw_sql(raw_sql_allowed_values + ' && "i"."' + field + '"')
             )
         else:
             # if the filter is not a join, i.e., is on policy native fields
-            q = select(
-                i
-                for i in q
-                if getattr(i, field) in allowed_values
-            )
+            q = select(i for i in q if getattr(i, field) in allowed_values)
 
     # return the filtered query instance
     return q
@@ -1799,38 +1882,38 @@ def get_policy_search_text(i):
     # Define fields on entity class to concatenate
     fields_by_type = [
         {
-            'type': str,
-            'fields': [
-                'policy_name',
-                'desc',
-                'primary_ph_measure',
-                'ph_measure_details',
-                'relaxing_or_restricting',
-                'authority_name',
-            ]
+            "type": str,
+            "fields": [
+                "policy_name",
+                "desc",
+                "primary_ph_measure",
+                "ph_measure_details",
+                "relaxing_or_restricting",
+                "authority_name",
+            ],
         },
         {
-            'type': list,
-            'fields': [
-                'subtarget',
-                'primary_impact',
-            ]
+            "type": list,
+            "fields": [
+                "subtarget",
+                "primary_impact",
+            ],
         },
     ]
 
     # Define the same but for linked entities
     linked_fields_by_type = [
         {
-            'linked_field': 'place',
-            'linked_type': list,
-            'type': str,
-            'fields': [
-                'level',
-                'loc',
+            "linked_field": "place",
+            "linked_type": list,
+            "type": str,
+            "fields": [
+                "level",
+                "loc",
                 # 'country_name',
                 # 'area1',
                 # 'area2',
-            ]
+            ],
         }
     ]
 
@@ -1857,39 +1940,39 @@ def get_plan_search_text(i):
     # Define fields on entity class to concatenate
     fields_by_type = [
         {
-            'type': str,
-            'fields': [
-                'name',
-                'desc',
-                'primary_loc',
-                'org_name',
-                'org_type',
-            ]
+            "type": str,
+            "fields": [
+                "name",
+                "desc",
+                "primary_loc",
+                "org_name",
+                "org_type",
+            ],
         },
         {
-            'type': list,
-            'fields': [
-                'reqs_essential',
-                'reqs_private',
-                'reqs_school',
-                'reqs_social',
-                'reqs_hospital',
-                'reqs_public',
-                'reqs_other',
-            ]
+            "type": list,
+            "fields": [
+                "reqs_essential",
+                "reqs_private",
+                "reqs_school",
+                "reqs_social",
+                "reqs_hospital",
+                "reqs_public",
+                "reqs_other",
+            ],
         },
     ]
 
     # Define the same but for linked entities
     linked_fields_by_type = [
         {
-            'linked_field': 'place',
-            'linked_type': list,
-            'type': str,
-            'fields': [
-                'level',
-                'loc',
-            ]
+            "linked_field": "place",
+            "linked_type": list,
+            "type": str,
+            "fields": [
+                "level",
+                "loc",
+            ],
         }
     ]
 
@@ -1906,48 +1989,48 @@ def get_challenge_search_text(i):
     # Define fields on entity class to concatenate
     fields_by_type = [
         {
-            'type': str,
-            'fields': [
-                'jurisdiction',
-                'court',
-                'legal_authority_challenged',
-                'parties',
-                'case_number',
-                'legal_citation',
-                'filed_in_state_or_federal_court',
-                'summary_of_action',
-                'case_name',
-                'procedural_history',
-                'holding',
-                'government_order_upheld_or_enjoined',
-                'subsequent_action_or_current_status',
-                'did_doj_file_statement_of_interest',
-                'summary_of_doj_statement_of_interest',
-                'data_source_for_complaint',
-                'data_source_for_decision',
-                'data_source_for_doj_statement_of_interest',
-                'policy_or_law_name',
-                'source_id',
-                'search_text'
-            ]
+            "type": str,
+            "fields": [
+                "jurisdiction",
+                "court",
+                "legal_authority_challenged",
+                "parties",
+                "case_number",
+                "legal_citation",
+                "filed_in_state_or_federal_court",
+                "summary_of_action",
+                "case_name",
+                "procedural_history",
+                "holding",
+                "government_order_upheld_or_enjoined",
+                "subsequent_action_or_current_status",
+                "did_doj_file_statement_of_interest",
+                "summary_of_doj_statement_of_interest",
+                "data_source_for_complaint",
+                "data_source_for_decision",
+                "data_source_for_doj_statement_of_interest",
+                "policy_or_law_name",
+                "source_id",
+                "search_text",
+            ],
         },
         {
-            'type': list,
-            'fields': [
-                'complaint_category',
-            ]
+            "type": list,
+            "fields": [
+                "complaint_category",
+            ],
         },
     ]
 
     # Define the same but for linked entities
     linked_fields_by_type = [
         {
-            'linked_field': 'policies',
-            'linked_type': list,
-            'type': str,
-            'fields': [
-                'policy_name',
-            ]
+            "linked_field": "policies",
+            "linked_type": list,
+            "type": str,
+            "fields": [
+                "policy_name",
+            ],
         }
     ]
 
@@ -1975,26 +2058,26 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
     # for each field on the entity class, concatenate it to the search text
     search_text_list = list()
     for field_group in fields_by_type:
-        field_type = field_group['type']
+        field_type = field_group["type"]
         # string type fields are concatenated directly
         if field_type == str:
-            for field in field_group['fields']:
+            for field in field_group["fields"]:
                 value = getattr(i, field)
                 if value is not None:
                     search_text_list.append(value.lower())
 
         # list type fields - each element concatenated
         elif field_type == list:
-            for field in field_group['fields']:
+            for field in field_group["fields"]:
                 for d in getattr(i, field):
                     if d is not None:
                         search_text_list.append(d.lower())
 
     # for each linked entity field, do the same
     for field_group in linked_fields_by_type:
-        field_type = field_group['type']
-        linked_type = field_group['linked_type']
-        linked_field = field_group['linked_field']
+        field_type = field_group["type"]
+        linked_type = field_group["linked_type"]
+        linked_field = field_group["linked_field"]
 
         # string type fields are concatenated directly
         if linked_type == list:
@@ -2002,23 +2085,19 @@ def get_search_text(i, fields_by_type, linked_fields_by_type):
             if linked_instances is not None and len(linked_instances) > 0:
                 for linked_instance in linked_instances:
                     if field_type == str:
-                        for field in field_group['fields']:
+                        for field in field_group["fields"]:
                             value = getattr(linked_instance, field)
                             if value is not None:
-                                search_text_list.append(
-                                    value.lower()
-                                )
+                                search_text_list.append(value.lower())
 
     # return joined text string
-    search_text = ' - '.join(search_text_list)
+    search_text = " - ".join(search_text_list)
     return search_text
 
 
 @db_session
 def add_search_text():
-    """Add searchable text strings to instances.
-
-    """
+    """Add searchable text strings to instances."""
     for i in db.Policy.select():
         i.search_text = get_policy_search_text(i)
     for i in db.Plan.select():
