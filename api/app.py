@@ -1,7 +1,6 @@
 """Define API application"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
 # define API app
@@ -14,17 +13,17 @@ tags_metadata = [
         "name": "Plans",
         "description": "Operations to get data for plans in certain categories and/or subcategories.",
     },
-    {
-        "name": "Court challenges",
-        "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
-    },
+    # {
+    #     "name": "Court challenges",
+    #     "description": "Operations to get data for court challenges (to policies) in certain categories and/or subcategories.",
+    # },
     {
         "name": "Places",
         "description": "Operations to get data for places that are affected by policies, including name and number of policies affecting (overall).",
     },
     {
         "name": "Distancing levels",
-        "description": "Operations to get data describing the level of distancing (e.g., \"Lockdown\", \"Partially open\") that was in effect in a given US state or a given country on a given date.",
+        "description": 'Operations to get data describing the level of distancing (e.g., "Lockdown", "Partially open") that was in effect in a given US state or a given country on a given date.',
     },
     {
         "name": "Metadata",
@@ -42,16 +41,17 @@ tags_metadata = [
 app = FastAPI()
 
 # set allowed origins
-allow_origin_regex = \
-    "(http:\/\/localhost:.*|" + \
-    "https?:\/\/covidamp\.org|" + \
-    "https?:\/\/test\.covidamp\.org|" + \
-    "https?:\/\/.*\.cloudfront\.net|" + \
-    "https?:\/\/ghscosting\.org|" + \
-    "https?:\/\/devtracking\.ghscosting\.org|" + \
-    "https?:\/\/devtracking2\.ghscosting\.org|" + \
-    "http:\/\/covid-amp-tess\.s3-website-us-west-2\.amazonaws\.com|" + \
-    "https?:\/\/.*\.talusanalytics.*)"
+allow_origin_regex = (
+    "(http:\/\/localhost:.*|"
+    + "https?:\/\/covidamp\.org|"
+    + "https?:\/\/test\.covidamp\.org|"
+    + "https?:\/\/.*\.cloudfront\.net|"
+    + "https?:\/\/ghscosting\.org|"
+    + "https?:\/\/devtracking\.ghscosting\.org|"
+    + "https?:\/\/devtracking2\.ghscosting\.org|"
+    + "http:\/\/covid-amp-tess\.s3-website-us-west-2\.amazonaws\.com|"
+    + "https?:\/\/.*\.talusanalytics.*)"
+)
 
 # add middleware
 app.add_middleware(
@@ -87,12 +87,12 @@ def custom_openapi():
         version="1.0.0",
         description=new_desc,
         # description="<p>The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.</p><p>You can visit the site at <a href=\"https://covidamp.org/\" target=\"_blank\">https://covidamp.org/</a>. Please contact us with comments, questions, or accessibility concerns at <a href=\"https://covidamp.org/contact\" target=\"_blank\">https://covidamp.org/contact</a>.</p><p><strong>Note about data updates:</strong> The AMP database is updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but requests will succeed again when updates are completed.</p>",
-        routes=app.routes
+        routes=app.routes,
     )
     openapi_schema["info"]["x-logo"] = {
         "url": "https://covidamp.org/static/media/logo.b7a0d643.svg",
         "altText": "COVID AMP logo",
-        "href": "https://covidamp.org/"
+        "href": "https://covidamp.org/",
     }
     openapi_schema["tags"] = tags_metadata
     app.openapi_schema = openapi_schema
