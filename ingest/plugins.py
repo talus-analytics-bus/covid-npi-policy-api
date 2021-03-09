@@ -7,6 +7,7 @@ import itertools
 from os import sys
 from datetime import date, datetime, timedelta
 from collections import defaultdict
+from typing import List
 
 # 3rd party modules
 import boto3
@@ -266,7 +267,7 @@ def reject(x):
         else:
             if x[levelKey] == "Country" and (
                 (area1Key in x and x[area1Key] != "")
-                or (area2Key in x and x[area2Key]) != ""
+                or (area2Key in x and x[area2Key] != "")
             ):
                 country_level_with_prov = True
     reject = no_desc or country_level_with_prov
@@ -845,11 +846,16 @@ class CovidPolicyPlugin(IngestPlugin):
             name="Local Area Database"
         ).as_dataframe()
 
+        # intermediate area database
+        self.intermediate_areas = self.client.worksheet(
+            name="Intermediate Area Database"
+        ).as_dataframe()
+
         # s3 bucket file keys
         self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
 
         # policy data
-        self.data = self.client.worksheet(
+        self.data: pd.DataFrame = self.client.worksheet(
             name="Policy Database"
         ).as_dataframe()
 
@@ -1067,7 +1073,7 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
-    def process_data(self, db):
+    def process_data(self, db, debug: bool = False):
         """Perform data validation and create database entity instances
         corresponding to the data records.
 
@@ -1083,19 +1089,32 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # POLICY DATA # ------------------------------------------------------#
-        def process_policy_data(self, db):
+        def process_policy_data(self, db, create_policies: bool = True):
+
+            # throw error if data not loaded
+            if self.data is None:
+                raise ValueError(
+                    "Must call `load_data` instance method "
+                    "before `process_policy_data`."
+                )
+
             # sort by policy ID
             self.data.sort_values("Unique ID")
 
             # remove records without a unique ID and other features
-            self.data = self.data.loc[self.data["Flag for Review"] != True, :]
+            if "Flag for Review" in self.data.columns:
+                self.data = self.data.loc[
+                    self.data["Flag for Review"] != True, :
+                ]
             self.data = self.data.loc[self.data["Unique ID"] != "", :]
-            self.data = self.data.loc[
-                self.data["Policy/law type"] != "Non-policy guidance", :
-            ]
-            self.data = self.data.loc[
-                self.data["Authorizing level of government"] != "", :
-            ]
+            if "Policy/law type" in self.data.columns:
+                self.data = self.data.loc[
+                    self.data["Policy/law type"] != "Non-policy guidance", :
+                ]
+            if "Authorizing level of government" in self.data.columns:
+                self.data = self.data.loc[
+                    self.data["Authorizing level of government"] != "", :
+                ]
 
             # # do not ingest "Tribal nation" data until a plugin is written to
             # # determine `place` instance attributes for tribal nations
@@ -1155,103 +1174,26 @@ class CovidPolicyPlugin(IngestPlugin):
                         to_replace=to_replace, value=value
                     )
 
-            def assign_standardized_local_areas():
-                """Overwrite values for local areas in free text column with
-                names of local area instances in the linked column.
+            # add needed cols if missing
+            if "place.iso3" not in self.data:
+                self.data.loc[:, "place.iso3"] = ""
+            if "home_rule" not in self.data:
+                self.data.loc[:, "home_rule"] = ""
+            if "dillons_rule" not in self.data:
+                self.data.loc[:, "dillons_rule"] = ""
 
-                Returns
-                -------
-                type
-                    Description of returned object.
+            # # add name lists for areas, etc.
+            # assign_standardized_local_areas()
 
-                """
+            if create_policies:
+                # create Policy instances
+                self.create_policies(db)
 
-                def assign_local_areas_str(
-                    datum,
-                    level_field_name,
-                    db_field_name,
-                    local_area_field_name,
-                    local_area_arr_field_name,
-                ):
-                    """Assign semicolon-delimited list of local area names to the
-                    appropriate Policy instance data fields based on the local area
-                    entity instances defined for it.
+        process_policy_data(self, db, create_policies=(not debug))
 
-                    Parameters
-                    ----------
-                    datum : type
-                        Description of parameter `datum`.
-                    level_field_name : type
-                        Description of parameter `level_field_name`.
-                    db_field_name : type
-                        Description of parameter `db_field_name`.
-                    local_area_field_name : type
-                        Description of parameter `local_area_field_name`.
-
-                    Returns
-                    -------
-                    type
-                        Description of returned object.
-
-                    """
-                    if local_area_arr_field_name in datum:
-                        local_areas_str_tmp = datum[local_area_arr_field_name]
-                        local_areas_str = "; ".join(local_areas_str_tmp)
-                        datum[local_area_field_name] = local_areas_str
-                    else:
-                        datum[local_area_field_name] = ""
-
-                # assign local areas cols of policy data based on local area
-                # database linkages
-                print(
-                    "\n\nAssigning local and intermediate area names from local area database..."
-                )
-                then = time.perf_counter()
-                local_areas = self.local_areas.to_dict(orient="records")
-                for i, d in self.data.iterrows():
-
-                    # Local areas
-                    assign_local_areas_str(
-                        datum=d,
-                        level_field_name="auth_entity.level",
-                        db_field_name="Policy Database",
-                        local_area_field_name="auth_entity.area2",
-                        local_area_arr_field_name="Authorizing local area (e.g., county, city) names - Linked to Local Area Database",
-                    )
-                    assign_local_areas_str(
-                        datum=d,
-                        level_field_name="place.level",
-                        db_field_name="Policy Database 2",
-                        local_area_field_name="place.area2",
-                        local_area_arr_field_name="Affected local area (e.g., county, city) names - Linked to Local Area Database",
-                    )
-
-                    # Intermediate areas
-                    assign_local_areas_str(
-                        datum=d,
-                        level_field_name="auth_entity.level",
-                        db_field_name="Policy Database",
-                        local_area_field_name="auth_entity.area1",
-                        local_area_arr_field_name="Auth state names (lookup)",
-                    )
-                    assign_local_areas_str(
-                        datum=d,
-                        level_field_name="place.level",
-                        db_field_name="Policy Database 2",
-                        local_area_field_name="place.area1",
-                        local_area_arr_field_name="Aff state names (lookup)",
-                    )
-
-                now = time.perf_counter()
-                sec = now - then
-                print("Local area names assigned, sec: " + str(sec))
-
-            assign_standardized_local_areas()
-
-            # create Policy instances
-            self.create_policies(db)
-
-        process_policy_data(self, db)
+        if debug:
+            print("Debug run finished, exiting ingest.")
+            sys.exit(0)
 
         # PLAN DATA # --------------------------------------------------------#
         def process_plan_data(self, db):
@@ -1403,7 +1345,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
-
+        print("Post-processing policies.")
         # delete all current policy number records
         all_policy_numbers = select(i for i in db.Policy_Number)
         all_policy_numbers.delete()
@@ -1457,6 +1399,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     for d in policies:
                         d.court_challenges.add(court_challenge)
                         commit()
+
+        return self
 
     @db_session
     def assign_policy_group_numbers(self, db):
@@ -1577,13 +1521,19 @@ class CovidPolicyPlugin(IngestPlugin):
                 i = 0
                 entities = list()
                 for instance in entity_names:
+                    office: str = (
+                        entity_offices[i]
+                        if i < len(entity_offices)
+                        else entity_offices[len(entity_offices) - 1]
+                    )
                     entities.append(
                         {
                             "id": d["id"],
                             "name": entity_names[i],
-                            "office": entity_offices[i],
+                            "office": office,
                         }
                     )
+                    i = i + 1
                 return entities
 
         # TODO move formatter to higher-level scope
@@ -1619,14 +1569,6 @@ class CovidPolicyPlugin(IngestPlugin):
         # Main #################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
         # Auth_Entity.Place data fields.
-        place_keys = select(
-            i.ingest_field
-            for i in db.Metadata
-            if i.entity_name == "Place"
-            and i.ingest_field != ""
-            and i.export == True
-        )[:][:]
-
         auth_entity_keys = select(
             i.ingest_field
             for i in db.Metadata
@@ -1644,8 +1586,6 @@ class CovidPolicyPlugin(IngestPlugin):
         )[:][:]
 
         # track upserted records
-        n_inserted = 0
-        n_updated = 0
         n_deleted = 0
         n_inserted_auth_entity = 0
         n_updated_auth_entity = 0
@@ -1666,165 +1606,78 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
 
             ## Add places ######################################################
-            # determine whether the specified instance has been defined yet, and
-            # if not, add it.
-            instance_data = {
-                key: formatter(key, d) for key in place_keys if key in d
-            }
-
             # the affected place is different from the auth entity's place if it
             # exists (is defined in the record) and is different
-            affected_diff_from_auth = (
-                d["place.level"] != None
-                and d["place.level"] != ""
-                and d["place.iso3"] != None
-                and d["place.iso3"] != ""
-            )
+            # TODO fix possible bug where this is False when it should be True
+            # in cases where
+            affected_diff_from_auth = self.is_aff_diff_from_auth(d)
 
             # get or create the place affected
-            place_affected = None
+            place_affected_list = list()
             if affected_diff_from_auth:
-                place_affected_instance_data = {
-                    key.split(".")[-1]: formatter(key, d)
-                    for key in place_keys
-                    if key in d
-                }
-
-                # convert iso3 from list to str
-                if type(place_affected_instance_data["iso3"]) == list:
-                    place_affected_instance_data["iso3"] = "; ".join(
-                        place_affected_instance_data["iso3"]
-                    )
-
-                # perform upsert using get and set data fields
-                place_affected_instance_data[
-                    "country_name"
-                ] = get_name_from_iso3(place_affected_instance_data["iso3"])
-                place_affected_get_keys = ["level", "iso3", "area1", "area2"]
-                place_affected_set_keys = [
-                    "dillons_rule",
-                    "home_rule",
-                    "country_name",
-                ]
-                place_affected_get = {
-                    k: place_affected_instance_data[k]
-                    for k in place_affected_get_keys
-                    if k in place_affected_instance_data
-                }
-                place_affected_set = {
-                    k: place_affected_instance_data[k]
-                    for k in place_affected_set_keys
-                    if k in place_affected_instance_data
-                }
-
-                action, place_affected = upsert(
-                    db.Place,
-                    place_affected_get,
-                    place_affected_set,
-                )
-                place_affected.loc = get_place_loc(place_affected)
-                if action == "update":
-                    n_updated += 1
-                elif action == "insert":
-                    n_inserted += 1
-
-            # get or create the place of the auth entity
-            auth_entity_place_instance_data = {
-                key.split(".")[-1]: formatter(key, d)
-                for key in auth_entity_place_keys
-                + ["home_rule", "dillons_rule"]
-                if key in d
-            }
-
-            # convert iso3 from list to str
-            if type(auth_entity_place_instance_data["iso3"]) == list:
-                auth_entity_place_instance_data["iso3"] = "; ".join(
-                    auth_entity_place_instance_data["iso3"]
+                place_affected_list = self.upsert_implied_place_instances(
+                    db, d, type="affected"
                 )
 
-            # perform upsert using get and set data fields
-            # place_affected_instance_data['country_name'] = \
-            auth_entity_place_instance_data[
-                "country_name"
-            ] = get_name_from_iso3(auth_entity_place_instance_data["iso3"])
-            get_keys = ["level", "iso3", "area1", "area2"]
-            set_keys = ["dillons_rule", "home_rule", "country_name"]
-            place_auth_get = {
-                k: auth_entity_place_instance_data[k]
-                for k in get_keys
-                if k in auth_entity_place_instance_data
-            }
-            place_auth_set = {
-                k: auth_entity_place_instance_data[k]
-                for k in set_keys
-                if k in auth_entity_place_instance_data
-            }
-
-            action, place_auth = upsert(
-                db.Place,
-                place_auth_get,
-                place_auth_set,
+            place_auth_list = self.upsert_implied_place_instances(
+                db, d, type="auth"
             )
-            place_auth.loc = get_place_loc(place_auth)
-            if action == "update":
-                n_updated += 1
-            elif action == "insert":
-                n_inserted += 1
 
             # if the affected place is undefined, set it equal to the
             # auth entity's place
-            if place_affected is None:
-                place_affected = place_auth
+            if place_affected_list is None or len(place_affected_list) == 0:
+                place_affected_list = place_auth_list
 
             # link instance to required entities
             # TODO consider flagging updates here
-            db.Policy[d["id"]].place = place_affected
+            db.Policy[d["id"]].place = place_affected_list
 
-            ## Add auth_entities ###############################################
+            ## Add auth_entities ##############################################
             # parse auth entities in raw data record (there may be more than
             # one defined for each record)
             raw_data = get_auth_entities_from_raw_data(d)
 
             # for each individual auth entity
             db.Policy[d["id"]].auth_entity = set()
-            for dd in raw_data:
+            if len(place_auth_list) > 0:
+                for dd in raw_data:
 
-                # get or create auth entity
-                auth_entity_instance_data = {
-                    key: formatter(key, dd)
-                    for key in auth_entity_keys
-                    if key in dd
-                }
-                auth_entity_instance_data["place"] = place_auth
+                    # get or create auth entity
+                    auth_entity_instance_data = {
+                        key: formatter(key, dd)
+                        for key in auth_entity_keys
+                        if key in dd
+                    }
+                    auth_entity_instance_data["place"] = place_auth_list[0]
 
-                # perform upsert using get and set data fields
-                get_keys = ["name", "office", "place", "official"]
+                    # perform upsert using get and set data fields
+                    get_keys = ["name", "office", "place", "official"]
 
-                # define "get" data for upsert, adding blank fields as
-                # "Unspecified" if necessary
-                get_data = dict()
-                for k in get_keys:
-                    get_data[k] = (
-                        auth_entity_instance_data[k]
-                        if k in auth_entity_instance_data
-                        else "Unspecified"
+                    # define "get" data for upsert, adding blank fields as
+                    # "Unspecified" if necessary
+                    get_data = dict()
+                    for k in get_keys:
+                        get_data[k] = (
+                            auth_entity_instance_data[k]
+                            if k in auth_entity_instance_data
+                            else "Unspecified"
+                        )
+
+                    action, auth_entity = upsert(
+                        db.Auth_Entity,
+                        get_data,
+                        {},
                     )
+                    if action == "update":
+                        n_updated_auth_entity += 1
+                    elif action == "insert":
+                        n_inserted_auth_entity += 1
 
-                action, auth_entity = upsert(
-                    db.Auth_Entity,
-                    get_data,
-                    {},
-                )
-                if action == "update":
-                    n_updated_auth_entity += 1
-                elif action == "insert":
-                    n_inserted_auth_entity += 1
-
-                # link instance to required entities
-                db.Policy[d["id"]].auth_entity.add(auth_entity)
+                    # link instance to required entities
+                    db.Policy[d["id"]].auth_entity.add(auth_entity)
             commit()
 
-        ## Delete unused instances #############################################
+        ## Delete unused instances ############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i for i in db.Auth_Entity if len(i.policies) == 0
@@ -1853,6 +1706,103 @@ class CovidPolicyPlugin(IngestPlugin):
         print("Total in database: " + str(len(db.Auth_Entity.select())))
         print("Deleted: " + str(n_deleted_auth_entity))
 
+    # def add_upserted_subplaces(
+    #     self,
+    #     db,
+    #     place_affected,
+    #     place_affected_list,
+    #     subplace_names,
+    #     place_field,
+    #     n_updated,
+    #     n_inserted,
+    # ):
+    #     for name in subplace_names:
+    #         cur_place_affected = dict()
+    #         cur_place_affected.update(place_affected)
+    #         cur_place_affected[place_field] = name
+    #         upserted_aff_place = self.upsert_aff_place(
+    #             db, cur_place_affected, n_updated, n_inserted
+    #         )
+    #         place_affected_list.append(upserted_aff_place)
+
+    # def upsert_aff_place(self, db, place_affected, n_updated, n_inserted):
+    #     place_affected_get_keys = ["level", "iso3", "area1", "area2"]
+    #     place_affected_set_keys = [
+    #         "dillons_rule",
+    #         "home_rule",
+    #         "country_name",
+    #     ]
+    #     place_affected_get = {
+    #         k: place_affected[k]
+    #         for k in place_affected_get_keys
+    #         if k in place_affected
+    #     }
+    #     place_affected_set = {
+    #         k: place_affected[k]
+    #         for k in place_affected_set_keys
+    #         if k in place_affected
+    #     }
+    #     action, place_affected = upsert(
+    #         db.Place,
+    #         place_affected_get,
+    #         place_affected_set,
+    #     )
+    #     place_affected.loc = get_place_loc(place_affected)
+    #     if action == "update":
+    #         n_updated += 1
+    #     elif action == "insert":
+    #         n_inserted += 1
+    #     return place_affected
+
+    def is_aff_diff_from_auth(self, d) -> bool:
+        """Returns True if the authorizing entity's place is different from the
+        affected entity's place, and False otherwise.
+
+        Args:
+            d (dict): Entity datum dictionary
+
+        Returns:
+            bool: Result
+        """
+
+        has_diff_level = (
+            d["place.level"] is not None
+            and d["place.level"] != ""
+            and d["auth_entity.level"] != d["place.level"]
+        )
+
+        if has_diff_level:
+            return True
+
+        has_diff_iso3 = (
+            d["place.iso3"] is not None
+            and d["place.iso3"] != ""
+            and d["auth_entity.iso3"] != d["place.iso3"]
+        )
+
+        if has_diff_iso3:
+            return True
+
+        has_diff_area1 = (
+            d["place.area1"] is not None
+            and d["place.area1"] != ""
+            and d["auth_entity.area1"] != d["place.area1"]
+        )
+
+        if has_diff_area1:
+            return True
+
+        has_diff_area2 = (
+            d["place.area2"] is not None
+            and d["place.area2"] != ""
+            and d["auth_entity.area2"] != d["place.area2"]
+        )
+
+        if has_diff_area2:
+            return True
+
+        return False
+
     @db_session
     def create_auth_entities_and_places_for_plans(self, db):
         """Create authorizing entity instances and place instances specifically
@@ -1871,39 +1821,6 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # Local methods ########################################################
-        def get_auth_entities_from_raw_data(d):
-            """Given a datum `d` from raw data, create a list of authorizing
-            entities that are implied by the semicolon-delimited names and
-            offices on that datum.
-
-            Parameters
-            ----------
-            d : type
-                Description of parameter `d`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            entity_names = d["name"].split("; ")
-            entity_offices = d["office"].split("; ")
-            num_entities = len(entity_names)
-            if num_entities == 1:
-                return [d]
-            else:
-                i = 0
-                entities = list()
-                for instance in entity_names:
-                    entities.append(
-                        {
-                            "id": d["id"],
-                            "name": entity_names[i],
-                            "office": entity_offices[i],
-                        }
-                    )
-                return entities
 
         # TODO move formatter to higher-level scope
         def formatter(key, d):
@@ -1988,51 +1905,46 @@ class CovidPolicyPlugin(IngestPlugin):
             ## Add places ######################################################
             # determine whether the specified instance has been defined yet, and
             # if not, add it.
-            instance_data = {
-                key: formatter(key, d) for key in place_keys if key in d
-            }
 
             # get or create the place affected (for plans, will always be the
             # same as authorizing entity's place, for now)
-            place_affected = None
+            place_aff = None
 
             # get or create the place of the auth entity
-            auth_entity_place_instance_data = {
+            place_auth_dict = {
                 key.split(".")[-1]: formatter(key, d)
                 for key in auth_entity_place_keys
                 if key in d
             }
 
             # convert iso3 from list to str
-            if type(auth_entity_place_instance_data["iso3"]) == list:
-                auth_entity_place_instance_data["iso3"] = "; ".join(
-                    auth_entity_place_instance_data["iso3"]
-                )
+            if type(place_auth_dict["iso3"]) == list:
+                place_auth_dict["iso3"] = "; ".join(place_auth_dict["iso3"])
 
             # perform upsert using get and set data fields
-            auth_entity_place_instance_data[
-                "country_name"
-            ] = get_name_from_iso3(auth_entity_place_instance_data["iso3"])
+            place_auth_dict["country_name"] = get_name_from_iso3(
+                place_auth_dict["iso3"]
+            )
 
             # determine a level based on the populated fields
             if d["org_type"] != "Government":
                 level = d["org_type"]
             elif (
-                auth_entity_place_instance_data["area2"].strip() != ""
-                and auth_entity_place_instance_data["area2"] != "Unspecified"
-                and auth_entity_place_instance_data["area2"] is not None
+                place_auth_dict["area2"].strip() != ""
+                and place_auth_dict["area2"] != "Unspecified"
+                and place_auth_dict["area2"] is not None
             ):
                 level = "Local"
             elif (
-                auth_entity_place_instance_data["area1"].strip() != ""
-                and auth_entity_place_instance_data["area1"] != "Unspecified"
-                and auth_entity_place_instance_data["area1"] is not None
+                place_auth_dict["area1"].strip() != ""
+                and place_auth_dict["area1"] != "Unspecified"
+                and place_auth_dict["area1"] is not None
             ):
                 level = "State / Province"
             elif (
-                auth_entity_place_instance_data["iso3"].strip() != ""
-                and auth_entity_place_instance_data["iso3"] != "Unspecified"
-                and auth_entity_place_instance_data["iso3"] is not None
+                place_auth_dict["iso3"].strip() != ""
+                and place_auth_dict["iso3"] != "Unspecified"
+                and place_auth_dict["iso3"] is not None
             ):
                 level = "Country"
             else:
@@ -2041,19 +1953,15 @@ class CovidPolicyPlugin(IngestPlugin):
                 input("ERROR: Could not determine a `level` for place")
 
             # assign synthetic "level"
-            auth_entity_place_instance_data["level"] = level
+            place_auth_dict["level"] = level
 
             get_keys = ["level", "iso3", "area1", "area2"]
             set_keys = ["country_name"]
             place_auth_get = {
-                k: auth_entity_place_instance_data[k]
-                for k in get_keys
-                if k in auth_entity_place_instance_data
+                k: place_auth_dict[k] for k in get_keys if k in place_auth_dict
             }
             place_auth_set = {
-                k: auth_entity_place_instance_data[k]
-                for k in set_keys
-                if k in auth_entity_place_instance_data
+                k: place_auth_dict[k] for k in set_keys if k in place_auth_dict
             }
 
             action, place_auth = upsert(
@@ -2069,14 +1977,14 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # if the affected place is undefined, set it equal to the
             # auth entity's place
-            if place_affected is None:
-                place_affected = place_auth
+            if place_aff is None:
+                place_aff = place_auth
 
             # link instance to required entities
             # TODO consider flagging updates here
-            db.Plan[d["id"]].place = place_affected
+            db.Plan[d["id"]].place = place_aff
 
-            ## Add auth_entities ###############################################
+            ## Add auth_entities ##############################################
             # parse auth entities in raw data record (there may be more than
             # one defined for each record)
 
@@ -2106,7 +2014,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 db.Plan[d["id"]].auth_entity.add(auth_entity)
             commit()
 
-        ## Delete unused instances #############################################
+        ## Delete unused instances ############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i
@@ -3212,3 +3120,144 @@ class CovidPolicyPlugin(IngestPlugin):
             return False
         else:
             return True
+
+    def upsert_implied_place_instances(
+        self, db, d: dict, type: str = "affected"
+    ) -> list:
+
+        # TODO perhaps do upsert in this function as well
+        # place_keys: List[str] = ["level", "iso3", "area1", "area2"]
+        prefix: str = "place" if type == "affected" else "auth_entity"
+
+        # create aff place dicts
+        places: List[db.Place] = list()
+        if d[prefix + ".level"] == "Country":
+            iso3s: List[str] = d[prefix + ".iso3"]
+            for iso3 in iso3s:
+                place_dict = dict(
+                    level="Country",
+                    iso3=iso3,
+                    country_name=get_name_from_iso3(iso3=iso3),
+                    area1="Unspecified",
+                    area2="Unspecified",
+                )
+                places.append(
+                    self.upsert_place(
+                        db,
+                        place_dict,
+                        dict(
+                            home_rule="",
+                            dillons_rule="",
+                        ),
+                    )
+                )
+        elif d[prefix + ".level"] == "State / Province":
+            # get information from intermediate area database records
+            for area1 in d[prefix + ".area1"]:
+                area2_info: dict = self.get_area_info(
+                    type="intermediate", name=area1
+                )
+                if area2_info is None:
+                    continue
+                iso3: str = area2_info.get(
+                    "ISO-alpha3 code (from ISO Code Look-up)", [None]
+                )[0]
+                place_dict = dict(
+                    level="State / Province",
+                    iso3=iso3,
+                    country_name=get_name_from_iso3(iso3=iso3),
+                    area1=area2_info.get("Name", None),
+                    area2="Unspecified",
+                )
+                places.append(
+                    self.upsert_place(
+                        db,
+                        place_dict,
+                        dict(
+                            home_rule=d["home_rule"],
+                            dillons_rule=d["dillons_rule"],
+                        ),
+                    )
+                )
+        elif d[prefix + ".level"] == "Local":
+            # get information from local area database records
+            for area2 in d[prefix + ".area2"]:
+                area2_info: dict = self.get_area_info(type="local", name=area2)
+                if area2_info is None:
+                    continue
+
+                if area2_info is None:
+                    continue
+
+                area1: str = area2_info.get("Intermediate Area Name", None)[0]
+                if area1 is None or area1 == "":
+                    raise ValueError(
+                        "No intermediate area for "
+                        + area2_info.get("Local Area Name")
+                    )
+
+                area1_info: dict = self.get_area_info(
+                    type="intermediate", name=area1
+                )
+
+                iso3: str = area2_info.get(
+                    "ISO-alpha3 code (from ISO Code Look-up) (from Intermediate Area Database)",
+                    [None],
+                )[0]
+                place_dict = dict(
+                    level="Local",
+                    iso3=iso3,
+                    country_name=get_name_from_iso3(iso3=iso3),
+                    area1=area1_info.get("Name", None),
+                    area2=area2_info.get("Local Area Name", None),
+                )
+                places.append(
+                    self.upsert_place(
+                        db,
+                        place_dict,
+                        dict(
+                            home_rule=d["home_rule"],
+                            dillons_rule=d["dillons_rule"],
+                        ),
+                    )
+                )
+
+        # create auth place dicts
+        # TODO
+
+        # add location strings
+        for p in places:
+            p.loc = get_place_loc(p)
+
+        return places
+
+    def upsert_place(self, db, place_dict, set_dict: dict) -> "db.Place":
+        action, upserted_place = upsert(db.Place, get=place_dict, set=set_dict)
+        return upserted_place
+
+    def get_area_info(self, type: str, name: str) -> dict:
+        info: pd.DataFrame = (
+            self.local_areas if type == "local" else self.intermediate_areas
+        )
+        area_info_tmp: List[dict] = info.loc[
+            info["source_id"] == name, :
+        ].to_dict(orient="records")
+        if len(area_info_tmp) == 0:
+            return None
+        elif len(area_info_tmp) > 1:
+            raise ValueError("Multiple rows in area database for: " + name)
+        return area_info_tmp[0]
+
+    def assign_area_names_from_source_ids(self, d: dict):
+        if "area1" in d and d["area1"] is not None and len(d["area1"]) > 0:
+            area1_info: dict = self.get_area_info(
+                type="intermediate", name=d["area1"][0]
+            )
+            if area1_info is not None:
+                d["area1"] = area1_info.get("Name")
+        if "area2" in d and d["area2"] is not None and len(d["area2"]) > 0:
+            area2_info: dict = self.get_area_info(
+                type="local", name=d["area2"][0]
+            )
+            if area2_info is not None:
+                d["area2"] = area1_info.get("Name")
