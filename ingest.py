@@ -110,9 +110,9 @@ if __name__ == "__main__":
     if args.group_numbers or ingest_policies:
         plugin.assign_policy_group_numbers(db)
 
-    # # Update observations of lockdown level, if appropriate
-    # if ingest_lockdown_levels:
-    #     plugin.load_client('appEtzBj5rWEsbcE9').load_observations(db)
+    # Update observations of lockdown level, if appropriate
+    if ingest_lockdown_levels:
+        plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
 
     if ingest_court:
         # TODO remove this when court challenge complaint categories and
