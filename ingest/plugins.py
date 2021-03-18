@@ -1099,7 +1099,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # remove records without a unique ID and other features
             if "Flag for Review" in self.data.columns:
                 self.data = self.data.loc[
-                    self.data["Flag for Review"] is not True, :
+                    self.data["Flag for Review"] != True, :
                 ]
 
             # unique ID is not empty
