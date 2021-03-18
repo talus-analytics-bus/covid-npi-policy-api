@@ -1,7 +1,7 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
 from db.models import Place
-from typing import DefaultDict, List
+from typing import DefaultDict, List, Tuple
 from api.util import use_relpath
 import os
 import random
@@ -34,6 +34,9 @@ from db.config import db as models
 # storage bucket
 s3 = boto3.client("s3")
 S3_BUCKET_NAME = "covid-npi-policy-storage"
+
+# define policy level values that correspond to an intermediate geography
+INTERMEDIATE_LEVELS: Tuple[str, str] = ("State / Province", "Tribal nation")
 
 # pretty printing: for printing JSON objects legibly
 pp = pprint.PrettyPrinter(indent=4)
@@ -1099,7 +1102,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # remove records without a unique ID and other features
             if "Flag for Review" in self.data.columns:
                 self.data = self.data.loc[
-                    self.data["Flag for Review"] is not True, :
+                    self.data["Flag for Review"] != True, :
                 ]
 
             # unique ID is not empty
@@ -1688,20 +1691,16 @@ class CovidPolicyPlugin(IngestPlugin):
         if has_diff_iso3:
             return True
 
-        has_diff_area1 = (
-            d["place.area1"] is not None
-            and d["place.area1"] != ""
-            and d["auth_entity.area1"] != d["place.area1"]
-        )
+        has_diff_area1 = d.get("place.area1", "") != "" and d.get(
+            "auth_entity.area1", ""
+        ) != d.get("place.area1", "")
 
         if has_diff_area1:
             return True
 
-        has_diff_area2 = (
-            d["place.area2"] is not None
-            and d["place.area2"] != ""
-            and d["auth_entity.area2"] != d["place.area2"]
-        )
+        has_diff_area2 = d.get("place.area2", "") != "" and d.get(
+            "auth_entity.area2", ""
+        ) != d.get("place.area2", "")
 
         if has_diff_area2:
             return True
@@ -3039,6 +3038,7 @@ class CovidPolicyPlugin(IngestPlugin):
         places: List[db.Place] = list()
         if d[prefix + ".level"] == "Country":
             iso3s: List[str] = d[prefix + ".iso3"]
+            iso3: str
             for iso3 in iso3s:
                 place_dict = dict(
                     level="Country",
@@ -3057,7 +3057,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         ),
                     )
                 )
-        elif d[prefix + ".level"] == "State / Province":
+        elif d[prefix + ".level"] in INTERMEDIATE_LEVELS:
             # get information from intermediate area database records
             for area1 in d[prefix + ".area1"]:
                 area2_info: dict = self.get_area_info(
@@ -3069,7 +3069,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     "ISO-alpha3 code (from ISO Code Look-up)", [None]
                 )[0]
                 place_dict = dict(
-                    level="State / Province",
+                    level=d[prefix + ".level"],
                     iso3=iso3,
                     country_name=get_name_from_iso3(iso3=iso3),
                     area1=area2_info.get("Name", None),
@@ -3104,7 +3104,10 @@ class CovidPolicyPlugin(IngestPlugin):
                 )
 
                 iso3: str = area2_info.get(
-                    "ISO-alpha3 code (from ISO Code Look-up) (from Intermediate Area Database)",
+                    (
+                        "ISO-alpha3 code (from ISO Code Look-up) (from "
+                        "Intermediate Area Database)"
+                    ),
                     [None],
                 )[0]
                 place_dict = dict(

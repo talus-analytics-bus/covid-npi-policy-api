@@ -90,7 +90,9 @@ async def post_export(
     if class_name == "All_data":
         class_name = "all_static"
     if class_name == ClassNameExport.none or class_name is None:
-        raise NotImplementedError("Must provide a `class_name` to /post/export")
+        raise NotImplementedError(
+            "Must provide a `class_name` to /post/export"
+        )
     filters = body.filters if bool(body.filters) == True else None
     return schema.export(filters=filters, class_name=class_name.name)
 
@@ -165,8 +167,12 @@ async def get_metadata(
         entity_class_name if entity_class_name != ClassName.none else None
     )
     if entity_class_name is None:
-        raise NotImplementedError("Must provide a `entity_class_name` to /get/metadata")
-    return schema.get_metadata(fields=fields, entity_class_name=entity_class_name.name)
+        raise NotImplementedError(
+            "Must provide a `entity_class_name` to /get/metadata"
+        )
+    return schema.get_metadata(
+        fields=fields, entity_class_name=entity_class_name.name
+    )
 
 
 @app.get("/get/file/redirect", tags=["Downloads"], include_in_schema=False)
@@ -299,33 +305,33 @@ async def post_policy(
     )
 
 
-@app.get(
-    "/get/challenge",
-    response_model=ListResponse,
-    response_model_exclude_unset=True,
-    tags=["Court challenges"],
-    include_in_schema=False,
-    summary="Return court challenges (to policies) matching filters",
-)
-async def get_challenge(
-    fields: List[str] = Query(None),
-    page: int = None,
-    pagesize: int = 100,
-):
-    """Return Court_Challenge data.
+# @app.get(
+#     "/get/challenge",
+#     response_model=ListResponse,
+#     response_model_exclude_unset=True,
+#     tags=["Court challenges"],
+#     include_in_schema=False,
+#     summary="Return court challenges (to policies) matching filters",
+# )
+# async def get_challenge(
+#     fields: List[str] = Query(None),
+#     page: int = None,
+#     pagesize: int = 100,
+# ):
+#     """Return Court_Challenge data.
 
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
+#     Parameters
+#     ----------
+#     fields : List[str]
+#         Data fields to return.
 
-    Returns
-    -------
-    dict
-        Challenge response dictionary.
+#     Returns
+#     -------
+#     dict
+#         Challenge response dictionary.
 
-    """
-    return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
+#     """
+#     return schema.get_challenge(fields=fields, page=page, pagesize=pagesize)
 
 
 @app.get(
@@ -410,7 +416,11 @@ async def get_policy_status(geo_res=str):
     include_in_schema=False,
 )
 async def get_lockdown_level_model(
-    iso3=str, geo_res=str, end_date=str, name: str = None, deltas_only: bool = False
+    iso3=str,
+    geo_res=str,
+    end_date=str,
+    name: str = None,
+    deltas_only: bool = False,
 ):
     """Get lockdown level of a location by date."""
     return schema.get_lockdown_level(
@@ -429,10 +439,15 @@ async def get_lockdown_level_model(
     tags=["Distancing levels"],
     include_in_schema=False,
 )
-async def get_lockdown_level_country(iso3=str, end_date=str, deltas_only: bool = False):
+async def get_lockdown_level_country(
+    iso3=str, end_date=str, deltas_only: bool = False
+):
     """Get lockdown level of a location by date."""
     return schema.get_lockdown_level(
-        iso3=iso3, geo_res="country", end_date=end_date, deltas_only=deltas_only
+        iso3=iso3,
+        geo_res="country",
+        end_date=end_date,
+        deltas_only=deltas_only,
     )
 
 
@@ -463,7 +478,8 @@ class GeoRes(str, Enum):
 async def post_policy_status(
     body: PolicyFilters,
     geo_res: GeoRes = Query(
-        GeoRes.state, description="The geographic resolution for which to return data"
+        GeoRes.state,
+        description="The geographic resolution for which to return data",
     ),
 ):
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
@@ -479,7 +495,8 @@ async def post_policy_status(
 async def post_policy_status_counts(
     body: PolicyFilters,
     geo_res: GeoRes = Query(
-        GeoRes.state, description="The geographic resolution for which to return data"
+        GeoRes.state,
+        description="The geographic resolution for which to return data",
     ),
     include_zeros: bool = Query(
         False,
@@ -533,31 +550,31 @@ async def post_policy_number(
     )
 
 
-@app.post(
-    "/post/challenge",
-    response_model=ListResponse,
-    response_model_exclude_unset=True,
-    tags=["Court challenges"],
-    summary="Return data for court challenges (to policies) matching filters",
-)
-async def post_challenge(
-    body: ChallengeFilters,
-    fields: List[CourtChallengeFields] = Query(
-        [CourtChallengeFields.id],
-        description="List of data fields that should be returned for each court challenge",
-    ),
-    page: int = Query(1, description="Page to return"),
-    pagesize: int = Query(100, description="Number of records per page"),
-):
-    fields = [v for v in fields if v != CourtChallengeFields.none]
-    return schema.get_challenge(
-        filters=body.filters,
-        fields=fields,
-        by_category=None,
-        page=page,
-        pagesize=pagesize,
-        ordering=body.ordering,
-    )
+# @app.post(
+#     "/post/challenge",
+#     response_model=ListResponse,
+#     response_model_exclude_unset=True,
+#     tags=["Court challenges"],
+#     summary="Return data for court challenges (to policies) matching filters",
+# )
+# async def post_challenge(
+#     body: ChallengeFilters,
+#     fields: List[CourtChallengeFields] = Query(
+#         [CourtChallengeFields.id],
+#         description="List of data fields that should be returned for each court challenge",
+#     ),
+#     page: int = Query(1, description="Page to return"),
+#     pagesize: int = Query(100, description="Number of records per page"),
+# ):
+#     fields = [v for v in fields if v != CourtChallengeFields.none]
+#     return schema.get_challenge(
+#         filters=body.filters,
+#         fields=fields,
+#         by_category=None,
+#         page=page,
+#         pagesize=pagesize,
+#         ordering=body.ordering,
+#     )
 
 
 @app.post(
@@ -632,9 +649,14 @@ async def get_optionset(
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
         state_name=state_name.name
-        if (state_name is not None and state_name.name != "All states and territories")
+        if (
+            state_name is not None
+            and state_name.name != "All states and territories"
+        )
         else None,
-        iso3=iso3.name if (iso3 is not None and iso3.name != "All countries") else None,
+        iso3=iso3.name
+        if (iso3 is not None and iso3.name != "All countries")
+        else None,
     )
 
 
@@ -685,10 +707,15 @@ async def get_distancing_levels(
 ):
     state_name = (
         state_name.name
-        if state_name.name != "" and state_name.name != "All states and territories"
+        if state_name.name != ""
+        and state_name.name != "All states and territories"
         else None
     )
-    iso3 = iso3.name if iso3.name != "" and iso3.name != "all_countries" else "all"
+    iso3 = (
+        iso3.name
+        if iso3.name != "" and iso3.name != "all_countries"
+        else "all"
+    )
     end_date = None if not all_dates else str(date)
     date = None if all_dates else str(date)
     return schema.get_lockdown_level(

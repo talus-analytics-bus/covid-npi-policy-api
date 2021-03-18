@@ -4,7 +4,7 @@
 
 # local modules
 from db import db
-from ingest import CovidPolicyPlugin
+from ingest.plugins import CovidPolicyPlugin
 
 
 if __name__ == "__main__":

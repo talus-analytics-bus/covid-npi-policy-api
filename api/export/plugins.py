@@ -263,33 +263,33 @@ class CovidPolicyExportPlugin(ExcelExport):
             )
             policies = policies.order_by(db.Plan.date_issued)
 
-        elif class_name == "Court_Challenge":
-            if tab.challenges_only:
-                policies = schema.get_challenge(
-                    filters=self.filters, return_db_instances=True
-                )
-            else:
-                policies_with_challenges = schema.get_policy(
-                    filters=self.filters, return_db_instances=True
-                )
-                n_all_policies = db.Policy.select().count()
-                filter_challenges = (
-                    policies_with_challenges.count() != n_all_policies
-                )
-                if filter_challenges:
-                    challenge_ids = set()
-                    for d in policies_with_challenges:
-                        if len(d.court_challenges) > 0:
-                            for dd in d.court_challenges:
-                                challenge_ids.add(dd.id)
-                    policies = select(
-                        i for i in db.Court_Challenge if i.id in challenge_ids
-                    )
-                else:
-                    policies = schema.get_challenge(
-                        filters=self.filters, return_db_instances=True
-                    )
-            policies = policies.order_by(db.Court_Challenge.date_of_complaint)
+        # elif class_name == "Court_Challenge":
+        #     if tab.challenges_only:
+        #         policies = schema.get_challenge(
+        #             filters=self.filters, return_db_instances=True
+        #         )
+        #     else:
+        #         policies_with_challenges = schema.get_policy(
+        #             filters=self.filters, return_db_instances=True
+        #         )
+        #         n_all_policies = db.Policy.select().count()
+        #         filter_challenges = (
+        #             policies_with_challenges.count() != n_all_policies
+        #         )
+        #         if filter_challenges:
+        #             challenge_ids = set()
+        #             for d in policies_with_challenges:
+        #                 if len(d.court_challenges) > 0:
+        #                     for dd in d.court_challenges:
+        #                         challenge_ids.add(dd.id)
+        #             policies = select(
+        #                 i for i in db.Court_Challenge if i.id in challenge_ids
+        #             )
+        #         else:
+        #             policies = schema.get_challenge(
+        #                 filters=self.filters, return_db_instances=True
+        #             )
+        #     policies = policies.order_by(db.Court_Challenge.date_of_complaint)
 
         # init export data list
         rows = list()
