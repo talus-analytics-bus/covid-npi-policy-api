@@ -3100,7 +3100,10 @@ class CovidPolicyPlugin(IngestPlugin):
                 )
 
                 iso3: str = area2_info.get(
-                    "ISO-alpha3 code (from ISO Code Look-up) (from Intermediate Area Database)",
+                    (
+                        "ISO-alpha3 code (from ISO Code Look-up) (from "
+                        "Intermediate Area Database)"
+                    ),
                     [None],
                 )[0]
                 place_dict = dict(
