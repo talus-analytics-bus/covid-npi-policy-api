@@ -1688,20 +1688,16 @@ class CovidPolicyPlugin(IngestPlugin):
         if has_diff_iso3:
             return True
 
-        has_diff_area1 = (
-            d["place.area1"] is not None
-            and d["place.area1"] != ""
-            and d["auth_entity.area1"] != d["place.area1"]
-        )
+        has_diff_area1 = d.get("place.area1", "") != "" and d.get(
+            "auth_entity.area1", ""
+        ) != d.get("place.area1", "")
 
         if has_diff_area1:
             return True
 
-        has_diff_area2 = (
-            d["place.area2"] is not None
-            and d["place.area2"] != ""
-            and d["auth_entity.area2"] != d["place.area2"]
-        )
+        has_diff_area2 = d.get("place.area2", "") != "" and d.get(
+            "auth_entity.area2", ""
+        ) != d.get("place.area2", "")
 
         if has_diff_area2:
             return True
