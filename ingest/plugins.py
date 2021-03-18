@@ -3016,11 +3016,11 @@ class CovidPolicyPlugin(IngestPlugin):
                 else:
                     ids_seen.add(id)
         if len(ids_duplicated) > 0:
-            print(
-                "\n[ERROR] Found the following unique IDs that are duplicated in the data:"
+            logging.warning(
+                "[WARNING] Found the following unique IDs that are "
+                "duplicated in the data:"
             )
             for id in ids_duplicated:
-                print("   " + str(id))
                 logging.warning("   " + str(id))
             return False
         else:
