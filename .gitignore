@@ -82,6 +82,9 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# SQL scratch files
+scratch*.sql
+
 # Flask stuff:
 instance/
 .webassets-cache
