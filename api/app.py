@@ -48,7 +48,7 @@ allow_origin_regex = (
     + "https?:\/\/.*\.cloudfront\.net|"
     + "https?:\/\/ghscosting\.org|"
     + "https?:\/\/devtracking\.ghscosting\.org|"
-    + "https?:\/\/devtracking2\.ghscosting\.org|"
+    + "https?:\/\/devtracking\d\.ghscosting\.org|"
     + "http:\/\/covid-amp-tess\.s3-website-us-west-2\.amazonaws\.com|"
     + "https?:\/\/.*\.talusanalytics.*)"
 )
