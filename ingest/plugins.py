@@ -1108,6 +1108,9 @@ class CovidPolicyPlugin(IngestPlugin):
             # unique ID is not empty
             self.data = self.data.loc[self.data["Unique ID"] != "", :]
 
+            # category
+            self.data = self.data.loc[self.data["Policy category"] != "", :]
+
             # not "Non-policy guidance"
             if "Policy/law type" in self.data.columns:
                 self.data = self.data.loc[
