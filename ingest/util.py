@@ -1,15 +1,14 @@
 """Ingest utility methods"""
 # standard packages
+from typing import Any, Dict, List
 import urllib3
 import certifi
 import requests
-import csv
-import json
 from collections import defaultdict
 
 # 3rd party modules
-from pony.orm import db_session, commit, get, select
-from pony.orm.core import EntityMeta
+from pony.orm import db_session, commit, select
+from pony.orm.core import Entity, EntityMeta
 import pprint
 
 # constants
@@ -307,3 +306,25 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
 
     # return output
     return data
+
+
+def get_inst_by_col(e: Entity, c: str) -> Dict[Any, Entity]:
+    """Returns all instances in the database of the given entity indexed in a
+    dictionary by the given column.
+
+    Args:
+        e (Entity): Entity whose instances will be returned.
+        c (str): Name of column by which instances will be indexed.
+
+    Returns:
+        Dict[Any, Entity]: Dictionary of instances in database indexed by a
+        particular column's values.
+    """
+    # get all instances from database
+    inst: List[Entity] = select(i for i in e)
+
+    # return indexed by column value
+    by_col: Dict[Any, Entity] = defaultdict(list)
+    for i in inst:
+        by_col[getattr(i, c)].append(i)
+    return by_col

@@ -1,7 +1,7 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
 from db.models import Place
-from typing import DefaultDict, List, Tuple
+from typing import DefaultDict, Dict, List, Tuple
 from api.util import use_relpath
 import os
 import random
@@ -19,6 +19,7 @@ from alive_progress import alive_bar
 # local modules
 from .sources import AirtableSource
 from .util import (
+    get_inst_by_col,
     upsert,
     download_file,
     bcolors,
@@ -1120,22 +1121,10 @@ class CovidPolicyPlugin(IngestPlugin):
                     self.data["Authorizing level of government"] != "", :
                 ]
 
-            # # do not ingest "Tribal nation" data until a plugin is written to
-            # # determine `place` instance attributes for tribal nations
-            # self.data = self.data.loc[
-            #     self.data['Authorizing level of government']
-            #     != 'Tribal nation', :
-            # ]
-            # self.data = self.data.loc[
-            #     self.data['Authorizing country ISO']
-            #     != '', :
-            # ]
             self.data = self.data.loc[self.data["Policy description"] != "", :]
             self.data = self.data.loc[
                 self.data["Effective start date"] != "", :
             ]
-            # self.data.loc[(self.data['Authorizing local area (e.g., county, city)']
-            #                != '') & (self.data['Authorizing level of government'] != 'Local'), 'Authorizing local area (e.g., county, city)'] = ''
 
             # analyze for QA/QC and quit if errors detected
             valid = self.run_tests(self.data)
@@ -1166,11 +1155,13 @@ class CovidPolicyPlugin(IngestPlugin):
                     ("State/Province (Intermediate area)", "State / Province"),
                     ("Local area (county, city)", "Local"),
                     (
-                        "Multiple countries/Global policy (e.g., UN, WHO, treaty organization policy)",
+                        "Multiple countries/Global policy (e.g., UN, WHO, "
+                        "treaty organization policy)",
                         "Country",
                     ),
                     (
-                        "Multiple countries/Global policy (e.g., UN, WHO, treaty organization policies)",
+                        "Multiple countries/Global policy (e.g., UN, WHO, "
+                        "treaty organization policies)",
                         "Country",
                     ),
                 ):
@@ -1185,9 +1176,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 self.data.loc[:, "home_rule"] = ""
             if "dillons_rule" not in self.data:
                 self.data.loc[:, "dillons_rule"] = ""
-
-            # # add name lists for areas, etc.
-            # assign_standardized_local_areas()
 
             if create_policies:
                 # screate Policy instances
@@ -2049,6 +2037,13 @@ class CovidPolicyPlugin(IngestPlugin):
                     n_inserted += 1
                 upserted.add(instance)
 
+        # get policies by source id
+        print("\n\nLoading policies by source ID...")
+        pol_by_src_id: Dict[str, db.Policy] = get_inst_by_col(
+            db.Policy, "source_id"
+        )
+        print("Loaded.\n\n")
+
         with alive_bar(len(data_rows), title="Linking policies") as bar:
             for i, d in self.data.iterrows():
                 bar()
@@ -2066,18 +2061,23 @@ class CovidPolicyPlugin(IngestPlugin):
                 # upsert policies
                 # TODO consider how to count these updates, since they're done
                 # after new instances are created (if counting them at all)
-                if "prior_policy" in d and d["prior_policy"] != "":
-                    prior_policies = list()
-                    for source_id in d["prior_policy"]:
-                        prior_policy_instance = select(
-                            i for i in db.Policy if i.source_id == source_id
-                        ).first()
-                        if prior_policy_instance is not None:
-                            prior_policies.append(prior_policy_instance)
+                prior_pol_src_ids: List[str] = d.get("prior_policy", list())
+                if len(prior_pol_src_ids) > 0:
+                    prior_pols: List[db.Policy] = list()
+                    source_id: str
+                    for source_id in prior_pol_src_ids:
+                        prior_pol_inst: "db.Policy" = pol_by_src_id.get(
+                            source_id, [None]
+                        )[0]
+                        # prior_policy_instance: db.Policy = select(
+                        #     i for i in db.Policy if i.source_id == source_id
+                        # ).first()
+                        if prior_pol_inst is not None:
+                            prior_pols.append(prior_pol_inst)
                     upsert(
                         db.Policy,
                         {"id": d["id"]},
-                        {"prior_policy": prior_policies},
+                        {"prior_policy": prior_pols},
                     )
 
         # delete all records in table but not in ingest dataset
