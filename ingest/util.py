@@ -58,7 +58,9 @@ def has_null(s: str):
 
 
 @db_session
-def upsert(cls, get: dict, set: dict = None, skip: list = []):
+def upsert(
+    cls, get: dict, set: dict = None, skip: list = [], do_commit: bool = True
+):
     """Insert or update record into specified class based on checking for
     existence with dictionary data field map `get`, and creating with
     data based on values in dictionaries `get` and `set`, skipping any
@@ -116,7 +118,8 @@ def upsert(cls, get: dict, set: dict = None, skip: list = []):
                     continue
             obj.__setattr__(key, value)
 
-        commit()
+        if do_commit:
+            commit()
         return (action, obj)
 
 

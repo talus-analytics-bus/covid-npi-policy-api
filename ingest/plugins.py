@@ -2030,12 +2030,18 @@ class CovidPolicyPlugin(IngestPlugin):
                     {"id": d["id"]},
                     {key: formatter(key, d) for key in keys if key in d},
                     skip=["prior_policy"],
+                    do_commit=False
                 )
                 if action == "update":
                     n_updated += 1
                 elif action == "insert":
                     n_inserted += 1
                 upserted.add(instance)
+                
+        # commit
+        print("\n\nCommitting ingested policies...")
+        commit()
+        print("Committed.\n\n")
 
         # get policies by source id
         print("\n\nLoading policies by source ID...")
@@ -2078,7 +2084,13 @@ class CovidPolicyPlugin(IngestPlugin):
                         db.Policy,
                         {"id": d["id"]},
                         {"prior_policy": prior_pols},
+                        do_commit=False
                     )
+                    
+        # commit
+        print("\n\nCommitting linked policies...")
+        commit()
+        print("Committed.\n\n")
 
         # delete all records in table but not in ingest dataset
         print("Deleting policies no longer needed...")
