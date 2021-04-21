@@ -5,7 +5,6 @@ import time
 from typing import List, Optional
 
 # local modules
-from api import schema
 from db_metric import db
 from db import db as db_amp
 from ingest.plugins import CovidCaseloadPlugin
@@ -21,7 +20,15 @@ parser.add_argument(
     default=False,
     action="store_const",
     const=True,
-    help="ingest state data",
+    help="ingest USA state data",
+)
+parser.add_argument(
+    "-c",
+    "--county",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest USA county data",
 )
 parser.add_argument(
     "-g",
@@ -78,18 +85,29 @@ def refresh_materialized_views():
 if __name__ == "__main__":
     # get args
     args = parser.parse_args()
+    do_county = args.county or args.all
     do_state = args.state or args.all
     do_global = args.globe or args.all
     do_refresh_materialized_views = (
-        args.globe or args.state or args.materialized_views or args.all
+        args.globe
+        or args.state
+        or args.county
+        or args.materialized_views
+        or args.all
     )
 
     # generate database mapping and ingest data for the COVID-AMP project
     db.generate_mapping(create_tables=False)
     db_amp.generate_mapping(create_tables=False)
-    if do_state or do_global:
+    if do_state or do_global or do_county:
         plugin = CovidCaseloadPlugin()
-        plugin.upsert_data(db, db_amp, do_state=do_state, do_global=do_global)
+        plugin.upsert_data(
+            db,
+            db_amp,
+            do_state=do_state,
+            do_global=do_global,
+            do_county=do_county,
+        )
 
     # refresh materialized views that depend on case/deaths data
     if do_refresh_materialized_views:

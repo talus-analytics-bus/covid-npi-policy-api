@@ -1,6 +1,6 @@
 """API utility functions"""
 # standard modules
-from datetime import datetime, date
+from datetime import datetime
 import pathlib
 import urllib3
 import certifi

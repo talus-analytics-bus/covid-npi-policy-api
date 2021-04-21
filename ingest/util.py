@@ -1,6 +1,6 @@
 """Ingest utility methods"""
 # standard packages
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 import urllib3
 import certifi
 import requests
@@ -169,6 +169,77 @@ def download_file(
     else:
         print("Error when downloading PDF (404)")
         return False
+
+
+def nyt_county_caseload_csv_to_dict(
+    download_url: str, for_dates: Set[str] = None
+) -> Dict[str, List[dict]]:
+    """
+    Download county-level COVID-19 case and death data from the New York Times
+    GitHub and convert it from CSV format into a dictionary of lists, indexed
+    by county FIPS code.
+
+    TODO Add feature where only observations whose datetimes aren't already
+    in the dataset are added. Perhaps by skipping them in the
+
+    Args:
+        download_url (str): The URL at which the county data CSV file is found
+
+    Returns:
+        List[dict]: A dictionary of lists of COVID-19 data observations,
+        indexed by county FIPS code.
+    """
+
+    output = defaultdict(list)
+
+    r = requests.get(download_url, allow_redirects=True)
+    file_dict = defaultdict(list)
+    rows = r.iter_lines(decode_unicode=True)
+
+    # define index of unique ID element
+    UNIQUE_ID_IDX: int = 3
+
+    # remove the header row from the generator
+    next(rows)
+
+    for row in rows:
+        row_list = row.split(",")
+
+        file_dict[row_list[UNIQUE_ID_IDX]].append(row_list)
+
+    for county_name, data in file_dict.items():
+        for day in data:
+            # skip unless matches date if provided
+            if for_dates is not None and day[0] not in for_dates:
+                continue
+            else:
+                fips_no_zeros: str = get_fips_no_zeros(day[UNIQUE_ID_IDX])
+                output[fips_no_zeros].append(
+                    {
+                        "date": day[0],
+                        "county": day[1],
+                        "fips": fips_no_zeros,
+                        "cases": day[4],
+                        "deaths": day[5],
+                    }
+                )
+    return output
+
+
+def get_fips_no_zeros(raw_fips: str) -> str:
+    """Given a raw numeric FIPS code in string format, remove any leading zeros
+    and return the string representation of that integer.
+
+    Args:
+        raw_fips (str): A numeric FIPS code as a string, e.g., `01001`.
+
+    Returns:
+        str: That FIPS code without leading zeros, e.g., `1001`.
+    """
+    if raw_fips == "":
+        return ""
+    else:
+        return str(int(raw_fips))
 
 
 def nyt_caseload_csv_to_dict(download_url: str):
