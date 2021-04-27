@@ -3104,7 +3104,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area2_info is None:
                     continue
 
-                area1: str = area2_info.get("Intermediate Area Name", None)[0]
+                area1_tmp: List[str] = area2_info.get(
+                    "Intermediate Area Name", None
+                )
+                area1: str = ""
+                if area1_tmp != "" and len(area1_tmp) > 0:
+                    area1: str = area1_tmp[0]
                 if area1 is None or area1 == "":
                     raise ValueError(
                         "No intermediate area for "
