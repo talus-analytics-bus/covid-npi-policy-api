@@ -2030,14 +2030,14 @@ class CovidPolicyPlugin(IngestPlugin):
                     {"id": d["id"]},
                     {key: formatter(key, d) for key in keys if key in d},
                     skip=["prior_policy"],
-                    do_commit=False
+                    do_commit=False,
                 )
                 if action == "update":
                     n_updated += 1
                 elif action == "insert":
                     n_inserted += 1
                 upserted.add(instance)
-                
+
         # commit
         print("\n\nCommitting ingested policies...")
         commit()
@@ -2084,9 +2084,9 @@ class CovidPolicyPlugin(IngestPlugin):
                         db.Policy,
                         {"id": d["id"]},
                         {"prior_policy": prior_pols},
-                        do_commit=False
+                        do_commit=False,
                     )
-                    
+
         # commit
         print("\n\nCommitting linked policies...")
         commit()
@@ -3071,6 +3071,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 )
         elif d[prefix + ".level"] in INTERMEDIATE_LEVELS:
             # get information from intermediate area database records
+            area1: str = None
             for area1 in d[prefix + ".area1"]:
                 area2_info: dict = self.get_area_info(
                     type="intermediate", name=area1
