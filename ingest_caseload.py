@@ -66,7 +66,6 @@ def refresh_materialized_views():
 
     # single statement to refresh all materialized views relevant
     to_refresh: List[str] = ["74", "77", "94"]
-    # to_refresh = ['74', '77', '94', '97']  # 97 is 7d aggregate deaths, unused
     stmt_list: List[str] = list()
     id: Optional[str]
     for id in to_refresh:
@@ -101,7 +100,7 @@ if __name__ == "__main__":
     db_amp.generate_mapping(create_tables=False)
     if do_state or do_global or do_county:
         plugin = CovidCaseloadPlugin()
-        plugin.upsert_data(
+        plugin.upsert_covid_data(
             db,
             db_amp,
             do_state=do_state,
