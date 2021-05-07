@@ -110,6 +110,6 @@ if __name__ == "__main__":
         )
 
     # refresh materialized views that depend on case/deaths data
-    if do_refresh_materialized_views:
+    if False:
         refresh_materialized_views()
     print("\nData ingested.")

@@ -28,7 +28,9 @@ from .util import (
 )
 import pandas as pd
 from db.config import db as models
-from ingest.metric_getters.covid_usa_county import upsert_nyt_caseload_counties
+from ingest.metricimporters.covid_usa_county import (
+    upsert_nyt_caseload_counties,
+)
 
 
 # constants
@@ -291,7 +293,9 @@ class CovidCaseloadPlugin(IngestPlugin):
         return None
 
     @db_session
-    def upsert_data(self, db, db_amp, do_county=True, do_state=True, do_global=True):
+    def upsert_data(
+        self, db, db_amp, do_county=True, do_state=True, do_global=True
+    ):
         """Upsert caseload data from different sources.
 
         Parameters
