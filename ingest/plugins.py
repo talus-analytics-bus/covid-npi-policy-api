@@ -1184,6 +1184,10 @@ class CovidPolicyPlugin(IngestPlugin):
         process_policy_data(self, db, create_policies=(not debug))
 
         if debug:
+            self.create_files_from_attachments(db, "Policy")
+            self.create_files_from_attachments(db, "Plan")
+            self.create_files_from_urls(db)
+            self.validate_docs(db)
             print("Debug run finished, exiting ingest.")
             os.sys.exit(0)
 
@@ -2776,11 +2780,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 "type": "plan_announcement",
             },
         }
-
-        docs_by_id = dict()
-
-        # track missing PDF filenames and source URLs
-        missing_filenames = list()
 
         # track upserted PDFs -- if there are any filenames in it that are not
         # in the S3 bucket, upload those files to S3
