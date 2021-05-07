@@ -18,7 +18,7 @@ pp = pprint.PrettyPrinter(indent=4)
 def upsert_nyt_state_covid_data(
     db: Database,
     db_amp: Database,
-    all_dt_dict: List[Dict[str, db_metric.models.DateTime]],
+    all_dt_dict: Dict[str, db_metric.models.DateTime],
 ):
     """Upsert NYT state-level COVID caseload data and derived metrics for
     the USA.
