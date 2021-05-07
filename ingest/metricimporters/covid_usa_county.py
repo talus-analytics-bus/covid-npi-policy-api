@@ -4,12 +4,14 @@ Metrics database.
 
 """
 import db_metric
-import pprint
-from typing import Dict, List
-from alive_progress import alive_bar
-from datetime import datetime, date
-from pony.orm.core import Database, commit, select
+from db.models import Version
 from ingest.util import nyt_county_caseload_csv_to_dict, upsert
+
+import pprint
+from typing import Dict, Set
+from alive_progress import alive_bar
+from datetime import datetime, date, timedelta
+from pony.orm.core import Database, commit, select, get
 
 # pretty printing: for printing JSON objects legibly
 pp = pprint.PrettyPrinter(indent=4)
@@ -36,9 +38,26 @@ def upsert_nyt_county_covid_data(
         "https://raw.githubusercontent.com/nytimes/covid-19-data"
         "/master/us-counties.csv"
     )
-    data = nyt_county_caseload_csv_to_dict(
-        download_url, for_dates={"2021-04-18", "2021-04-19", "2021-04-20"}
+
+    # determine most recent data date in database and only request data for
+    # newer dates
+    for_dates: Set[str] = None
+    data_version: Version = get(
+        i for i in db_amp.Version if i.type == "COVID-19 county case data"
     )
+    for_dates = set()
+    if data_version is not None:
+        most_recent_data_date: date = data_version.last_datum_date
+
+        # get strings of dates between most recent data date and present day
+        today: date = date.today()
+        iter_date: date = most_recent_data_date
+
+        while iter_date != today:
+            for_dates.add(str(iter_date))
+            iter_date += timedelta(days=1)
+
+    data = nyt_county_caseload_csv_to_dict(download_url, for_dates=for_dates)
     print("Done.")
 
     print("\nUpserting relevant metrics...")
