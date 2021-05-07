@@ -24,7 +24,6 @@ from .util import (
     upsert,
     download_file,
     bcolors,
-    jhu_caseload_csv_to_dict,
 )
 import pandas as pd
 from db.config import db as models
@@ -33,6 +32,9 @@ from ingest.metricimporters.covid_usa_county import (
 )
 from ingest.metricimporters.covid_usa_state import (
     upsert_nyt_state_covid_data,
+)
+from ingest.metricimporters.covid_global_country import (
+    upsert_jhu_country_covid_data,
 )
 
 
@@ -304,7 +306,7 @@ class CovidCaseloadPlugin(IngestPlugin):
         do_state: bool = True,
         do_global: bool = True,
     ):
-        """Upsert caseload data from different sources.
+        """Upsert COVID data from different sources.
 
         Parameters
         ----------
@@ -328,214 +330,13 @@ class CovidCaseloadPlugin(IngestPlugin):
             for i in all_dt_list
         }
 
-        def upsert_jhu_country_covid_data(db, db_amp):
-            """Upsert JHU country-level caseload data and derived metrics for
-            the world.
-
-            Parameters
-            ----------
-            db : type
-                Description of parameter `db`.
-            db_amp : type
-                Description of parameter `db_amp`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            print("\nFetching data from JHU GitHub...")
-            download_url = (
-                "https://raw.githubusercontent.com/CSSEGISandData"
-                "/COVID-19/master/csse_covid_19_data/"
-                "csse_covid_19_time_series/"
-                "time_series_covid19_confirmed_global.csv"
-            )
-            download_url_deaths = (
-                "https://raw.githubusercontent.com/"
-                "CSSEGISandData/COVID-19/master/csse_covid_19_data/"
-                "csse_covid_19_time_series/"
-                "time_series_covid19_deaths_global.csv"
-            )
-            data = jhu_caseload_csv_to_dict(download_url, db)
-            data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
-            print("Done.")
-
-            print("\nUpserting relevant metrics...")
-
-            # upsert metric for daily US caseload
-            _action, covid_total_cases_countries = upsert(
-                db.Metric,
-                {
-                    "metric_name": "covid_total_cases_countries",
-                    "metric_id": 75,
-                },
-                {
-                    "temporal_resolution": "daily",
-                    "spatial_resolution": "country",
-                    "spatial_extent": "planet",
-                    "min_time": "2020-01-01",
-                    "max_time": "2025-01-01",
-                    "unit_type": "count",
-                    "unit": "cases",
-                    "num_type": "int",
-                    "metric_definition": "The total cumulative number of "
-                    "COVID-19 cases by date and country",
-                },
-            )
-            commit()
-
-            # upsert metric for daily US NEW caseload
-            upsert(
-                db.Metric,
-                {"metric_name": "covid_new_cases_countries", "metric_id": 76},
-                {
-                    "temporal_resolution": "daily",
-                    "spatial_resolution": "country",
-                    "spatial_extent": "planet",
-                    "min_time": "2020-01-01",
-                    "max_time": "2025-01-01",
-                    "unit_type": "count",
-                    "unit": "cases",
-                    "num_type": "int",
-                    "metric_definition": "The number of new COVID-19 cases by"
-                    " date and country",
-                    "is_view": True,
-                    "view_name": "metric_76",
-                },
-            )
-            commit()
-
-            # upsert metric for 7-day US NEW caseload
-            upsert(
-                db.Metric,
-                {
-                    "metric_name": "covid_new_cases_countries_7d",
-                    "metric_id": 77,
-                },
-                {
-                    "temporal_resolution": "daily",
-                    "spatial_resolution": "country",
-                    "spatial_extent": "planet",
-                    "min_time": "2020-01-01",
-                    "max_time": "2025-01-01",
-                    "unit_type": "count",
-                    "unit": "cases",
-                    "num_type": "int",
-                    "metric_definition": "The number of new COVID-19 cases in"
-                    " the last 7 days by date and country",
-                    "is_view": True,
-                    "view_name": "metric_77",
-                },
-            )
-            commit()
-
-            # upsert metric for daily US deaths
-            _action, covid_total_deaths_countries = upsert(
-                db.Metric,
-                {
-                    "metric_name": "covid_total_deaths_countries",
-                    "metric_id": 95,
-                },
-                {
-                    "temporal_resolution": "daily",
-                    "spatial_resolution": "country",
-                    "spatial_extent": "planet",
-                    "min_time": "2020-01-01",
-                    "max_time": "2025-01-01",
-                    "unit_type": "count",
-                    "unit": "deaths",
-                    "num_type": "int",
-                    "metric_definition": "The total cumulative number of "
-                    "COVID-19 deaths by date and country",
-                },
-            )
-            commit()
-
-            print("Done.")
-
-            print("\nUpserting observations...")
-
-            updated_at = datetime.now()
-            last_datum_date = None
-            n_cases = len(data)
-            with alive_bar(
-                n_cases, title="Importing national-level cases data"
-            ) as bar:
-                for d in data:
-                    bar()
-                    dt = None
-                    try:
-                        dt = all_dt_dict[d["date"]]
-                    except Exception:
-                        input("error: missing dt. Press enter to continue.")
-                        continue
-
-                    last_datum_date = d["date"]
-                    upsert(
-                        db.Observation,
-                        {
-                            "metric": covid_total_cases_countries,
-                            "date_time": dt["dt_id"],
-                            "place": d["place"],
-                            "data_source": "JHU CSSE COVID-19 Dataset",
-                        },
-                        {
-                            "value": d["value"],
-                            "updated_at": updated_at,
-                        },
-                    )
-
-            n_deaths = len(data_deaths)
-            with alive_bar(
-                n_deaths, title="Importing national-level deaths data"
-            ) as bar:
-                for d in data_deaths:
-                    bar()
-                    dt = None
-                    try:
-                        dt = all_dt_dict[d["date"]]
-                    except Exception:
-                        input("error: missing dt. Press enter to continue.")
-                        continue
-
-                    last_datum_date = d["date"]
-                    upsert(
-                        db.Observation,
-                        {
-                            "metric": covid_total_deaths_countries,
-                            "date_time": dt["dt_id"],
-                            "place": d["place"],
-                            "data_source": "JHU CSSE COVID-19 Dataset",
-                        },
-                        {
-                            "value": d["value"],
-                            "updated_at": updated_at,
-                        },
-                    )
-
-            # update version
-            upsert(
-                db_amp.Version,
-                {
-                    "type": "COVID-19 case data (countries)",
-                },
-                {
-                    "date": date.today(),
-                    "last_datum_date": last_datum_date,
-                },
-            )
-
-            print("Done.")
-
         # perform all upserts defined above
         if do_state:
             upsert_nyt_state_covid_data(db, db_amp, all_dt_dict)
         if do_county:
             upsert_nyt_county_covid_data(db, db_amp, all_dt_dict)
         if do_global:
-            upsert_jhu_country_covid_data(db, db_amp)
+            upsert_jhu_country_covid_data(db, db_amp, all_dt_dict)
 
 
 class CovidPolicyPlugin(IngestPlugin):
