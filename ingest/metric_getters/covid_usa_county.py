@@ -1,3 +1,4 @@
+"""Methods to ingest USA county-level data into the Talus Metrics database."""
 import pprint
 from db_metric.models import DateTime
 from typing import Dict
@@ -17,7 +18,10 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
 
     """
     print("\nFetching county-level data from New York Times GitHub...")
-    download_url = "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
+    download_url = (
+        "https://raw.githubusercontent.com/nytimes/covid-19-data"
+        "/master/us-counties.csv"
+    )
     data = nyt_county_caseload_csv_to_dict(
         download_url, for_dates={"2021-04-18", "2021-04-19", "2021-04-20"}
     )
@@ -26,7 +30,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
     print("\nUpserting relevant metrics...")
 
     # upsert metric for daily US caseload
-    action, covid_total_cases_counties = upsert(
+    _action, covid_total_cases_counties = upsert(
         db.Metric,
         {
             "metric_id": 102,
@@ -41,13 +45,14 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "cases",
             "num_type": "int",
-            "metric_definition": "The total cumulative number of COVID-19 cases by date and USA county",
+            "metric_definition": "The total cumulative number of COVID-19"
+            " cases by date and USA county",
         },
     )
     commit()
 
     # upsert metric for daily US deaths
-    action, covid_total_deaths_counties = upsert(
+    _action, covid_total_deaths_counties = upsert(
         db.Metric,
         {
             "metric_id": 122,
@@ -62,13 +67,14 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "deaths",
             "num_type": "int",
-            "metric_definition": "The total cumulative number of COVID-19 deaths by date and county",
+            "metric_definition": "The total cumulative number of COVID-19"
+            " deaths by date and county",
         },
     )
     commit()
 
     # upsert metric for daily US NEW caseload
-    action, covid_new_cases_counties = upsert(
+    upsert(
         db.Metric,
         {"metric_id": 103},
         {
@@ -81,7 +87,8 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "cases",
             "num_type": "int",
-            "metric_definition": "The number of new COVID-19 cases by date and county",
+            "metric_definition": "The number of new COVID-19 cases by date"
+            " and county",
             "is_view": True,
             "view_name": "metric_103",
         },
@@ -89,7 +96,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
     commit()
 
     # upsert metric for daily US NEW deaths
-    action, covid_new_deaths_counties = upsert(
+    upsert(
         db.Metric,
         {"metric_id": 123},
         {
@@ -102,7 +109,8 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "deaths",
             "num_type": "int",
-            "metric_definition": "The number of new COVID-19 deaths by date and county",
+            "metric_definition": "The number of new COVID-19 deaths by date"
+            " and county",
             "is_view": True,
             "view_name": "metric_123",
         },
@@ -110,7 +118,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
     commit()
 
     # upsert metric for 7-day US NEW caseload
-    action, covid_new_cases_counties_7d = upsert(
+    upsert(
         db.Metric,
         {
             "metric_id": 104,
@@ -125,7 +133,8 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "cases",
             "num_type": "int",
-            "metric_definition": "The number of new COVID-19 cases in the last 7 days by date and county",
+            "metric_definition": "The number of new COVID-19 cases in the"
+            " last 7 days by date and county",
             "is_view": True,
             "view_name": "metric_104",
         },
@@ -148,7 +157,8 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
             "unit_type": "count",
             "unit": "deaths",
             "num_type": "int",
-            "metric_definition": "The number of new COVID-19 deaths in the last 7 days by date and county",
+            "metric_definition": "The number of new COVID-19 deaths in the"
+            " last 7 days by date and county",
             "is_view": True,
             "view_name": "metric_124",
         },
@@ -197,7 +207,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
                         continue
 
                     last_datum_date = d["date"]
-                    action, obs_affected_cases = upsert(
+                    upsert(
                         db.Observation,
                         {
                             "metric": covid_total_cases_counties,
@@ -211,7 +221,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
                         },
                         do_commit=False,
                     )
-                    action, obs_affected_deaths = upsert(
+                    upsert(
                         db.Observation,
                         {
                             "metric": covid_total_deaths_counties,
@@ -230,7 +240,7 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
     commit()
 
     # update version
-    action, version = upsert(
+    upsert(
         db_amp.Version,
         {
             "type": "COVID-19 county case data",
@@ -243,7 +253,8 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
 
     if len(missing) > 0:
         print(
-            "These places in the NYT dataset were missing from the COVID AMP places database:"
+            "These places in the NYT dataset were missing from the COVID AMP"
+            " places database:"
         )
         pp.pprint(missing)
 
