@@ -308,18 +308,19 @@ class CovidCaseloadPlugin(IngestPlugin):
     ):
         """Upsert COVID data from different sources.
 
-        Parameters
-        ----------
-        db : type
-            Description of parameter `db`.
-        db_amp : type
-            Description of parameter `db_amp`.
+        Args:
+            db (Database): Metrics database connection
 
-        Returns
-        -------
-        type
-            Description of returned object.
+            db_amp (Database): COVID AMP database connection
 
+            do_county (bool, optional): If True, ingests county-level COVID
+            data for the USA, False otherwise. Defaults to True.
+
+            do_state (bool, optional): If True, ingests state-level COVID data
+            for the USA, False otherwise. Defaults to True.
+
+            do_global (bool, optional): If True, ingests country-level COVID
+            data for the globe, False otherwise. Defaults to True.
         """
 
         # get dict of database datetimes with keys as YYYY-MM-DD for speed
