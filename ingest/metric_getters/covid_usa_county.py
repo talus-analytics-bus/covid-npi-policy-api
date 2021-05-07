@@ -172,14 +172,21 @@ def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
     with alive_bar(
         n, title="Importing county-level cases and deaths data"
     ) as bar:
-        for name in data:
+        name_data: str = ""
+        for name_data in data:
             bar()
-            place = all_places_dict.get(name, None)
+            # prepend zeros
+            name_db: str = ""
+            if len(name_data) == 4:
+                name_db = "0" + name_data
+            else:
+                name_db = name_data
+            place = all_places_dict.get(name_db, None)
             if place is None:
-                missing.add(name)
+                missing.add(name_db)
                 continue
             else:
-                for d in data[name]:
+                for d in data[name_data]:
 
                     dt = None
                     try:
