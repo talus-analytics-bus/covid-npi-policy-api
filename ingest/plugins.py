@@ -1,5 +1,6 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
+from pony.orm.core import Database
 from db.models import Place
 from typing import DefaultDict, Dict, List, Tuple
 from api.util import use_relpath
@@ -23,13 +24,15 @@ from .util import (
     upsert,
     download_file,
     bcolors,
-    nyt_caseload_csv_to_dict,
     jhu_caseload_csv_to_dict,
 )
 import pandas as pd
 from db.config import db as models
 from ingest.metricimporters.covid_usa_county import (
-    upsert_nyt_caseload_counties,
+    upsert_nyt_county_covid_data,
+)
+from ingest.metricimporters.covid_usa_state import (
+    upsert_nyt_state_covid_data,
 )
 
 
@@ -293,8 +296,13 @@ class CovidCaseloadPlugin(IngestPlugin):
         return None
 
     @db_session
-    def upsert_data(
-        self, db, db_amp, do_county=True, do_state=True, do_global=True
+    def upsert_covid_data(
+        self,
+        db: Database,
+        db_amp: Database,
+        do_county: bool = True,
+        do_state: bool = True,
+        do_global: bool = True,
     ):
         """Upsert caseload data from different sources.
 
@@ -315,12 +323,12 @@ class CovidCaseloadPlugin(IngestPlugin):
         # get dict of database datetimes with keys as YYYY-MM-DD for speed
         all_dt_res = select(i for i in db.DateTime)[:][:]
         all_dt_list = [i.to_dict() for i in all_dt_res]
-        all_dt_dict = {
+        all_dt_dict: List[Dict[str, datetime]] = {
             str((i["datetime"] + timedelta(hours=12)).date()): i
             for i in all_dt_list
         }
 
-        def upsert_jhu_caseload(db, db_amp):
+        def upsert_jhu_country_covid_data(db, db_amp):
             """Upsert JHU country-level caseload data and derived metrics for
             the world.
 
@@ -338,8 +346,18 @@ class CovidCaseloadPlugin(IngestPlugin):
 
             """
             print("\nFetching data from JHU GitHub...")
-            download_url = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
-            download_url_deaths = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
+            download_url = (
+                "https://raw.githubusercontent.com/CSSEGISandData"
+                "/COVID-19/master/csse_covid_19_data/"
+                "csse_covid_19_time_series/"
+                "time_series_covid19_confirmed_global.csv"
+            )
+            download_url_deaths = (
+                "https://raw.githubusercontent.com/"
+                "CSSEGISandData/COVID-19/master/csse_covid_19_data/"
+                "csse_covid_19_time_series/"
+                "time_series_covid19_deaths_global.csv"
+            )
             data = jhu_caseload_csv_to_dict(download_url, db)
             data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
             print("Done.")
@@ -347,7 +365,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             print("\nUpserting relevant metrics...")
 
             # upsert metric for daily US caseload
-            action, covid_total_cases_countries = upsert(
+            _action, covid_total_cases_countries = upsert(
                 db.Metric,
                 {
                     "metric_name": "covid_total_cases_countries",
@@ -362,13 +380,14 @@ class CovidCaseloadPlugin(IngestPlugin):
                     "unit_type": "count",
                     "unit": "cases",
                     "num_type": "int",
-                    "metric_definition": "The total cumulative number of COVID-19 cases by date and country",
+                    "metric_definition": "The total cumulative number of "
+                    "COVID-19 cases by date and country",
                 },
             )
             commit()
 
             # upsert metric for daily US NEW caseload
-            action, covid_new_cases_countries = upsert(
+            upsert(
                 db.Metric,
                 {"metric_name": "covid_new_cases_countries", "metric_id": 76},
                 {
@@ -380,7 +399,8 @@ class CovidCaseloadPlugin(IngestPlugin):
                     "unit_type": "count",
                     "unit": "cases",
                     "num_type": "int",
-                    "metric_definition": "The number of new COVID-19 cases by date and country",
+                    "metric_definition": "The number of new COVID-19 cases by"
+                    " date and country",
                     "is_view": True,
                     "view_name": "metric_76",
                 },
@@ -388,7 +408,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             commit()
 
             # upsert metric for 7-day US NEW caseload
-            action, covid_new_cases_countries_7d = upsert(
+            upsert(
                 db.Metric,
                 {
                     "metric_name": "covid_new_cases_countries_7d",
@@ -403,7 +423,8 @@ class CovidCaseloadPlugin(IngestPlugin):
                     "unit_type": "count",
                     "unit": "cases",
                     "num_type": "int",
-                    "metric_definition": "The number of new COVID-19 cases in the last 7 days by date and country",
+                    "metric_definition": "The number of new COVID-19 cases in"
+                    " the last 7 days by date and country",
                     "is_view": True,
                     "view_name": "metric_77",
                 },
@@ -411,7 +432,7 @@ class CovidCaseloadPlugin(IngestPlugin):
             commit()
 
             # upsert metric for daily US deaths
-            action, covid_total_deaths_countries = upsert(
+            _action, covid_total_deaths_countries = upsert(
                 db.Metric,
                 {
                     "metric_name": "covid_total_deaths_countries",
@@ -426,7 +447,8 @@ class CovidCaseloadPlugin(IngestPlugin):
                     "unit_type": "count",
                     "unit": "deaths",
                     "num_type": "int",
-                    "metric_definition": "The total cumulative number of COVID-19 deaths by date and country",
+                    "metric_definition": "The total cumulative number of "
+                    "COVID-19 deaths by date and country",
                 },
             )
             commit()
@@ -451,7 +473,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                         continue
 
                     last_datum_date = d["date"]
-                    action, obs_affected = upsert(
+                    upsert(
                         db.Observation,
                         {
                             "metric": covid_total_cases_countries,
@@ -479,7 +501,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                         continue
 
                     last_datum_date = d["date"]
-                    action, obs_affected = upsert(
+                    upsert(
                         db.Observation,
                         {
                             "metric": covid_total_deaths_countries,
@@ -494,7 +516,7 @@ class CovidCaseloadPlugin(IngestPlugin):
                     )
 
             # update version
-            action, version = upsert(
+            upsert(
                 db_amp.Version,
                 {
                     "type": "COVID-19 case data (countries)",
@@ -509,11 +531,11 @@ class CovidCaseloadPlugin(IngestPlugin):
 
         # perform all upserts defined above
         if do_state:
-            upsert_nyt_caseload(db, db_amp, all_dt_dict)
+            upsert_nyt_state_covid_data(db, db_amp, all_dt_dict)
         if do_county:
-            upsert_nyt_caseload_counties(db, db_amp, all_dt_dict)
+            upsert_nyt_county_covid_data(db, db_amp, all_dt_dict)
         if do_global:
-            upsert_jhu_caseload(db, db_amp)
+            upsert_jhu_country_covid_data(db, db_amp)
 
 
 class CovidPolicyPlugin(IngestPlugin):
@@ -526,7 +548,8 @@ class CovidPolicyPlugin(IngestPlugin):
         # configure logger
         # TODO with instance from `getLogger`
         filename: str = use_relpath(
-            f"""logs/ingest_policies_{datetime.now().strftime('%Y-%m-%d %X')}.log""",
+            "logs/ingest_policies_"
+            f"""{datetime.now().strftime('%Y-%m-%d %X')}.log""",
             __file__,
         )
         logging.basicConfig(
@@ -708,12 +731,9 @@ class CovidPolicyPlugin(IngestPlugin):
     @db_session
     def load_observations(self, db):
         print(
-            "\n\n[X] Connecting to Airtable for observations and fetching tables..."
+            "\n\n[X] Connecting to Airtable for observations and fetching"
+            " tables..."
         )
-
-        # all_rows = self.client.worksheet(
-        #     name='Status table'
-        # ).as_dataframe(view='API ingest', fields=['Name', 'Date', 'Location type', 'Status'])
         airtable_iter = self.client.worksheet(name="Status table").ws.get_iter(
             view="API ingest",
             fields=["Name", "Date", "Location type", "Status"],
@@ -762,7 +782,8 @@ class CovidPolicyPlugin(IngestPlugin):
                                 db.Place,
                                 {
                                     "iso3": "USA",
-                                    "country_name": "United States of America (USA)",
+                                    "country_name": "United States of America"
+                                    " (USA)",
                                     "area1": d["Name"],
                                     "area2": "Unspecified",
                                     "level": "State / Province",
@@ -876,7 +897,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # remove records without a unique ID and other features
             if "Flag for Review" in self.data.columns:
                 self.data = self.data.loc[
-                    self.data["Flag for Review"] != True, :
+                    self.data["Flag for Review"] != True, :  # noqa: E712
                 ]
 
             # unique ID is not empty
@@ -1101,13 +1122,13 @@ class CovidPolicyPlugin(IngestPlugin):
             text = c.summary_of_action
             title = c.parties if c.parties != "" else c.citation
             val = None
-            if title != None:
-                if text != None:
+            if title is not None:
+                if text is not None:
                     val = f"""{title}: {text}"""
                 else:
                     val = title
             else:
-                if text != None:
+                if text is not None:
                     val = text
             c.parties_or_citation_and_summary_of_action = val
 
@@ -1183,7 +1204,11 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # sort
         def key_func(x):
-            return f"""{x.primary_ph_measure} -- {x.ph_measure_details} -- {x.relaxing_or_restricting} -- {x.policy_name} -- {x.date_start_effective}"""
+            return (
+                f"""{x.primary_ph_measure} -- {x.ph_measure_details} --"""
+                f""" {x.relaxing_or_restricting} -- {x.policy_name} """
+                f"""-- {x.date_start_effective}"""
+            )
 
         policy_sections.sort(key=key_func)
 
@@ -1284,7 +1309,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if (
                 d[key] == "N/A"
                 or d[key] == "NA"
-                or d[key] == None
+                or d[key] is None
                 or d[key] == ""
             ):
                 if key in show_in_progress:
@@ -1294,7 +1319,7 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 return d[key]
 
-        # Main #################################################################
+        # Main ################################################################
         # retrieve keys needed to ingest data for Place, Auth_Entity, and
         # Auth_Entity.Place data fields.
         auth_entity_keys = select(
@@ -1302,7 +1327,7 @@ class CovidPolicyPlugin(IngestPlugin):
             for i in db.Metadata
             if i.ingest_field != ""
             and i.entity_name == "Auth_Entity"
-            and i.export == True
+            and i.export == True  # noqa: E712
         )[:][:]
 
         # track upserted records
@@ -1326,7 +1351,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
 
             # Add places ######################################################
-            # the affected place is different from the auth entity's place if it
+            # the affected place is different from the auth entity's place if
             # exists (is defined in the record) and is different
             # TODO fix possible bug where this is False when it should be True
             # in cases where
@@ -1488,7 +1513,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        # Local methods ########################################################
+        # Local methods #######################################################
 
         # TODO move formatter to higher-level scope
         def formatter(key, d):
@@ -1510,7 +1535,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if (
                 d[key] == "N/A"
                 or d[key] == "NA"
-                or d[key] == None
+                or d[key] is None
                 or d[key] == ""
             ):
                 if key in show_in_progress:
@@ -1520,27 +1545,7 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 return d[key]
 
-        # Main #################################################################
-        # retrieve keys needed to ingest data for Place, Auth_Entity, and
-        # Auth_Entity.Place data fields.
-        place_keys = select(
-            i.ingest_field
-            for i in db.Metadata
-            if i.entity_name == "Place"
-            and i.ingest_field != ""
-            and i.export == True
-            and i.class_name == "Plan"
-        )[:][:]
-
-        auth_entity_keys = select(
-            i.ingest_field
-            for i in db.Metadata
-            if i.ingest_field != ""
-            and i.entity_name == "Auth_Entity"
-            and i.export == True
-            and i.class_name == "Plan"
-        )[:][:]
-
+        # Main ################################################################
         auth_entity_place_keys = select(
             i.ingest_field
             for i in db.Metadata
@@ -1570,9 +1575,9 @@ class CovidPolicyPlugin(IngestPlugin):
             if reject(d):
                 continue
 
-            ## Add places ######################################################
-            # determine whether the specified instance has been defined yet, and
-            # if not, add it.
+            # Add places ######################################################
+            # determine whether the specified instance has been defined yet,
+            # and if not, add it.
 
             # get or create the place affected (for plans, will always be the
             # same as authorizing entity's place, for now)
@@ -1652,7 +1657,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # TODO consider flagging updates here
             db.Plan[d["id"]].place = place_aff
 
-            ## Add auth_entities ##############################################
+            # Add auth_entities ###############################################
             # parse auth entities in raw data record (there may be more than
             # one defined for each record)
 
@@ -1682,7 +1687,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 db.Plan[d["id"]].auth_entity.add(auth_entity)
             commit()
 
-        ## Delete unused instances ############################################
+        # Delete unused instances #############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
             i
@@ -2013,9 +2018,6 @@ class CovidPolicyPlugin(IngestPlugin):
             or i.field in ("source_id", "policy_or_law_name")
         )[:]
 
-        # maintain dict of attributes to set post-creation
-        post_creation_attrs: DefaultDict = defaultdict(dict)
-
         def formatter(key, d):
 
             # define keys that, if sets, should be converted to strings or bool
@@ -2190,9 +2192,8 @@ class CovidPolicyPlugin(IngestPlugin):
                 else "",
                 "definition": d["Definition"],
                 "possible_values": d["Possible values"],
-                # 'notes': d['Notes'] if not pd.isna(d['Notes']) else '',
                 "order": d["Order"],
-                "export": d["Export?"] == True,
+                "export": d["Export?"] is True,
             }
             action, instance = upsert(
                 db.Metadata,
@@ -2251,7 +2252,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     "ingest_field": "source_id",
                     "display_name": "Source ID",
                     "colgroup": "",
-                    "definition": "The unique ID of the record in the original dataset",
+                    "definition": "The unique ID of the record in the"
+                    " original dataset",
                     "possible_values": "Any text",
                     "order": 0,
                     # 'notes': '',
@@ -2268,7 +2270,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     "ingest_field": "source_id",
                     "display_name": "Source ID",
                     "colgroup": "",
-                    "definition": "The unique ID of the record in the original dataset",
+                    "definition": "The unique ID of the record in the"
+                    " original dataset",
                     "possible_values": "Any text",
                     "order": 0,
                     # 'notes': '',
@@ -2285,7 +2288,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     "ingest_field": "source_id",
                     "display_name": "Source ID",
                     "colgroup": "",
-                    "definition": "The unique ID of the record in the original dataset",
+                    "definition": "The unique ID of the record in the"
+                    " original dataset",
                     "possible_values": "Any text",
                     "order": 0,
                     # 'notes': '',
@@ -2302,7 +2306,8 @@ class CovidPolicyPlugin(IngestPlugin):
                     "ingest_field": "",
                     "display_name": "Policy end date",
                     "colgroup": "",
-                    "definition": "The date on which the policy or law will (or did) end",
+                    "definition": "The date on which the policy or law will"
+                    " (or did) end",
                     "possible_values": "Any date",
                     "order": 0,
                     # 'notes': '',
@@ -2342,7 +2347,6 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
         print("\n\n[2b] Ingesting glossary...")
-        colgroup = ""
         upserted = set()
         n_inserted = 0
         n_updated = 0
@@ -2416,8 +2420,6 @@ class CovidPolicyPlugin(IngestPlugin):
             "policy_data_source",
         ]
 
-        docs_by_id = dict()
-
         # track missing filenames
         missing_filenames = set()
 
@@ -2462,7 +2464,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 missing_filenames.add(d["id"])
                 continue
             instance_data["type"] = "policy"
-            id = " - ".join(instance_data.values())
 
             instance_data["filename"] = instance_data["filename"].replace(
                 ".", ""
@@ -2498,7 +2499,9 @@ class CovidPolicyPlugin(IngestPlugin):
             missing_filenames_list = list(missing_filenames)
             missing_filenames_list.sort(key=lambda x: int(x))
             print(
-                f"""\n{bcolors.BOLD}[Warning] Missing filenames for {len(missing_filenames_list)} policies with these unique IDs:{bcolors.ENDC}"""
+                f"""\n{bcolors.BOLD}[Warning] Missing filenames for """
+                f"""{len(missing_filenames_list)} policies with these """
+                f"""unique IDs:{bcolors.ENDC}"""
             )
             print(
                 bcolors.BOLD
@@ -2523,7 +2526,8 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
         print(
-            f"""\n\n[4] Ingesting files from Airtable attachments for {entity_class_name}..."""
+            "\n\n[4] Ingesting files from Airtable attachments"
+            f""" for {entity_class_name}..."""
         )
 
         # get entity class to use
@@ -2552,11 +2556,6 @@ class CovidPolicyPlugin(IngestPlugin):
                 "type": "plan_announcement",
             },
         }
-
-        docs_by_id = dict()
-
-        # track missing PDF filenames and source URLs
-        missing_filenames = list()
 
         # track upserted PDFs -- if there are any filenames in it that are not
         # in the S3 bucket, upload those files to S3
@@ -2749,7 +2748,9 @@ class CovidPolicyPlugin(IngestPlugin):
             missing_filenames = list(missing_filenames)
             missing_filenames.sort()
             print(
-                f"""\n{bcolors.BOLD}[Warning] URLs or filenames were not provided for {n_missing} files with the following names:{bcolors.ENDC}"""
+                f"""\n{bcolors.BOLD}[Warning] URLs or filenames were not """
+                f"""provided for {n_missing} files with the following """
+                f"""names:{bcolors.ENDC}"""
             )
             print(
                 bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC
@@ -2759,7 +2760,9 @@ class CovidPolicyPlugin(IngestPlugin):
             could_not_download = list(could_not_download)
             could_not_download.sort()
             print(
-                f"""\n{bcolors.BOLD}[Warning] Files could not be downloaded from the following {n_failed} sources:{bcolors.ENDC}"""
+                f"""\n{bcolors.BOLD}[Warning] Files could not be """
+                f"""downloaded from the following {n_failed} """
+                f"""sources:{bcolors.ENDC}"""
             )
             print(
                 bcolors.BOLD
