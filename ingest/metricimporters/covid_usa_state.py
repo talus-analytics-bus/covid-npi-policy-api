@@ -4,21 +4,32 @@ Metrics database.
 
 """
 import pprint
+from typing import Dict, List
 from alive_progress import alive_bar
 from datetime import datetime, date
-from pony.orm.core import commit, select
+from pony.orm.core import Database, commit, select
+import db_metric
 from ingest.util import nyt_caseload_csv_to_dict, upsert
 
 # pretty printing: for printing JSON objects legibly
 pp = pprint.PrettyPrinter(indent=4)
 
 
-def upsert_nyt_caseload(db, db_amp, all_dt_dict):
-    """
-    Upsert NYT state-level caseload data and derived metrics for
+def upsert_nyt_state_covid_data(
+    db: Database,
+    db_amp: Database,
+    all_dt_dict: List[Dict[str, db_metric.models.DateTime]],
+):
+    """Upsert NYT state-level COVID caseload data and derived metrics for
     the USA.
 
+    Args:
+        db (Database): Metrics database connection (PonyORM)
 
+        db_amp (Database): COVID AMP database connection (PonyORM)
+
+        all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
+        date string of Metrics database datetime records
     """
     print("\nFetching data from New York Times GitHub...")
     download_url = (

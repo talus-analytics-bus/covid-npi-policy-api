@@ -3,23 +3,33 @@ Methods to ingest USA county-level COVID data into the Talus
 Metrics database.
 
 """
+import db_metric
 import pprint
-from db_metric.models import DateTime
-from typing import Dict
+from typing import Dict, List
 from alive_progress import alive_bar
 from datetime import datetime, date
-from pony.orm.core import commit, select
+from pony.orm.core import Database, commit, select
 from ingest.util import nyt_county_caseload_csv_to_dict, upsert
 
 # pretty printing: for printing JSON objects legibly
 pp = pprint.PrettyPrinter(indent=4)
 
 
-def upsert_nyt_caseload_counties(db, db_amp, all_dt_dict: Dict[str, DateTime]):
-    """
-    Upsert NYT county-level caseload data and derived metrics for
+def upsert_nyt_county_covid_data(
+    db: Database,
+    db_amp: Database,
+    all_dt_dict: List[Dict[str, db_metric.models.DateTime]],
+):
+    """Upsert NYT county-level COVID caseload data and derived metrics for
     the USA.
 
+    Args:
+        db (Database): Metrics database connection (PonyORM)
+
+        db_amp (Database): COVID AMP database connection (PonyORM)
+
+        all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
+        date string of Metrics database datetime records
     """
     print("\nFetching county-level data from New York Times GitHub...")
     download_url = (
