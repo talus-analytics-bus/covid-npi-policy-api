@@ -1,4 +1,8 @@
-"""Methods to ingest USA county-level data into the Talus Metrics database."""
+"""
+Methods to ingest USA county-level COVID data into the Talus
+Metrics database.
+
+"""
 import pprint
 from db_metric.models import DateTime
 from typing import Dict

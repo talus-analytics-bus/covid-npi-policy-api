@@ -1,3 +1,8 @@
+"""
+Methods to ingest USA state-level COVID data into the Talus
+Metrics database.
+
+"""
 import pprint
 from alive_progress import alive_bar
 from datetime import datetime, date
