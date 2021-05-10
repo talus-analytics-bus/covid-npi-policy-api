@@ -1134,6 +1134,19 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 print("QA/QC found no issues. Continuing.")
 
+            print(
+                "Number of policies before dropping duplicates: "
+                + str(len(self.data.index))
+            )
+            # only keep first of duplicate IDs
+            self.data = self.data.drop_duplicates(
+                subset="Unique ID", keep="first"
+            )
+            print(
+                "Number of policies after dropping duplicates: "
+                + str(len(self.data.index))
+            )
+
             # set column names to database field names
             all_keys = select(
                 (i.ingest_field, i.table_name, i.field)
@@ -1212,6 +1225,19 @@ class CovidPolicyPlugin(IngestPlugin):
                 # sys.exit(0)
             else:
                 print("QA/QC found no issues. Continuing.")
+                
+            print(
+                "Number of plans before dropping duplicates: "
+                + str(len(data.index))
+            )
+            # only keep first of duplicate IDs
+            data = data.drop_duplicates(
+                subset="Unique ID", keep="first"
+            )
+            print(
+                "Number of plans after dropping duplicates: "
+                + str(len(data.index))
+            )
 
             # set column names to database field names
             all_keys = select(
