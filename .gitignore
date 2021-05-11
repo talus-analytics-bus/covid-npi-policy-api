@@ -4,6 +4,9 @@ sh/
 ingest/sh
 db/config-local.ini
 
+# temp files
+tmp/
+
 # mypy config
 mypy.ini
 
