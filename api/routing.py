@@ -460,8 +460,9 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
 
 # define allowed geo_res values
 class GeoRes(str, Enum):
-    state = "state"
     country = "country"
+    state = "state"
+    county = "county"
 
 
 @app.post(

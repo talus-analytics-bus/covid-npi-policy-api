@@ -1,19 +1,27 @@
 with dates as (
     select *
     from day_date
+    where day_date.day_date <= current_date
+        and day_date.day_date >= DATE '2020-01-01'
+),
+policy_group as (
+    select distinct on (group_number) *
+    from "policy"
+    order by group_number,
+        id
 ),
 filtered_policies as (
-    select distinct p.id,
+    select p.id,
         pl.iso3 as "place_loc"
-    from "policy" p
+    from "policy_group" p
         join place_to_policy p2p on p2p.policy = p.id
         join place pl on pl.id = p2p.place
     where pl.level = 'Country'
         and (
             p.primary_ph_measure = 'Vaccinations'
             or p.primary_ph_measure = 'Military mobilization'
+            or p.primary_ph_measure = 'Social distancing'
         )
-    order by 2
 ),
 date_counts as (
     select d.day_date::date as "date",

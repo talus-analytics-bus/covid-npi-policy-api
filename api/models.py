@@ -152,6 +152,7 @@ class Place(BaseModel):
     loc: str = None
     home_rule: str = None
     dillons_rule: str = None
+    ansi_fips: str = None
 
 
 class Auth_Entity(BaseModel):

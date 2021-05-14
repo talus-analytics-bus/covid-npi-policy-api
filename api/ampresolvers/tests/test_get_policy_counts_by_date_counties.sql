@@ -2,10 +2,16 @@ with dates as (
     select *
     from day_date
 ),
+policy_group as (
+    select distinct on (group_number) *
+    from "policy"
+    order by group_number,
+        id
+),
 filtered_policies as (
-    select distinct p.id,
-        pl.area1 as "place_loc"
-    from "policy" p
+    select p.id,
+        pl.area2 as "place_loc"
+    from "policy_group" p
         join place_to_policy p2p on p2p.policy = p.id
         join place pl on pl.id = p2p.place
     where pl.level = 'Local'
@@ -13,6 +19,7 @@ filtered_policies as (
         and (
             p.primary_ph_measure = 'Vaccinations'
             or p.primary_ph_measure = 'Military mobilization'
+            or p.primary_ph_measure = 'Social distancing'
         )
     order by 2
 ),

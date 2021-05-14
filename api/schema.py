@@ -1138,8 +1138,9 @@ def get_policy_status_counts(
     loc_field: str = get_loc_field_from_geo_res(geo_res)
     level = get_level_from_geo_res(geo_res)
 
-    # for state level: filter by USA only
-    if geo_res == "state":
+    # for state/county level: filter by USA only
+    for_usa_only: bool = geo_res in ("state", "county")
+    if for_usa_only:
         filters["iso3"] = ["USA"]
 
     # get min and max values of policies matching the filters for any date, not
@@ -1155,7 +1156,10 @@ def get_policy_status_counts(
         counter: PolicyStatusCounter = PolicyStatusCounter()
 
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
-            filters_no_dates=filters_no_dates, level=level, loc_field=loc_field
+            filters_no_dates=filters_no_dates,
+            level=level,
+            loc_field=loc_field,
+            by_group_number=by_group_number,
         )
 
     # get ordered policies from database
@@ -1165,7 +1169,7 @@ def get_policy_status_counts(
         filters["level"] = [level]
 
     # get policies
-    q = select(i for i in db.Policy)
+    q: Query = select(i for i in db.Policy)
 
     # get all locations with any data (before filters)
     q_all_time_counts = select(i for i in db.Policy)

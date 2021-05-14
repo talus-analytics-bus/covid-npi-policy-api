@@ -1,36 +1,55 @@
+from queryresolver.core import QueryResolver
 from typing import Tuple
 from api import schema
 from datetime import date
 from db.models import DayDate, Place, Policy, Policy_Date
-from pony.orm.core import Query, count, select
+import pony
+from pony.orm.core import Query, count, distinct, select
 from pony.orm.ormtypes import raw_sql
 from api.models import PlaceObs
 from api.util import cached
 
 
-class PolicyStatusCounter:
+class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
     @cached
     def get_max_min_counts(
-        self, filters_no_dates: dict, level: str, loc_field: str
+        self,
+        filters_no_dates: dict,
+        level: str,
+        loc_field: str,
+        by_group_number: bool = False,
     ) -> PlaceObs:
         q_filtered_policies: Query = select(i for i in Policy)
         if filters_no_dates is not None:
             q_filtered_policies = schema.apply_entity_filters(
                 q_filtered_policies, Policy, filters_no_dates
             )
-
+        if by_group_number:
+            q_group_numbers = select(
+                (min(i.id), i.group_number) for i in Policy
+            )
+            q_filtered_policies = select(
+                i
+                for i in q_filtered_policies
+                for j, _ in q_group_numbers
+                if i.id == j
+            )
         # get number of active filtered policies by date and location active
         q: Query = select(
-            (dd.day_date, getattr(pl, loc_field), count(pd, distinct=False))
+            (
+                dd.day_date,
+                getattr(pl, loc_field),
+                count(pd),
+            )
             for pd in Policy_Date
             for dd in DayDate
             for pl in Place
             for p in q_filtered_policies
             for p_pl in p.place
-            if date(2020, 1, 1) <= dd.day_date
+            if date(2019, 1, 1) <= dd.day_date
             and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
             and pd.start_date <= dd.day_date
             and pd.end_date >= dd.day_date
@@ -63,3 +82,6 @@ class PolicyStatusCounter:
                 value=value,
             )
         return max_obs
+
+    def validate_args(self, **kwargs):
+        super().validate_args(**kwargs)
