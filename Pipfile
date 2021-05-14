@@ -5,6 +5,9 @@ verify_ssl = true
 
 [dev-packages]
 alive-progress = "*"
+pytest = "*"
+flake8 = "*"
+black = "*"
 
 [packages]
 aiofiles = "==0.5.0"
@@ -36,7 +39,6 @@ psycopg2-binary = "==2.8.5"
 pyasn1 = "==0.4.8"
 pyasn1-modules = "==0.2.8"
 pycparser = "==2.20"
-pydantic = "==1.5.1"
 python-dateutil = "==2.8.1"
 pytz = "==2019.3"
 requests = "==2.23.0"
@@ -58,6 +60,7 @@ fuzzywuzzy = {extras = ["speedup"],version = "*"}
 rapidfuzz = "*"
 fastapi = "*"
 mypyls = {extras = ["default-mypy"], file = "https://github.com/matangover/mypyls/archive/master.zip"}
+pydantic = "*"
 
 [requires]
 python_version = "3.7"
