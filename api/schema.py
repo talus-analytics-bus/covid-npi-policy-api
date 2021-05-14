@@ -1129,7 +1129,6 @@ def get_policy_status_counts(
     filters: dict = dict(),
     by_group_number: bool = True,
     count_sub: bool = True,
-    run_tests: bool = False,
     include_zeros_and_min_max: bool = True,
 ):
     """Return number of policies that match the filters for each geography
