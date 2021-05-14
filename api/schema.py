@@ -1,6 +1,9 @@
 """Define API data processing methods"""
 # standard modules
-import functools
+from api.helpers import get_level_from_geo_res, get_loc_field_from_geo_res
+from .util import cached
+from typing import Any, Tuple
+from api.ampresolvers.core import PolicyStatusCounter
 import math
 import itertools
 import logging
@@ -27,10 +30,11 @@ from fuzzywuzzy import fuzz
 from pony.orm.core import Query
 
 # local modules
-from . import test
 from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
 from .models import (
+    PlaceObs,
+    PlaceObsList,
     Policy,
     PolicyList,
     PolicyDict,
@@ -40,8 +44,6 @@ from .models import (
     ChallengeList,
     PolicyNumber,
     PolicyNumberList,
-    PolicyStatusCount,
-    PolicyStatusCountList,
     ListResponse,
 )
 from .util import str_to_date, find, download_file
@@ -61,44 +63,6 @@ pp = pprint.PrettyPrinter(indent=4)
 IS_DEV: bool = os.environ.get("env", None) == "dev"
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
-USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
-
-
-def cached(func):
-    """ Caching """
-    cache = {}
-
-    @functools.wraps(func)
-    def wrapper(*func_args, **kwargs):
-        if USE_CACHING:
-            random = kwargs.get("random", False)
-            key = str(kwargs)
-            if key in cache and not random:
-                return cache[key]
-
-            results = func(*func_args, **kwargs)
-            if not random:
-                cache[key] = results
-            return results
-        else:
-            return func(*func_args, **kwargs)
-
-        # # Code for JWT-friendly caching below.
-        # # get jwt
-        # jwt_client = func_args[1].context.args.get('jwt_client')
-        #
-        # # if not debug mode and JWT is missing, return nothing
-        # if not args.debug and jwt_client is None:
-        #     return []
-        #
-        # # form key using user type
-        # type = 'unspecified'
-        # if jwt_client is not None:
-        #     jwt_decoded_json = jwt.decode(jwt_client, args.jwt_secret_key)
-        #     type = jwt_decoded_json['type']
-        # key = str(kwargs) + ':' + type
-
-    return wrapper
 
 
 @db_session
@@ -152,7 +116,8 @@ def export(filters: dict = None, class_name: str = "Policy"):
     if class_name == "all_static":
         today = date.today()
         file = download_file(
-            "https://ghssidea.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx",
+            "https://ghssidea.org/downloads/"
+            "COVID AMP - Policy and Plan Data Export.xlsx",
             "COVID AMP - Full Data Export - " + str(today).replace("-", ""),
             None,
             as_object=True,
@@ -169,7 +134,7 @@ def export(filters: dict = None, class_name: str = "Policy"):
 @db_session
 def get_version():
     data_tmp = db.Version.select_by_sql(
-        f"""
+        """
         SELECT distinct on ("type") * FROM "version"
         ORDER BY "type", "date" desc
                                     """
@@ -236,10 +201,11 @@ def get_metadata(fields: list, entity_class_name: str):
         # get entity class name and field
         try:
             entity_name, field = d.split(".")
-        except:
+        except Exception:
             return {
                 "success": False,
-                "message": 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
+                "message": "Prefix all field names with entity name, e.g.,"
+                ' "Policy.policy_name"',
                 "data": [],
             }
 
@@ -455,7 +421,8 @@ def get_policy_number(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/policy_number?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/policy_number?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -657,7 +624,8 @@ def get_policy(
             data = []
             # for each policy
             for d in q:
-                # convert it to a dictionary returning only the specified fields
+                # convert it to a dictionary returning only the
+                # specified fields
                 d_dict = d.to_dict_2(
                     return_fields_by_entity=return_fields_by_entity
                 )
@@ -670,7 +638,8 @@ def get_policy(
             next_page_url = (
                 None
                 if not more_pages
-                else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+                else f"""/get/policy?page={str(page + 1)}"""
+                f"""&pagesize={str(pagesize)}"""
             )
 
             # if by category: transform data to organize by category
@@ -815,7 +784,8 @@ def get_challenge(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/challenge?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -989,7 +959,8 @@ def get_plan(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/policy?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -1063,7 +1034,7 @@ def get_policy_status(
             return PolicyStatusList(
                 data=list(),
                 success=False,
-                message=f"""Start and end dates must be identical.""",
+                message="Start and end dates must be identical.",
             )
         else:
             # if date is not provided, return it in the response
@@ -1095,8 +1066,8 @@ def get_policy_status(
                 ]
             else:
 
-                # get all observations for the current date and convert them into
-                # policy statuses
+                # get all observations for the current date and convert them
+                # into policy statuses
                 observations = select(
                     i
                     for i in db.Observation
@@ -1124,9 +1095,13 @@ def get_policy_status(
         if filters is not None:
             q = apply_entity_filters(q, db.Policy, filters)
 
-        loc_field = "area1"
+        loc_field: str = get_loc_field_from_geo_res(geo_res)
+
+        level: str = None
         if geo_res == "country":
-            loc_field = "iso3"
+            level = "Country"
+        elif geo_res == "state":
+            level = "State / Province"
 
         q_loc = select(getattr(i.place, loc_field) for i in q)
 
@@ -1140,12 +1115,13 @@ def get_policy_status(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f"""Found {str(len(data))} status(es){'' if name is None else ' for ' + name}""",
+        message=f"""Found {str(len(data))} status(es)"""
+        f"""{'' if name is None else ' for ' + name}""",
     )
     return res
 
 
-@cached
+# @cached
 @db_session
 def get_policy_status_counts(
     geo_res: str = None,
@@ -1154,46 +1130,61 @@ def get_policy_status_counts(
     by_group_number: bool = True,
     count_sub: bool = True,
     run_tests: bool = False,
-    include_zeros: bool = True,
+    include_zeros_and_min_max: bool = True,
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
 
-    # DEBUG filter by USA only
+    # get correct location field and level for filtering
+    loc_field: str = get_loc_field_from_geo_res(geo_res)
+    level = get_level_from_geo_res(geo_res)
+
+    # for state level: filter by USA only
     if geo_res == "state":
         filters["iso3"] = ["USA"]
 
-    # run tests
-    if run_tests or IS_DEV:
-        test.get_policy_status_counts()
+    # get min and max values of policies matching the filters for any date, not
+    # just the defined date (if defined)
+    # get filtered policies, skipping any date filters
+    if include_zeros_and_min_max:
+        filters_no_dates: dict = dict()
+        k: str = None
+        v: Any = None
+        for k, v in filters.items():
+            if k != "dates_in_effect":
+                filters_no_dates[k] = v
+        counter: PolicyStatusCounter = PolicyStatusCounter()
+
+        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            filters_no_dates=filters_no_dates, level=level, loc_field=loc_field
+        )
 
     # get ordered policies from database
     # if not counting sub-[geo] only, then filter by level = [sub_geo]
     # otherwise, below filter by level != [geo or higher]
     if not count_sub:
-        level: str = "State / Province"
-        if geo_res == "country":
-            level = "Country"
         filters["level"] = [level]
 
     # get policies
     q = select(i for i in db.Policy)
 
     # get all locations with any data (before filters)
-    q_any_data = select(i for i in db.Policy)
+    q_all_time_counts = select(i for i in db.Policy)
 
-    # TODO
-    # apply level filters
     # apply special filters if counting sub-[geo] only
-    def apply_level_filters(q: Query, geo_res: GeoRes) -> Query:
-        """Filters policies in query to keep only those that are below the defined geographic resolution.
+    def filter_by_sub_geo(q: Query, geo_res: GeoRes) -> Query:
+        """Filters policies in query to keep only those that are below the
+        defined geographic resolution.
 
         Args:
             q (Query): The query selecting policies to be filtered
-            geo_res (GeoRes): The geographic resolution of the area related to those policies
+
+            geo_res (GeoRes): The geographic resolution of the area related to
+            those policies
 
         Raises:
-            NotImplementedError: Only country and state geographic resolutions are implemented.
+            NotImplementedError: Only country and state geographic resolutions
+            are implemented.
 
         Returns:
             Query: Filtered policies
@@ -1220,27 +1211,25 @@ def get_policy_status_counts(
 
     # filter policies by correct levels if counting only sub-[geo] policies
     if count_sub:
-        q = apply_level_filters(q, geo_res)
-        q_any_data = apply_level_filters(q_any_data, geo_res)
+        q = filter_by_sub_geo(q, geo_res)
+        q_all_time_counts = filter_by_sub_geo(q_all_time_counts, geo_res)
 
     # initialize output data
     data: list = None
 
     # apply filters if any
-    # TODO resume here by adding "zeros" to response based on which keys are in `q_any_data` but
+    # TODO resume here by adding "zeros" to response based on which keys are in
+    # `q_any_data` but
     # not in the `q` filtered data.
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
         if "level" in filters:
-            q_any_data = apply_entity_filters(
-                q_any_data, db.Policy, dict(level=filters["level"])
+            q_all_time_counts = apply_entity_filters(
+                q_all_time_counts, db.Policy, dict(level=filters["level"])
             )
-    q_any_data = select(
-        (i.place.iso3, i.place.area1, i.place.level) for i in q_any_data
-    )
-
-    # get correct location field
-    loc_field: str = "area1" if geo_res != "country" else "iso3"
+    q_all_time_counts = select(
+        (i.place.iso3, i.place.area1, i.place.level) for i in q_all_time_counts
+    )[:][:]
 
     # get locations
     q_loc: Query = None
@@ -1254,54 +1243,39 @@ def get_policy_status_counts(
     data_tmp = dict()
     for name, num in q_loc:
         if name not in data_tmp:
-            data_tmp[name] = PolicyStatusCount(place_name=name, value=num)
+            data_tmp[name] = PlaceObs(place_name=name, value=num)
     data = list(data_tmp.values())
 
     # create response from output list
     res_counted: str = geo_res if not count_sub else "sub-" + geo_res
 
     # add "zeros" to the data if requested
-    # TODO validate and test
-    if include_zeros:
-        for iso3, area1, level in q_any_data:
+    # TODO do not prep `q_and_data` if not needed
+    if include_zeros_and_min_max:
+        iso3: str = None
+        area1: str = None
+        for iso3, area1, level in q_all_time_counts:
             if geo_res == GeoRes.country:
                 if iso3 not in data_tmp:
-                    data.append(PolicyStatusCount(place_name=iso3, value=0))
+                    zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
+                    data.append(zero_obs)
             elif geo_res == GeoRes.state:
                 if iso3 == "USA" and area1 not in data_tmp:
-                    data.append(PolicyStatusCount(place_name=area1, value=0))
+                    zero_obs: PlaceObs = PlaceObs(place_name=area1, value=0)
+                    data.append(zero_obs)
 
     # order by value
     data.sort(key=lambda x: -x.value)
-    res = PolicyStatusCountList(
+    res = PlaceObsList(
         data=data,
+        max_all_time=min_max_counts[0],
+        min_all_time=min_max_counts[1],
         success=True,
-        message=f"""Found {str(len(data))} values counting {res_counted} policies, grouped by {geo_res}""",
+        message=f"""Found {str(len(data))} values counting {res_counted} """
+        f"""policies, grouped by {geo_res}""",
     )
 
     return res
-
-
-# def parse_lockdown_level(value_tmp):
-#     """If "No restrictions" has not yet been implemented on the frontend, then
-#     return "new normal" instead of "no restrictions". Otherwise return the val.
-#
-#     Parameters
-#     ----------
-#     value_tmp : type
-#         Description of parameter `value_tmp`.
-#
-#     Returns
-#     -------
-#     type
-#         Description of returned object.
-#
-#     """
-#     if not IMPLEMENTED_NO_RESTRICTIONS:
-#         if value_tmp == 'No restrictions':
-#             return 'New normal'
-#         else:
-#             return value_tmp
 
 
 @cached
@@ -1315,9 +1289,6 @@ def get_lockdown_level(
     deltas_only: bool = False,
 ):
     """TODO"""
-
-    # if date is not provided, return it in the response
-    specify_date = date is None
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1415,7 +1386,8 @@ def get_lockdown_level(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f"""Found {str(len(data))} {message_noun}{'' if message_name is None else ' for ' + message_name}""",
+        message=f"""Found {str(len(data))} {message_noun}"""
+        f"""{'' if message_name is None else ' for ' + message_name}""",
     )
     return res
 
@@ -1505,7 +1477,8 @@ def get_optionset(
                 iso3 is not None or state_name is not None
             ) and geo_res is not None:
                 raise NotImplementedError(
-                    f"""Cannot request optionset for `{field}` when filtering by `{geo_res}`"""
+                    f"""Cannot request optionset for `{field}` """
+                    f"""when filtering by `{geo_res}`"""
                 )
             options = select(
                 getattr(i, field)
@@ -1583,8 +1556,8 @@ def get_optionset(
                         place_instances,
                     )
 
-                    # if a parent was found use its term as the group, otherwise
-                    # specify "Other" as the group
+                    # if a parent was found use its term as the group,
+                    # otherwise specify "Other" as the group
                     if parent:
                         options_with_groups.append([option, parent[2]])
                     else:
@@ -1599,8 +1572,8 @@ def get_optionset(
                         place_instances,
                     )
 
-                    # if a parent was found use its term as the group, otherwise
-                    # specify "Other" as the group
+                    # if a parent was found use its term as the group,
+                    # otherwise specify "Other" as the group
                     if parent:
                         options_with_groups.append([option, parent[0]])
                     else:
@@ -1725,7 +1698,8 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     if search_text is None:
                         continue
                     else:
-                        # return exact match - if no exact match return partial match
+                        # return exact match - if no exact match return
+                        # partial match
                         exact_match = text in search_text
                         if exact_match:
                             new_q_ids.append(id)

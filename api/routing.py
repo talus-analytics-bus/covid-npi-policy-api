@@ -12,26 +12,22 @@ from pydantic import BaseModel
 # local modules
 from . import schema
 from .models import (
-    PolicyList,
+    PlaceObsList,
     PolicyFilters,
     PlanFilters,
-    ChallengeFilters,
     OptionSetList,
     MetadataList,
     ListResponse,
     PolicyStatusList,
-    PolicyStatusCountList,
-    PolicyFiltersNoOrdering,
     PolicyFields,
     PlanFields,
-    CourtChallengeFields,
     PlaceFields,
     Iso3Codes,
     StateNames,
     ExportFiltersNoOrdering,
 )
 from . import app
-from db import db
+from db import db  # noqa F401
 
 DOWNLOAD_DESCRIPTION = "**Note:** This endpoint results in a file download and may only work if you make the API request either (1) in your address bar or (2) using cURL."
 
@@ -487,7 +483,7 @@ async def post_policy_status(
 
 @app.post(
     "/post/policy_status_counts/{geo_res}",
-    response_model=PolicyStatusCountList,
+    response_model=PlaceObsList,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return number of policies in effect by location matching filters and the provided geographic resolution",
@@ -521,7 +517,7 @@ async def post_policy_status_counts(
         by_group_number=merge_like_policies,
         count_sub=count_sub,
         run_tests=run_tests,
-        include_zeros=include_zeros,
+        include_zeros_and_min_max=include_zeros,
     )
     return res
 

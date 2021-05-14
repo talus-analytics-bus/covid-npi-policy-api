@@ -1,16 +1,20 @@
 """API utility functions"""
 # standard modules
 from datetime import datetime
+import functools
 import pathlib
 import urllib3
 import certifi
+import os
+
+USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
 
 
 def find(filter_func, i):
     result = None
     try:
         result = next(d for d in i if filter_func(d))
-    except:
+    except Exception:
         pass
     return result
 
@@ -72,7 +76,7 @@ def download_file(
                 with open(write_path + fn, "wb") as out:
                     out.write(response.data)
                 return True
-    except Exception as e:
+    except Exception:
         return None
     else:
         print("Error when downloading PDF (404)")
@@ -82,3 +86,40 @@ def download_file(
 def use_relpath(relpath: str, abspath: str) -> str:
     path = pathlib.Path(abspath).parent / relpath
     return path.absolute()
+
+
+def cached(func):
+    """Caching"""
+    cache = {}
+
+    @functools.wraps(func)
+    def wrapper(*func_args, **kwargs):
+        if USE_CACHING:
+            random = kwargs.get("random", False)
+            key = str(kwargs)
+            if key in cache and not random:
+                return cache[key]
+
+            results = func(*func_args, **kwargs)
+            if not random:
+                cache[key] = results
+            return results
+        else:
+            return func(*func_args, **kwargs)
+
+        # # Code for JWT-friendly caching below.
+        # # get jwt
+        # jwt_client = func_args[1].context.args.get('jwt_client')
+        #
+        # # if not debug mode and JWT is missing, return nothing
+        # if not args.debug and jwt_client is None:
+        #     return []
+        #
+        # # form key using user type
+        # type = 'unspecified'
+        # if jwt_client is not None:
+        #     jwt_decoded_json = jwt.decode(jwt_client, args.jwt_secret_key)
+        #     type = jwt_decoded_json['type']
+        # key = str(kwargs) + ':' + type
+
+    return wrapper
