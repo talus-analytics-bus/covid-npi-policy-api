@@ -5,6 +5,7 @@ from datetime import date
 from db.models import DayDate, Place, Policy, Policy_Date
 from pony.orm.core import Query, count, select
 from pony.orm.ormtypes import raw_sql
+from pony.orm.core import min as pony_min
 from api.models import PlaceObs
 from api.util import cached
 
@@ -37,15 +38,9 @@ class PolicyStatusCounter(QueryResolver):
                 q_filtered_policies, Policy, filters_no_dates
             )
         if by_group_number:
-            q_group_numbers = select(
-                (min(i.id), i.group_number) for i in Policy
+            q_filtered_policies = self.get_distinct_groups_in_policy_q(
+                q_filtered_policies
             )
-            q_filtered_policies = select(
-                i
-                for i in q_filtered_policies
-                for j, _ in q_group_numbers
-                if i.id == j
-            ).order_by(lambda i: (i.group_number, i.id))
 
         # get number of active filtered policies by date and location active
         q: Query = select(
@@ -71,27 +66,37 @@ class PolicyStatusCounter(QueryResolver):
         # return first records for min and max number of active policies
         q_min: Query = q.order_by(lambda i, j, k: (k, i, j)).limit(1)
         q_max: Query = q.order_by(lambda i, j, k: (-k, i, j)).limit(1)
-        min_obs = self.create_min_max_obs_from_q_result(q_min)
-        max_obs = self.create_min_max_obs_from_q_result(q_max)
+        min_obs = self.get_min_max_obs_from_q_result(q_min)
+        max_obs = self.get_min_max_obs_from_q_result(q_max)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
             min_obs,
             max_obs,
         )
         return max_min_counts
 
-    def create_min_max_obs_from_q_result(self, q_max):
-        max_obs: PlaceObs = None
-        if len(q_max) == 1:
+    def get_distinct_groups_in_policy_q(self, q: Query) -> Query:
+        q_group_numbers: Query = self.__get_policies_with_distinct_groups()
+        q = select(i for i in q for j, _ in q_group_numbers if i.id == j)
+        return q
+
+    def __get_policies_with_distinct_groups(self) -> Query:
+        return select(
+            (pony_min(i.id), i.group_number) for i in Policy
+        ).order_by(lambda id, group_number: (id, group_number))
+
+    def get_min_max_obs_from_q_result(self, q) -> PlaceObs:
+        obs: PlaceObs = None
+        if len(q) == 1:
             datestamp: date = None
             place_name: str = None
             value: int = None
-            datestamp, place_name, value = q_max[0]
-            max_obs: PlaceObs = PlaceObs(
+            datestamp, place_name, value = q[0]
+            obs: PlaceObs = PlaceObs(
                 datestamp=datestamp,
                 place_name=place_name,
                 value=value,
             )
-        return max_obs
+        return obs
 
     def validate_args(self, **kwargs):
         super().validate_args(**kwargs)

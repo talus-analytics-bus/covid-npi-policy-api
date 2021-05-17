@@ -25,7 +25,6 @@ from pony.orm import (
     exists,
     group_concat,
 )
-from pony.orm import min as pony_min
 from fastapi.responses import Response
 from fuzzywuzzy import fuzz
 from pony.orm.core import Query
@@ -1175,21 +1174,16 @@ def get_policy_status_counts(
                 q_all_time, db.Policy, dict(level=filters["level"])
             )
 
-    # get locations
+    # get policy counts by location, grouping by group number if requested
     q_loc: Query = None
+    counter: PolicyStatusCounter = (
+        PolicyStatusCounter() if (by_group_number or include_min_max) else None
+    )
     if not by_group_number:
         q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
     else:
-        # q_loc = select(
-        #     (getattr(i.place, loc_field), count(i.group_number)) for i in q
-        # )
-        q_group_numbers = select(
-            (pony_min(x.id), x.group_number) for x in db.Policy
-        ).order_by(lambda x, y: (x, y))
 
-        q_filtered_policies = select(
-            i for i in q for j, _ in q_group_numbers if i.id == j
-        )
+        q_filtered_policies: Query = counter.get_distinct_groups_in_policy_q(q)
 
         q_loc = select(
             (getattr(i.place, loc_field), count(i))
@@ -1246,7 +1240,6 @@ def get_policy_status_counts(
                 filters_no_dates[k] = v
 
         # get min/max for all time
-        counter: PolicyStatusCounter = PolicyStatusCounter()
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
             geo_res=geo_res,
             filters_no_dates=filters_no_dates,
