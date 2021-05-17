@@ -1,3 +1,4 @@
+from api.routing import GeoRes
 from typing import Tuple
 from api.ampresolvers.core import PolicyStatusCounter
 import datetime
@@ -20,6 +21,7 @@ def test_countries():
         rows = cursor.fetchall()
         counter: PolicyStatusCounter = PolicyStatusCounter()
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            geo_res=GeoRes.country,
             filters_no_dates={
                 "primary_ph_measure": [
                     "Vaccinations",
@@ -31,7 +33,7 @@ def test_countries():
             loc_field="iso3",
             by_group_number=True,
         )
-        max: PlaceObs = min_max_counts[0]
+        max: PlaceObs = min_max_counts[1]
         day_date, iso3, value = get_fields_from_placeobs(max)
         assert len(rows) == 2
         assert rows[1] == (day_date, iso3, value)
@@ -48,6 +50,7 @@ def test_states():
         rows = cursor.fetchall()
         counter: PolicyStatusCounter = PolicyStatusCounter()
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            geo_res=GeoRes.state,
             filters_no_dates={
                 "primary_ph_measure": [
                     "Vaccinations",
@@ -60,7 +63,7 @@ def test_states():
             loc_field="area1",
             by_group_number=True,
         )
-        max: PlaceObs = min_max_counts[0]
+        max: PlaceObs = min_max_counts[1]
         day_date, iso3, value = get_fields_from_placeobs(max)
         assert len(rows) == 2
         assert rows[1] == (day_date, iso3, value)
@@ -77,6 +80,7 @@ def test_counties():
         rows = cursor.fetchall()
         counter: PolicyStatusCounter = PolicyStatusCounter()
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            geo_res=GeoRes.county,
             filters_no_dates={
                 "primary_ph_measure": [
                     "Vaccinations",
@@ -89,7 +93,7 @@ def test_counties():
             loc_field="area2",  # TODO change to "ansi_fips"
             by_group_number=True,
         )
-        max: PlaceObs = min_max_counts[0]
+        max: PlaceObs = min_max_counts[1]
         day_date, iso3, value = get_fields_from_placeobs(max)
         assert len(rows) == 2
         assert rows[1] == (day_date, iso3, value)

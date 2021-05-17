@@ -1,8 +1,4 @@
-with dates as (
-    select *
-    from day_date
-),
-policy_group as (
+with policy_group as (
     select distinct on (group_number) *
     from "policy"
     order by group_number,
@@ -28,7 +24,7 @@ date_counts as (
         fp."place_loc",
         count(pd.fk_policy_id) as "num_active_policies"
     from policy_date pd
-        join dates d on d.day_date between pd.start_date and pd.end_date
+        join day_date d on d.day_date between pd.start_date and pd.end_date
         join filtered_policies fp on fp.id = pd.fk_policy_id
     group by d.day_date,
         fp."place_loc"
@@ -36,7 +32,7 @@ date_counts as (
     select *
     from date_counts
     where "num_active_policies" = (
-            select max("num_active_policies") as "num_active_policies"
+            select min("num_active_policies") as "num_active_policies"
             from date_counts
         )
     order by 3,
@@ -49,11 +45,11 @@ UNION
     select *
     from date_counts
     where "num_active_policies" = (
-            select min("num_active_policies") as "num_active_policies"
+            select max("num_active_policies") as "num_active_policies"
             from date_counts
         )
     order by 3,
         1,
         2
     limit 1
-)
+);
