@@ -4,10 +4,9 @@ from datetime import date
 from enum import Enum
 
 # 3rd party modules
-from fastapi import Query
+from fastapi import Query, Path
 from starlette.responses import RedirectResponse
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List
 
 # local modules
 from . import schema
@@ -29,7 +28,11 @@ from .models import (
 from . import app
 from db import db  # noqa F401
 
-DOWNLOAD_DESCRIPTION = "**Note:** This endpoint results in a file download and may only work if you make the API request either (1) in your address bar or (2) using cURL."
+DOWNLOAD_DESCRIPTION = (
+    "**Note:** This endpoint results in a file download "
+    "and may only work if you make the API request either (1) in your address"
+    " bar or (2) using cURL."
+)
 
 ClassNameExport = Enum(
     value="ClassNameExport",
@@ -487,25 +490,38 @@ async def post_policy_status(
     response_model=PlaceObsList,
     response_model_exclude_unset=True,
     tags=["Policies"],
-    summary="Return number of policies in effect by location matching filters and the provided geographic resolution",
+    summary="Return number of policies in effect by location matching filters"
+    " and the provided geographic resolution",
 )
 async def post_policy_status_counts(
     body: PolicyFilters,
-    geo_res: GeoRes = Query(
+    geo_res: GeoRes = Path(
         GeoRes.state,
         description="The geographic resolution for which to return data",
     ),
     include_zeros: bool = Query(
         False,
-        description="If true, include zeros if a place has policies but not for the currently selected filters. If false, these places will not be included in results.",
+        description="If true, include zeros if a place has policies but not"
+        " for the currently selected filters. If false, these places will not"
+        " be included in results.",
+    ),
+    include_min_max: bool = Query(
+        False,
+        description="If true, include which observations represent the minimum"
+        " and maximum values of the policy status counts that have ever"
+        " occurred over all dates. If false, do not include.",
     ),
     count_sub: bool = Query(
         False,
-        description="If true, counts all policies *beneath* the selected `geo_res` (geographic resolution). If false, only counts policies *at* it.",
+        description="If true, counts all policies *beneath* the selected"
+        " `geo_res` (geographic resolution). If false, only counts policies"
+        " *at* it.",
     ),
     merge_like_policies: bool = Query(
         True,
-        description="If true, more accurately weights policy counts by merging like policies, e.g., counting policies that affected multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging.",
+        description="If true, more accurately weights policy counts by"
+        " merging like policies, e.g., counting policies that affected"
+        " multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging.",
     ),
 ):
     res = schema.get_policy_status_counts(
@@ -513,7 +529,8 @@ async def post_policy_status_counts(
         filters=body.filters,
         by_group_number=merge_like_policies,
         count_sub=count_sub,
-        include_zeros_and_min_max=include_zeros,
+        include_zeros=include_zeros,
+        include_min_max=include_min_max,
     )
     return res
 

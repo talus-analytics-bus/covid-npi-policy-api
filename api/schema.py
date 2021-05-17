@@ -1129,7 +1129,8 @@ def get_policy_status_counts(
     filters: dict = dict(),
     by_group_number: bool = True,
     count_sub: bool = True,
-    include_zeros_and_min_max: bool = True,
+    include_zeros: bool = True,
+    include_min_max: bool = True,
 ):
     """Return number of policies that match the filters for each geography
     on the date defined in the filters."""
@@ -1143,25 +1144,6 @@ def get_policy_status_counts(
     if for_usa_only:
         filters["iso3"] = ["USA"]
 
-    # get min and max values of policies matching the filters for any date, not
-    # just the defined date (if defined)
-    # get filtered policies, skipping any date filters
-    if include_zeros_and_min_max:
-        filters_no_dates: dict = dict()
-        k: str = None
-        v: Any = None
-        for k, v in filters.items():
-            if k != "dates_in_effect":
-                filters_no_dates[k] = v
-        counter: PolicyStatusCounter = PolicyStatusCounter()
-
-        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
-            filters_no_dates=filters_no_dates,
-            level=level,
-            loc_field=loc_field,
-            by_group_number=by_group_number,
-        )
-
     # get ordered policies from database
     # if not counting sub-[geo] only, then filter by level = [sub_geo]
     # otherwise, below filter by level != [geo or higher]
@@ -1171,68 +1153,26 @@ def get_policy_status_counts(
     # get policies
     q: Query = select(i for i in db.Policy)
 
-    # get all locations with any data (before filters)
-    q_all_time_counts = select(i for i in db.Policy)
-
-    # apply special filters if counting sub-[geo] only
-    def filter_by_sub_geo(q: Query, geo_res: GeoRes) -> Query:
-        """Filters policies in query to keep only those that are below the
-        defined geographic resolution.
-
-        Args:
-            q (Query): The query selecting policies to be filtered
-
-            geo_res (GeoRes): The geographic resolution of the area related to
-            those policies
-
-        Raises:
-            NotImplementedError: Only country and state geographic resolutions
-            are implemented.
-
-        Returns:
-            Query: Filtered policies
-        """
-        if geo_res == GeoRes.state:
-            q = q.filter(
-                lambda i: not exists(
-                    t
-                    for t in i.place
-                    if t.level in ("State / Province", "Country")
-                )
-            )
-        elif geo_res == GeoRes.country:
-            q = q.filter(
-                lambda i: not exists(
-                    t for t in i.place if t.level in ("Country",)
-                )
-            )
-        else:
-            raise NotImplementedError(
-                "Unimplemented geographic resolution: " + geo_res
-            )
-        return q
+    # get all locations with any data (before filters) for counting zeros,
+    # if zeros requested
+    q_all_time = select(i for i in db.Policy) if include_zeros else None
 
     # filter policies by correct levels if counting only sub-[geo] policies
     if count_sub:
         q = filter_by_sub_geo(q, geo_res)
-        q_all_time_counts = filter_by_sub_geo(q_all_time_counts, geo_res)
+        if include_zeros:
+            q_all_time = filter_by_sub_geo(q_all_time, geo_res)
 
     # initialize output data
     data: list = None
 
     # apply filters if any
-    # TODO resume here by adding "zeros" to response based on which keys are in
-    # `q_any_data` but
-    # not in the `q` filtered data.
     if filters is not None:
         q = apply_entity_filters(q, db.Policy, filters)
-        if "level" in filters:
-            q_all_time_counts = apply_entity_filters(
-                q_all_time_counts, db.Policy, dict(level=filters["level"])
+        if include_zeros and "level" in filters:
+            q_all_time = apply_entity_filters(
+                q_all_time, db.Policy, dict(level=filters["level"])
             )
-    q_all_time_counts = select(
-        (i.place.iso3, i.place.area1, i.place.level) for i in q_all_time_counts
-    )[:][:]
 
     # get locations
     q_loc: Query = None
@@ -1253,11 +1193,14 @@ def get_policy_status_counts(
     res_counted: str = geo_res if not count_sub else "sub-" + geo_res
 
     # add "zeros" to the data if requested
-    # TODO do not prep `q_and_data` if not needed
-    if include_zeros_and_min_max:
+    if include_zeros:
+        q_all_time = select(
+            (i.place.iso3, i.place.area1, i.place.level) for i in q_all_time
+        )[:][:]
         iso3: str = None
         area1: str = None
-        for iso3, area1, level in q_all_time_counts:
+        level: str = None
+        for iso3, area1, level in q_all_time:
             if geo_res == GeoRes.country:
                 if iso3 not in data_tmp:
                     zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
@@ -1269,15 +1212,42 @@ def get_policy_status_counts(
 
     # order by value
     data.sort(key=lambda x: -x.value)
+
+    # prepare basic response
     res = PlaceObsList(
         data=data,
-        max_all_time=min_max_counts[0],
-        min_all_time=min_max_counts[1],
         success=True,
         message=f"""Found {str(len(data))} values counting {res_counted} """
         f"""policies, grouped by {geo_res}""",
     )
 
+    # add extra requested data to response # -------------------------------- #
+
+    # get min and max values of policies matching the filters for any date, not
+    # just the defined date (if defined)
+    if include_min_max:
+        # get filtered policies, skipping any date filters
+        filters_no_dates: dict = dict()
+        k: str = None
+        v: Any = None
+        for k, v in filters.items():
+            if k != "dates_in_effect":
+                filters_no_dates[k] = v
+
+        # get miin/max for all time
+        counter: PolicyStatusCounter = PolicyStatusCounter()
+        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            filters_no_dates=filters_no_dates,
+            level=level,
+            loc_field=loc_field,
+            by_group_number=by_group_number,
+        )
+
+        # define min/max for all time
+        res.min_all_time = min_max_counts[0]
+        res.max_all_time = min_max_counts[1]
+
+    # return response data
     return res
 
 
@@ -2161,3 +2131,39 @@ def add_search_text():
         i.search_text = get_plan_search_text(i)
     for i in db.Court_Challenge.select():
         i.search_text = get_challenge_search_text(i)
+
+
+def filter_by_sub_geo(q: Query, geo_res: GeoRes) -> Query:
+    """Filters policies in query to keep only those that are below the
+    defined geographic resolution.
+
+    Args:
+        q (Query): The query selecting policies to be filtered
+
+        geo_res (GeoRes): The geographic resolution of the area related to
+        those policies
+
+    Raises:
+        NotImplementedError: Only country and state geographic resolutions
+        are implemented.
+
+    Returns:
+        Query: Filtered policies
+    """
+    if geo_res == GeoRes.state:
+        q = q.filter(
+            lambda i: not exists(
+                t
+                for t in i.place
+                if t.level in ("State / Province", "Country")
+            )
+        )
+    elif geo_res == GeoRes.country:
+        q = q.filter(
+            lambda i: not exists(t for t in i.place if t.level in ("Country",))
+        )
+    else:
+        raise NotImplementedError(
+            "Unimplemented geographic resolution: " + geo_res
+        )
+    return q

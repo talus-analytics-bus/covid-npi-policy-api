@@ -3,8 +3,7 @@ from typing import Tuple
 from api import schema
 from datetime import date
 from db.models import DayDate, Place, Policy, Policy_Date
-import pony
-from pony.orm.core import Query, count, distinct, select
+from pony.orm.core import Query, count, select
 from pony.orm.ormtypes import raw_sql
 from api.models import PlaceObs
 from api.util import cached
@@ -64,8 +63,8 @@ class PolicyStatusCounter(QueryResolver):
         max_obs = self.create_min_max_obs_from_q_result(q_max)
         min_obs = self.create_min_max_obs_from_q_result(q_min)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
-            max_obs,
             min_obs,
+            max_obs,
         )
         return max_min_counts
 
