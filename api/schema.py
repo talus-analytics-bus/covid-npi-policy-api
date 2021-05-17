@@ -1174,7 +1174,8 @@ def get_policy_status_counts(
                 q_all_time, db.Policy, dict(level=filters["level"])
             )
 
-    # get policy counts by location, grouping by group number if requested
+    # get policy counts by location
+    # if requested, only count the first policy with each group number
     q_loc: Query = None
     counter: PolicyStatusCounter = (
         PolicyStatusCounter() if (by_group_number or include_min_max) else None
@@ -1182,12 +1183,9 @@ def get_policy_status_counts(
     if not by_group_number:
         q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
     else:
-
-        q_filtered_policies: Query = counter.get_distinct_groups_in_policy_q(q)
-
+        q_distinct_groups: Query = counter.get_distinct_groups_in_policy_q(q)
         q_loc = select(
-            (getattr(i.place, loc_field), count(i))
-            for i in q_filtered_policies
+            (getattr(i.place, loc_field), count(i)) for i in q_distinct_groups
         )
 
     data_tmp = dict()
