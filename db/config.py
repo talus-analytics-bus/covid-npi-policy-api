@@ -1,5 +1,4 @@
 # standard packages
-import argparse
 import os
 import boto3
 import base64
