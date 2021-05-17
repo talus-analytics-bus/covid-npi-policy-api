@@ -10,11 +10,57 @@ from api.models import PlaceObs
 db.generate_mapping(create_tables=False)
 
 
-@db_session
 def test_countries():
-    raw_sql: str = None
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_countries.sql",
+        level="Country",
+        loc_field="iso3",
+        by_group_number=True,
+    )
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_countries_no_merge.sql",
+        level="Country",
+        loc_field="iso3",
+        by_group_number=False,
+    )
+
+
+def test_states():
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_states.sql",
+        level="State / Province",
+        loc_field="area1",
+        by_group_number=True,
+    )
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_states_no_merge.sql",
+        level="State / Province",
+        loc_field="area1",
+        by_group_number=False,
+    )
+
+
+def test_counties():
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_counties.sql",
+        level="Local",
+        loc_field="area2",
+        by_group_number=True,
+    )
+    compare_max(
+        sql_fn="test_get_policy_counts_by_date_counties_no_merge.sql",
+        level="Local",
+        loc_field="area2",
+        by_group_number=False,
+    )
+
+
+@db_session
+def compare_max(
+    sql_fn: str, level: str, loc_field: str, by_group_number: bool
+) -> None:
     with open(
-        use_relpath("test_get_policy_counts_by_date_countries.sql", __file__),
+        use_relpath(sql_fn, __file__),
         "r",
     ) as raw_sql:
         cursor = db.execute(raw_sql.read())
@@ -29,69 +75,9 @@ def test_countries():
                     "Social distancing",
                 ]
             },
-            level="Country",
-            loc_field="iso3",
-            by_group_number=True,
-        )
-        max: PlaceObs = min_max_counts[1]
-        day_date, iso3, value = get_fields_from_placeobs(max)
-        assert len(rows) == 2
-        assert rows[1] == (day_date, iso3, value)
-
-
-@db_session
-def test_states():
-    raw_sql: str = None
-    with open(
-        use_relpath("test_get_policy_counts_by_date_states.sql", __file__),
-        "r",
-    ) as raw_sql:
-        cursor = db.execute(raw_sql.read())
-        rows = cursor.fetchall()
-        counter: PolicyStatusCounter = PolicyStatusCounter()
-        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
-            geo_res=GeoRes.state,
-            filters_no_dates={
-                "primary_ph_measure": [
-                    "Vaccinations",
-                    "Military mobilization",
-                    "Social distancing",
-                ],
-                "iso3": ["USA"],
-            },
-            level="State / Province",
-            loc_field="area1",
-            by_group_number=True,
-        )
-        max: PlaceObs = min_max_counts[1]
-        day_date, iso3, value = get_fields_from_placeobs(max)
-        assert len(rows) == 2
-        assert rows[1] == (day_date, iso3, value)
-
-
-@db_session
-def test_counties():
-    raw_sql: str = None
-    with open(
-        use_relpath("test_get_policy_counts_by_date_counties.sql", __file__),
-        "r",
-    ) as raw_sql:
-        cursor = db.execute(raw_sql.read())
-        rows = cursor.fetchall()
-        counter: PolicyStatusCounter = PolicyStatusCounter()
-        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
-            geo_res=GeoRes.county,
-            filters_no_dates={
-                "primary_ph_measure": [
-                    "Vaccinations",
-                    "Military mobilization",
-                    "Social distancing",
-                ],
-                "iso3": ["USA"],
-            },
-            level="Local",
-            loc_field="area2",  # TODO change to "ansi_fips"
-            by_group_number=True,
+            level=level,
+            loc_field=loc_field,
+            by_group_number=by_group_number,
         )
         max: PlaceObs = min_max_counts[1]
         day_date, iso3, value = get_fields_from_placeobs(max)
