@@ -1,11 +1,9 @@
-from api.routing import GeoRes
-from typing import Tuple
 from api.ampresolvers.core import PolicyStatusCounter
 import datetime
 from pony.orm.core import db_session
 from api.util import use_relpath
 from db import db
-from api.models import PlaceObs
+from api.models import PlaceObs, PlaceObsList
 
 db.generate_mapping(create_tables=False)
 
@@ -13,14 +11,12 @@ db.generate_mapping(create_tables=False)
 def test_countries():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_countries.sql",
-        level="Country",
-        loc_field="iso3",
+        geo_res="country",
         by_group_number=True,
     )
     compare_max(
         sql_fn="test_get_policy_counts_by_date_countries_no_merge.sql",
-        level="Country",
-        loc_field="iso3",
+        geo_res="country",
         by_group_number=False,
     )
 
@@ -56,9 +52,7 @@ def test_counties():
 
 
 @db_session
-def compare_max(
-    sql_fn: str, level: str, loc_field: str, by_group_number: bool
-) -> None:
+def compare_max(sql_fn: str, geo_res: str, by_group_number: bool) -> None:
     with open(
         use_relpath(sql_fn, __file__),
         "r",
@@ -66,22 +60,18 @@ def compare_max(
         cursor = db.execute(raw_sql.read())
         rows = cursor.fetchall()
         counter: PolicyStatusCounter = PolicyStatusCounter()
-        min_max_counts: Tuple[
-            PlaceObs, PlaceObs
-        ] = counter.__get_max_min_counts(
-            geo_res=GeoRes.country,
-            filters_no_dates={
+        res: PlaceObsList = counter.get_policy_status_counts(
+            geo_res=geo_res,
+            filters={
                 "primary_ph_measure": [
                     "Vaccinations",
                     "Military mobilization",
                     "Social distancing",
                 ]
             },
-            level=level,
-            loc_field=loc_field,
             by_group_number=by_group_number,
         )
-        max: PlaceObs = min_max_counts[1]
+        max: PlaceObs = res.max_all_time
         day_date, iso3, value = get_fields_from_placeobs(max)
         assert len(rows) == 2
         assert rows[1] == (day_date, iso3, value)
