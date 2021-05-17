@@ -80,7 +80,7 @@ if __name__ == "__main__":
     ingest_lockdown_levels = args.distancing_levels or args.all
 
     # generate db mapping
-    db.generate_mapping(create_tables=True)
+    db.generate_mapping(create_tables=False)
 
     # update core policy data, if appropriate
     plugin = CovidPolicyPlugin()
