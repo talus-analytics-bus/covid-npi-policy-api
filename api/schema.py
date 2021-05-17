@@ -1,9 +1,7 @@
 """Define API data processing methods"""
 # standard modules
-from api.helpers import get_level_from_geo_res, get_loc_field_from_geo_res
+from api.helpers import get_loc_field_from_geo_res
 from .util import cached
-from typing import Any, Tuple
-from api.ampresolvers.core import PolicyStatusCounter
 import math
 import itertools
 import logging
@@ -33,8 +31,6 @@ from pony.orm.core import Query
 from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
 from .models import (
-    PlaceObs,
-    PlaceObsList,
     Policy,
     PolicyList,
     PolicyDict,
@@ -1118,140 +1114,6 @@ def get_policy_status(
         message=f"""Found {str(len(data))} status(es)"""
         f"""{'' if name is None else ' for ' + name}""",
     )
-    return res
-
-
-# @cached
-@db_session
-def get_policy_status_counts(
-    geo_res: str = None,
-    name: str = None,
-    filters: dict = dict(),
-    by_group_number: bool = True,
-    filter_by_subgeo: bool = True,
-    include_zeros: bool = True,
-    include_min_max: bool = True,
-):
-    """Return number of policies that match the filters for each geography
-    on the date defined in the filters."""
-
-    # get correct location field and level for filtering
-    loc_field: str = get_loc_field_from_geo_res(geo_res)
-    level = get_level_from_geo_res(geo_res)
-
-    # for state/county level: filter by USA only
-    for_usa_only: bool = geo_res in ("state", "county")
-    if for_usa_only:
-        filters["iso3"] = ["USA"]
-
-    # get ordered policies from database
-    # if not counting sub-[geo] only, then filter by level = [sub_geo]
-    # otherwise, below filter by level != [geo or higher]
-    if not filter_by_subgeo:
-        filters["level"] = [level]
-
-    # get policies
-    q: Query = select(i for i in db.Policy)
-
-    # get all locations with any data (before filters) for counting zeros,
-    # if zeros requested
-    q_all_time = select(i for i in db.Policy) if include_zeros else None
-
-    # filter policies by correct levels if counting only sub-[geo] policies
-    if filter_by_subgeo:
-        q = apply_subgeo_filter(q, geo_res)
-        if include_zeros:
-            q_all_time = apply_subgeo_filter(q_all_time, geo_res)
-
-    # initialize output data
-    data: list = None
-
-    # apply filters if any
-    if filters is not None:
-        q = apply_entity_filters(q, db.Policy, filters)
-        if include_zeros and "level" in filters:
-            q_all_time = apply_entity_filters(
-                q_all_time, db.Policy, dict(level=filters["level"])
-            )
-
-    # get policy counts by location
-    # if requested, only count the first policy with each group number
-    q_loc: Query = None
-    counter: PolicyStatusCounter = (
-        PolicyStatusCounter() if (by_group_number or include_min_max) else None
-    )
-    if not by_group_number:
-        q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
-    else:
-        q_distinct_groups: Query = counter.get_distinct_groups_in_policy_q(q)
-        q_loc = select(
-            (getattr(i.place, loc_field), count(i)) for i in q_distinct_groups
-        )
-
-    data_tmp = dict()
-    for name, num in q_loc:
-        if name not in data_tmp:
-            data_tmp[name] = PlaceObs(place_name=name, value=num)
-    data = list(data_tmp.values())
-
-    # add "zeros" to the data if requested
-    if include_zeros:
-        q_all_time = select(
-            (i.place.iso3, i.place.area1, i.place.level) for i in q_all_time
-        )[:][:]
-        iso3: str = None
-        area1: str = None
-        level: str = None
-        for iso3, area1, level in q_all_time:
-            if geo_res == GeoRes.country:
-                if iso3 not in data_tmp:
-                    zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
-                    data.append(zero_obs)
-            elif geo_res == GeoRes.state:
-                if iso3 == "USA" and area1 not in data_tmp:
-                    zero_obs: PlaceObs = PlaceObs(place_name=area1, value=0)
-                    data.append(zero_obs)
-
-    # order by value
-    data.sort(key=lambda x: -x.value)
-
-    # prepare basic response
-    res_counted: str = geo_res if not filter_by_subgeo else "sub-" + geo_res
-    res = PlaceObsList(
-        data=data,
-        success=True,
-        message=f"""Found {str(len(data))} values counting {res_counted} """
-        f"""policies, grouped by {geo_res}""",
-    )
-
-    # add extra requested data to response # -------------------------------- #
-
-    # get min and max values of policies matching the filters for any date, not
-    # just the defined date (if defined)
-    if include_min_max:
-        # get filtered policies, skipping any date filters
-        filters_no_dates: dict = dict()
-        k: str = None
-        v: Any = None
-        for k, v in filters.items():
-            if k != "dates_in_effect":
-                filters_no_dates[k] = v
-
-        # get min/max for all time
-        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
-            geo_res=geo_res,
-            filters_no_dates=filters_no_dates,
-            level=level,
-            loc_field=loc_field,
-            by_group_number=by_group_number,
-            filter_by_subgeo=filter_by_subgeo,
-        )
-
-        # define min/max for all time
-        res.min_all_time = min_max_counts[0]
-        res.max_all_time = min_max_counts[1]
-
-    # return response data
     return res
 
 

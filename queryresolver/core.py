@@ -6,6 +6,6 @@ class QueryResolver(ABC):
         return None
 
     @abstractmethod
-    def validate_args(self, **kwargs):
+    def __validate_args(self, **kwargs):
         """Validate input arguments and raise exception if error found"""
         pass

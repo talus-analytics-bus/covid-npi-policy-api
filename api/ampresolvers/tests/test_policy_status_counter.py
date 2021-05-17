@@ -66,7 +66,9 @@ def compare_max(
         cursor = db.execute(raw_sql.read())
         rows = cursor.fetchall()
         counter: PolicyStatusCounter = PolicyStatusCounter()
-        min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+        min_max_counts: Tuple[
+            PlaceObs, PlaceObs
+        ] = counter.__get_max_min_counts(
             geo_res=GeoRes.country,
             filters_no_dates={
                 "primary_ph_measure": [
