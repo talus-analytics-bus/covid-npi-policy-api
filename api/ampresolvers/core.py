@@ -30,6 +30,10 @@ class PolicyStatusCounter(QueryResolver):
         """Return number of policies that match the filters for each geography
         on the date defined in the filters."""
 
+        self._QueryResolver__validate_args(
+            geo_res=geo_res, filter_by_subgeo=filter_by_subgeo
+        )
+
         # get correct location field and level for filtering
         loc_field: str = api.helpers.get_loc_field_from_geo_res(geo_res)
         level = api.helpers.get_level_from_geo_res(geo_res)
@@ -319,6 +323,12 @@ class PolicyStatusCounter(QueryResolver):
             )
         return place_obs
 
-    def _QueryResolver__validate_args(self, **kwargs):
+    def _QueryResolver__validate_args(
+        self, geo_res: str, filter_by_subgeo: bool
+    ):
         """Validate input arguments."""
-        super().__validate_args(**kwargs)
+
+        if geo_res == "county" and filter_by_subgeo is True:
+            raise NotImplementedError(
+                "Cannot count sub-geography policies for counties."
+            )
