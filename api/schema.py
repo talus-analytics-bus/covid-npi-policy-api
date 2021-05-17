@@ -25,6 +25,7 @@ from pony.orm import (
     exists,
     group_concat,
 )
+from pony.orm import min as pony_min
 from fastapi.responses import Response
 from fuzzywuzzy import fuzz
 from pony.orm.core import Query
@@ -1128,7 +1129,7 @@ def get_policy_status_counts(
     name: str = None,
     filters: dict = dict(),
     by_group_number: bool = True,
-    count_sub: bool = True,
+    filter_by_subgeo: bool = True,
     include_zeros: bool = True,
     include_min_max: bool = True,
 ):
@@ -1147,7 +1148,7 @@ def get_policy_status_counts(
     # get ordered policies from database
     # if not counting sub-[geo] only, then filter by level = [sub_geo]
     # otherwise, below filter by level != [geo or higher]
-    if not count_sub:
+    if not filter_by_subgeo:
         filters["level"] = [level]
 
     # get policies
@@ -1158,10 +1159,10 @@ def get_policy_status_counts(
     q_all_time = select(i for i in db.Policy) if include_zeros else None
 
     # filter policies by correct levels if counting only sub-[geo] policies
-    if count_sub:
-        q = filter_by_sub_geo(q, geo_res)
+    if filter_by_subgeo:
+        q = apply_subgeo_filter(q, geo_res)
         if include_zeros:
-            q_all_time = filter_by_sub_geo(q_all_time, geo_res)
+            q_all_time = apply_subgeo_filter(q_all_time, geo_res)
 
     # initialize output data
     data: list = None
@@ -1179,8 +1180,20 @@ def get_policy_status_counts(
     if not by_group_number:
         q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
     else:
+        # q_loc = select(
+        #     (getattr(i.place, loc_field), count(i.group_number)) for i in q
+        # )
+        q_group_numbers = select(
+            (pony_min(x.id), x.group_number) for x in db.Policy
+        ).order_by(lambda x, y: (x, y))
+
+        q_filtered_policies = select(
+            i for i in q for j, _ in q_group_numbers if i.id == j
+        )
+
         q_loc = select(
-            (getattr(i.place, loc_field), count(i.group_number)) for i in q
+            (getattr(i.place, loc_field), count(i))
+            for i in q_filtered_policies
         )
 
     data_tmp = dict()
@@ -1188,9 +1201,6 @@ def get_policy_status_counts(
         if name not in data_tmp:
             data_tmp[name] = PlaceObs(place_name=name, value=num)
     data = list(data_tmp.values())
-
-    # create response from output list
-    res_counted: str = geo_res if not count_sub else "sub-" + geo_res
 
     # add "zeros" to the data if requested
     if include_zeros:
@@ -1214,6 +1224,7 @@ def get_policy_status_counts(
     data.sort(key=lambda x: -x.value)
 
     # prepare basic response
+    res_counted: str = geo_res if not filter_by_subgeo else "sub-" + geo_res
     res = PlaceObsList(
         data=data,
         success=True,
@@ -1234,13 +1245,15 @@ def get_policy_status_counts(
             if k != "dates_in_effect":
                 filters_no_dates[k] = v
 
-        # get miin/max for all time
+        # get min/max for all time
         counter: PolicyStatusCounter = PolicyStatusCounter()
         min_max_counts: Tuple[PlaceObs, PlaceObs] = counter.get_max_min_counts(
+            geo_res=geo_res,
             filters_no_dates=filters_no_dates,
             level=level,
             loc_field=loc_field,
             by_group_number=by_group_number,
+            filter_by_subgeo=filter_by_subgeo,
         )
 
         # define min/max for all time
@@ -1724,94 +1737,118 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # if it's the special "dates_in_effect" filter, handle it
             # and continue
             if field == "dates_in_effect":
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left: str = allowed_values[0]
+                win_right: str = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
-                    # starts before or during `start` when end date unknown
-                    if (
-                        i.date_end_actual is None
-                        and i.date_end_anticipated is None
-                        and i.date_start_effective <= start
-                    )
-                    # starts before AND ends after
-                    or (
-                        i.date_start_effective < start
-                        and (
-                            i.date_end_actual > end
-                            or (
-                                i.date_end_actual is None
-                                and i.date_end_anticipated > end
-                            )
-                        )
-                    )
-                    # starts during OR ends during
-                    or (
+                    for pd in db.Policy_Date
+                    if i.id == pd.fk_policy_id
+                    and (
+                        # left is during window (inclusive)
+                        (pd.start_date <= win_left and win_left <= pd.end_date)
+                        or
+                        # right is during window (inclusive)
                         (
-                            i.date_start_effective >= start
-                            and i.date_start_effective <= end
+                            pd.start_date <= win_right
+                            and win_right <= pd.end_date
                         )
-                        or (
-                            (
-                                i.date_end_actual >= start
-                                and i.date_end_actual <= end
-                            )
-                            or (
-                                i.date_end_actual is None
-                                and (
-                                    i.date_end_anticipated >= start
-                                    and i.date_end_anticipated <= end
-                                )
-                            )
+                        or
+                        # left is before start AND right is after or
+                        # during start
+                        (
+                            win_left < pd.start_date
+                            and pd.start_date <= win_right
                         )
                     )
                 )
+
+                # q = select(
+                #     i
+                #     for i in q
+                #     # starts before or on `start` when end date unknown
+                #     if (
+                #         i.date_end_actual is None
+                #         and i.date_end_anticipated is None
+                #         and i.date_start_effective <= start
+                #     )
+                #     # starts before AND ends after
+                #     or (
+                #         i.date_start_effective < start
+                #         and (
+                #             i.date_end_actual > end
+                #             or (
+                #                 i.date_end_actual is None
+                #                 and i.date_end_anticipated > end
+                #             )
+                #         )
+                #     )
+                #     # starts during OR ends during
+                #     or (
+                #         (
+                #             i.date_start_effective >= start
+                #             and i.date_start_effective <= end
+                #         )
+                #         or (
+                #             (
+                #                 i.date_end_actual >= start
+                #                 and i.date_end_actual <= end
+                #             )
+                #             or (
+                #                 i.date_end_actual is None
+                #                 and (
+                #                     i.date_end_anticipated >= start
+                #                     and i.date_end_anticipated <= end
+                #                 )
+                #             )
+                #         )
+                #     )
+                # )
                 continue
 
             if field == "date_of_decision":
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_of_decision is not None
-                    and i.date_of_decision <= end
-                    and i.date_of_decision >= start
+                    and i.date_of_decision <= win_right
+                    and i.date_of_decision >= win_left
                 )
                 continue
 
             if field == "date_of_complaint":
                 # return instances where `date_of_complaint` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_of_complaint is not None
-                    and i.date_of_complaint <= end
-                    and i.date_of_complaint >= start
+                    and i.date_of_complaint <= win_right
+                    and i.date_of_complaint >= win_left
                 )
                 continue
 
             elif field == "date_issued":
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_issued is not None
-                    and i.date_issued <= end
-                    and i.date_issued >= start
+                    and i.date_issued <= win_right
+                    and i.date_issued >= win_left
                 )
                 continue
 
@@ -2133,7 +2170,7 @@ def add_search_text():
         i.search_text = get_challenge_search_text(i)
 
 
-def filter_by_sub_geo(q: Query, geo_res: GeoRes) -> Query:
+def apply_subgeo_filter(q: Query, geo_res: GeoRes) -> Query:
     """Filters policies in query to keep only those that are below the
     defined geographic resolution.
 

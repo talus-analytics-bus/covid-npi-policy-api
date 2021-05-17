@@ -16,12 +16,22 @@ class PolicyStatusCounter(QueryResolver):
     @cached
     def get_max_min_counts(
         self,
+        geo_res: str,
         filters_no_dates: dict,
         level: str,
         loc_field: str,
         by_group_number: bool = False,
-    ) -> PlaceObs:
+        filter_by_subgeo: bool = False,
+    ) -> Tuple[PlaceObs, PlaceObs]:
         q_filtered_policies: Query = select(i for i in Policy)
+
+        # if counting policies beneath the geographic level defined by `level`,
+        # add them to the filters
+        if filter_by_subgeo:
+            q_filtered_policies = schema.apply_subgeo_filter(
+                q_filtered_policies, geo_res
+            )
+
         if filters_no_dates is not None:
             q_filtered_policies = schema.apply_entity_filters(
                 q_filtered_policies, Policy, filters_no_dates
@@ -35,7 +45,8 @@ class PolicyStatusCounter(QueryResolver):
                 for i in q_filtered_policies
                 for j, _ in q_group_numbers
                 if i.id == j
-            )
+            ).order_by(lambda i: (i.group_number, i.id))
+
         # get number of active filtered policies by date and location active
         q: Query = select(
             (
@@ -54,14 +65,14 @@ class PolicyStatusCounter(QueryResolver):
             and pd.end_date >= dd.day_date
             and pd.fk_policy_id == p.id
             and pl == p_pl
-            and pl.level == level
+            and (pl.level == level or filter_by_subgeo)
         )
 
         # return first records for min and max number of active policies
-        q_max: Query = q.order_by(lambda i, j, k: (-k, i, j)).limit(1)
         q_min: Query = q.order_by(lambda i, j, k: (k, i, j)).limit(1)
-        max_obs = self.create_min_max_obs_from_q_result(q_max)
+        q_max: Query = q.order_by(lambda i, j, k: (-k, i, j)).limit(1)
         min_obs = self.create_min_max_obs_from_q_result(q_min)
+        max_obs = self.create_min_max_obs_from_q_result(q_max)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
             min_obs,
             max_obs,
