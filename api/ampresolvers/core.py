@@ -23,7 +23,7 @@ class PolicyStatusCounter(QueryResolver):
         name: str = None,
         filters: dict = dict(),
         by_group_number: bool = True,
-        filter_by_subgeo: bool = True,
+        filter_by_subgeo: bool = False,
         include_zeros: bool = True,
         include_min_max: bool = True,
     ):
