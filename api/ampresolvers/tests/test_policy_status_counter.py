@@ -24,14 +24,12 @@ def test_countries():
 def test_states():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_states.sql",
-        level="State / Province",
-        loc_field="area1",
+        geo_res="state",
         by_group_number=True,
     )
     compare_max(
         sql_fn="test_get_policy_counts_by_date_states_no_merge.sql",
-        level="State / Province",
-        loc_field="area1",
+        geo_res="state",
         by_group_number=False,
     )
 
@@ -39,14 +37,12 @@ def test_states():
 def test_counties():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_counties.sql",
-        level="Local",
-        loc_field="area2",
+        geo_res="county",
         by_group_number=True,
     )
     compare_max(
         sql_fn="test_get_policy_counts_by_date_counties_no_merge.sql",
-        level="Local",
-        loc_field="area2",
+        geo_res="county",
         by_group_number=False,
     )
 

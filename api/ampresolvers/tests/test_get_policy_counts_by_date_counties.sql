@@ -6,7 +6,7 @@ with policy_group as (
 ),
 filtered_policies as (
     select p.id,
-        pl.area2 as "place_loc"
+        pl.ansi_fips as "place_loc"
     from "policy_group" p
         join place_to_policy p2p on p2p.policy = p.id
         join place pl on pl.id = p2p.place
