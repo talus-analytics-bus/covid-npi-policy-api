@@ -6,6 +6,11 @@ import pandas as pd
 
 
 class CategoryFixer:
+    """Provides methods to fix mis-tagged categories based on the sub-category
+    of a policy.
+
+    """
+
     @db_session
     def __init__(self) -> None:
         """Initialize a new AMP policy category fixer."""
