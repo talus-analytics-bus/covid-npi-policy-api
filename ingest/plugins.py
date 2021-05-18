@@ -18,6 +18,7 @@ from pony.orm import db_session, commit, select, delete, StrArray
 from alive_progress import alive_bar
 
 # local modules
+from api.ampqualitycheckers.categoryfixer.core import CategoryFixer
 from .sources import AirtableSource
 from .util import (
     get_inst_by_col,
@@ -789,8 +790,12 @@ class CovidPolicyPlugin(IngestPlugin):
             if "dillons_rule" not in self.data:
                 self.data.loc[:, "dillons_rule"] = ""
 
+            # validate and correct categories based on subcategories
+            category_fixer: CategoryFixer = CategoryFixer()
+            self.data = category_fixer.fix(self.data)
+
             if create_policies:
-                # screate Policy instances
+                # create Policy instances
                 self.create_policies(db)
 
         process_policy_data(self, db, create_policies=(not debug))
