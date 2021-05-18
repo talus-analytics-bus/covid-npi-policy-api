@@ -733,6 +733,19 @@ class CovidPolicyPlugin(IngestPlugin):
             else:
                 print("QA/QC found no issues. Continuing.")
 
+            print(
+                "Number of policies before dropping duplicates: "
+                + str(len(self.data.index))
+            )
+            # only keep first of duplicate IDs
+            self.data = self.data.drop_duplicates(
+                subset="Unique ID", keep="first"
+            )
+            print(
+                "Number of policies after dropping duplicates: "
+                + str(len(self.data.index))
+            )
+
             # set column names to database field names
             all_keys = select(
                 (i.ingest_field, i.table_name, i.field)
@@ -783,6 +796,10 @@ class CovidPolicyPlugin(IngestPlugin):
         process_policy_data(self, db, create_policies=(not debug))
 
         if debug:
+            self.create_files_from_attachments(db, "Policy")
+            self.create_files_from_attachments(db, "Plan")
+            self.create_files_from_urls(db)
+            self.validate_docs(db)
             print("Debug run finished, exiting ingest.")
             os.sys.exit(0)
 
@@ -807,6 +824,17 @@ class CovidPolicyPlugin(IngestPlugin):
                 # sys.exit(0)
             else:
                 print("QA/QC found no issues. Continuing.")
+
+            print(
+                "Number of plans before dropping duplicates: "
+                + str(len(data.index))
+            )
+            # only keep first of duplicate IDs
+            data = data.drop_duplicates(subset="Unique ID", keep="first")
+            print(
+                "Number of plans after dropping duplicates: "
+                + str(len(data.index))
+            )
 
             # set column names to database field names
             all_keys = select(
@@ -2652,6 +2680,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 )
         elif d[prefix + ".level"] in INTERMEDIATE_LEVELS:
             # get information from intermediate area database records
+            area1: str = None
             for area1 in d[prefix + ".area1"]:
                 area2_info: dict = self.get_area_info(
                     type="intermediate", name=area1
@@ -2685,7 +2714,15 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area2_info is None:
                     continue
 
-                area1: str = area2_info.get("Intermediate Area Name", None)[0]
+                area1_tmp: List[str] = area2_info.get(
+                    "Intermediate Area Name", None
+                )
+                area2_ansi_fips: str = str(
+                    area2_info.get("ANSI / FIPS Code", None)
+                )
+                area1: str = ""
+                if area1_tmp != "" and len(area1_tmp) > 0:
+                    area1: str = area1_tmp[0]
                 if area1 is None or area1 == "":
                     raise ValueError(
                         "No intermediate area for "
@@ -2709,6 +2746,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     country_name=get_name_from_iso3(iso3=iso3),
                     area1=area1_info.get("Name", None),
                     area2=area2_info.get("Local Area Name", None),
+                    ansi_fips=area2_ansi_fips,
                 )
                 places.append(
                     self.upsert_place(
