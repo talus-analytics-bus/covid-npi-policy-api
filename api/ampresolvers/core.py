@@ -19,16 +19,13 @@ class PolicyStatusCounter(QueryResolver):
     @db_session
     def get_policy_status_counts(
         self,
-        geo_res: str = None,
-        name: str = None,
+        geo_res: str,
         filters: dict = dict(),
         by_group_number: bool = True,
         filter_by_subgeo: bool = False,
         include_zeros: bool = True,
         include_min_max: bool = True,
     ):
-        """Return number of policies that match the filters for each geography
-        on the date defined in the filters."""
 
         self._QueryResolver__validate_args(
             geo_res=geo_res, filter_by_subgeo=filter_by_subgeo
@@ -93,9 +90,13 @@ class PolicyStatusCounter(QueryResolver):
             )
 
         data_tmp = dict()
-        for name, num in q_loc:
-            if name not in data_tmp:
-                data_tmp[name] = PlaceObs(place_name=name, value=num)
+        place_name: str = None
+        value: int = None
+        for place_name, value in q_loc:
+            if place_name not in data_tmp:
+                data_tmp[place_name] = PlaceObs(
+                    place_name=place_name, value=value
+                )
         data = list(data_tmp.values())
 
         # add "zeros" to the data if requested

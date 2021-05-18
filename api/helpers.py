@@ -17,7 +17,7 @@ def get_loc_field_from_geo_res(geo_res: str) -> str:
     elif geo_res == "state":
         return "area1"
     elif geo_res == "county":
-        return "area2"  # TODO replace this with "ansi_fips"
+        return "ansi_fips"
     else:
         raise ValueError("Unknown geo_res: " + geo_res)
 
