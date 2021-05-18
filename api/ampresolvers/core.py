@@ -138,13 +138,14 @@ class PolicyStatusCounter(QueryResolver):
         # add "zeros" to the data if requested
         if include_zeros:
             q_all_time = select(
-                (i.place.iso3, i.place.area1, i.place.level)
+                (i.place.iso3, i.place.area1, i.place.ansi_fips, i.place.level)
                 for i in q_all_time
             )[:][:]
             iso3: str = None
             area1: str = None
+            ansi_fips: str = None
             level: str = None
-            for iso3, area1, level in q_all_time:
+            for iso3, area1, ansi_fips, level in q_all_time:
                 if geo_res == api.routing.GeoRes.country:
                     if iso3 not in data_tmp:
                         zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
@@ -155,6 +156,14 @@ class PolicyStatusCounter(QueryResolver):
                             place_name=area1, value=0
                         )
                         data.append(zero_obs)
+                elif geo_res == api.routing.GeoRes.county:
+                    if iso3 == "USA" and ansi_fips not in data_tmp:
+                        zero_obs: PlaceObs = PlaceObs(
+                            place_name=ansi_fips, value=0
+                        )
+                        data.append(zero_obs)
+                else:
+                    raise ValueError("Unknown geo_res: " + geo_res)
 
         # order by value
         data.sort(key=lambda x: -x.value)
