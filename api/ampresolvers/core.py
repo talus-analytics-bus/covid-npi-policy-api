@@ -1,6 +1,6 @@
 from queryresolver.core import QueryResolver
 import api
-from api.models import PlaceObs
+from api.models import PlaceObs, PlaceObsList
 from api.util import cached
 from db import db
 from db.models import DayDate, Place, Policy, Policy_Date
@@ -25,7 +25,43 @@ class PolicyStatusCounter(QueryResolver):
         filter_by_subgeo: bool = False,
         include_zeros: bool = True,
         include_min_max: bool = True,
-    ):
+    ) -> PlaceObsList:
+        """Returns the number of active policies matching the provided filters
+        affecting locatiioins that match the provided geographic resolution.
+
+        Args:
+            geo_res (str): The geographic resolution to count.
+
+            filters (dict, optional): Filters to apply to policies. Defaults to
+            dict(), representing no filters.
+
+            by_group_number (bool, optional): If True, counts only the first
+            policy with each group number, helping to correct for over-counting
+            similar policies, and providing a fairer comparision of active
+            policy counts between different locations. Defaults to True.
+
+            filter_by_subgeo (bool, optional): If True, counts policies active
+            in locations *beneath* locations with the provided geographic
+            resolution, e.g., if `geo_res` is "Country" then all policies
+            affecting sub-country locations, like states or provinces or
+            counties, are counted. If False, only policies affecting locations
+            *at* the provided geographic resolution are counted. Defaults
+            to False.
+
+            include_zeros (bool, optional): If True, returns zero-valued data
+            entries for locations at the provided geographic resolution that
+            had no active policies matching the provided filters, but which
+            had some active policies at some point in the database. Defaults
+            to True.
+
+            include_min_max (bool, optional): If True, returns the observations
+            that represent the min/max number of active policies in any
+            location on any date, for comparison and baselining purpose.
+            Defaults to True.
+
+        Returns:
+            PlaceObsList: A list of policy status counts by location.
+        """
 
         self._QueryResolver__validate_args(
             geo_res=geo_res, filter_by_subgeo=filter_by_subgeo
