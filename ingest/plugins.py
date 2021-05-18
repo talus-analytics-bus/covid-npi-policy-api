@@ -1228,15 +1228,13 @@ class CovidPolicyPlugin(IngestPlugin):
                 # sys.exit(0)
             else:
                 print("QA/QC found no issues. Continuing.")
-                
+
             print(
                 "Number of plans before dropping duplicates: "
                 + str(len(data.index))
             )
             # only keep first of duplicate IDs
-            data = data.drop_duplicates(
-                subset="Unique ID", keep="first"
-            )
+            data = data.drop_duplicates(subset="Unique ID", keep="first")
             print(
                 "Number of plans after dropping duplicates: "
                 + str(len(data.index))
@@ -3136,6 +3134,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 area1_tmp: List[str] = area2_info.get(
                     "Intermediate Area Name", None
                 )
+                area2_ansi_fips: str = str(
+                    area2_info.get("ANSI / FIPS Code", None)
+                )
                 area1: str = ""
                 if area1_tmp != "" and len(area1_tmp) > 0:
                     area1: str = area1_tmp[0]
@@ -3162,6 +3163,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     country_name=get_name_from_iso3(iso3=iso3),
                     area1=area1_info.get("Name", None),
                     area2=area2_info.get("Local Area Name", None),
+                    ansi_fips=area2_ansi_fips,
                 )
                 places.append(
                     self.upsert_place(

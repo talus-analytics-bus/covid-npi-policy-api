@@ -517,6 +517,7 @@ class Place(db.Entity):
     loc = Optional(str)
     home_rule = Optional(str)
     dillons_rule = Optional(str)
+    ansi_fips = Optional(str)
 
     # relationships
     policies = Set('Policy')
