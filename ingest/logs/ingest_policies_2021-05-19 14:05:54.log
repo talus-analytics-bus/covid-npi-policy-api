@@ -1,0 +1,347 @@
+WARNING:root:[WARNING] Found the following unique IDs that are duplicated in the data:
+WARNING:root:   76723
+WARNING:root:   76706
+WARNING:root:   69395
+WARNING:root:   76806
+WARNING:root:   76728
+WARNING:root:   76692
+WARNING:root:   76702
+WARNING:root:   76736
+WARNING:root:   89362
+WARNING:root:   89429
+WARNING:root:   76807
+WARNING:root:   89558
+WARNING:root:   21352
+WARNING:root:   56343
+WARNING:root:   76730
+WARNING:root:   76712
+WARNING:root:   76732
+WARNING:root:   90482
+WARNING:root:   76719
+WARNING:root:   89336
+WARNING:root:   76713
+WARNING:root:   56338
+WARNING:root:   56339
+WARNING:root:   76735
+WARNING:root:   76843
+WARNING:root:   76716
+WARNING:root:   21353
+WARNING:root:   76724
+WARNING:root:   76741
+WARNING:root:   76685
+WARNING:root:   76830
+WARNING:root:   76718
+WARNING:root:   75418
+WARNING:root:   76867
+WARNING:root:   76715
+WARNING:root:   89228
+WARNING:root:   76699
+WARNING:root:   76733
+WARNING:root:   77964
+WARNING:root:   76705
+WARNING:root:   83029
+WARNING:root:   76690
+WARNING:root:   76725
+WARNING:root:   76740
+WARNING:root:   56341
+WARNING:root:   84172
+WARNING:root:   76710
+WARNING:root:   76739
+WARNING:root:   76714
+WARNING:root:   76695
+WARNING:root:   77910
+WARNING:root:   18935
+WARNING:root:   56335
+WARNING:root:   76742
+WARNING:root:   76737
+WARNING:root:   76711
+WARNING:root:   76722
+WARNING:root:   76727
+WARNING:root:   89229
+WARNING:root:   76734
+WARNING:root:   76700
+WARNING:root:   76731
+WARNING:root:   76708
+WARNING:root:   76694
+WARNING:root:   76709
+WARNING:root:   76788
+WARNING:root:   90303
+WARNING:root:   76687
+WARNING:root:   76707
+WARNING:root:   76688
+WARNING:root:   76721
+WARNING:root:   20254
+WARNING:root:   76698
+WARNING:root:   56337
+WARNING:root:   89583
+WARNING:root:   76717
+WARNING:root:   76769
+WARNING:root:   56336
+WARNING:root:   76703
+WARNING:root:   76691
+WARNING:root:   89368
+WARNING:root:   56344
+WARNING:root:   76701
+WARNING:root:   56334
+WARNING:root:   76729
+WARNING:root:   76738
+WARNING:root:   90929
+WARNING:root:   76697
+WARNING:root:   89230
+WARNING:root:   76689
+WARNING:root:   56342
+WARNING:root:   76693
+WARNING:root:   76787
+WARNING:root:   76726
+WARNING:root:   76803
+WARNING:root:   56340
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "International travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Elective procedure delay or cancellation"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "" for policy with ID = 76694
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Alternative election measures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 69334
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 87946
+WARNING:root:Incorrect category "Emergency declarations" was assigned for sub-category "International travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Authorization"; correct one is "Authorization and enforcement"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Vaccinations" was assigned for sub-category "Immunity for medical providers"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Relief funding"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76325
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Support for essential workers"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restrictions (interstate)"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Risk Communication"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "General emergency declaration"; correct one is "Emergency declarations"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Face mask" was assigned for sub-category "Adaptation and mitigation measures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Other measures to support public health and clinical capacity"; correct one is "Support for public health and clinical capacity"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 88107
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Coverage for cost of testing"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Other measures to support public health and clinical capacity"; correct one is "Support for public health and clinical capacity"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 30499
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Other measures to support public health and clinical capacity"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 52191
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76026
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 12052
+WARNING:root:Incorrect category "Vaccinations" was assigned for sub-category "Immunity for medical providers"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 26074
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Elective procedure delay or cancellation"; correct one is "Support for public health and clinical capacity"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 20540
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "International travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 4850
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Adaptation and mitigation measures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Testing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76329
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76750
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Vaccine cost, financing, and insurance"; correct one is "Vaccinations"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Distancing mandate"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Health screening"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restrictions (intrastate)"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 384
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 52016
+WARNING:root:Incorrect category "Emergency declarations" was assigned for sub-category "Public service closures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Risk Communication"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Health screening"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Coverage for cost of testing"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Health screening"; correct one is "Social distancing"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 51582
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 46024
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Anti-price gouging measures"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 2244
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Other measures to support public health and clinical capacity"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 264
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 55104
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Emergency declarations" was assigned for sub-category "Public service closures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Health screening"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Testing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restrictions (intrastate)"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Coverage for cost of testing"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Private sector closures"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Domestic travel restrictions (interstate)"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Other forms of social distancing"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Vaccinations" was assigned for sub-category "Immunity for medical providers"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Testing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Vaccine administration, distribution, and logistics"; correct one is "Vaccinations"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 2148
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 12069
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Support for essential workers"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 5312
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76349
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Testing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 26036
+WARNING:root:Incorrect category "Vaccinations" was assigned for sub-category "Immunity for medical providers"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 12079
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Authorization"; correct one is "Authorization and enforcement"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "" for policy with ID = 70032
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Budget modifications"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Quarantine"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Authorization"; correct one is "Authorization and enforcement"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 891
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 4478
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 76753
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Risk Communication"; correct one is "Support for public health and clinical capacity"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 4300
+WARNING:root:Incorrect category "Enabling and relief measures" was assigned for sub-category "Authorization"; correct one is "Authorization and enforcement"
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Other forms of social distancing"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Health screening"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 4895
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Other measures to support public health and clinical capacity"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Public health emergency declaration"; correct one is "Emergency declarations"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Face mask required"; correct one is "Face mask"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Emergency declarations" was assigned for sub-category "Lockdown"; correct one is "Social distancing"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 341
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 836
+WARNING:root:Incorrect category "Support for public health and clinical capacity" was assigned for sub-category "Relief funding"; correct one is "Enabling and relief measures"
+ERROR:root:No category found for sub-category "Early prison release" for policy with ID = 88110
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Domestic travel restriction"; correct one is "Travel restrictions"
+WARNING:root:Incorrect category "Travel restrictions" was assigned for sub-category "Contact tracing"; correct one is "Contact tracing/Testing"
+WARNING:root:Incorrect category "Authorization and enforcement" was assigned for sub-category "Face mask (other)"; correct one is "Face mask"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Social distancing" was assigned for sub-category "Prison population reduction"; correct one is "Enabling and relief measures"
+WARNING:root:Incorrect category "Contact tracing/Testing" was assigned for sub-category "Notification requirements"; correct one is "Support for public health and clinical capacity"
+WARNING:root:Corrected this many categories which were incorrect for their sub-categories: 213
