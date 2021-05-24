@@ -544,6 +544,10 @@ async def post_policy_status_counts(
         " multiple types of commercial locations only once, etc. If false, "
         "counts each row in the Policy database without merging.",
     ),
+    one: bool = Query(
+        False,
+        description="If true, return first observation only.",
+    ),
 ):
     res = policy_status_counter.get_policy_status_counts(
         geo_res=geo_res,
@@ -552,6 +556,7 @@ async def post_policy_status_counts(
         filter_by_subgeo=count_sub,
         include_zeros=include_zeros,
         include_min_max=include_min_max,
+        one=one,
     )
     return res
 

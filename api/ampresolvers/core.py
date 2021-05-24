@@ -25,6 +25,7 @@ class PolicyStatusCounter(QueryResolver):
         filter_by_subgeo: bool = False,
         include_zeros: bool = True,
         include_min_max: bool = True,
+        one: bool = False,
     ) -> PlaceObsList:
         """Returns the number of active policies matching the provided filters
         affecting locatiioins that match the provided geographic resolution.
@@ -58,6 +59,8 @@ class PolicyStatusCounter(QueryResolver):
             that represent the min/max number of active policies in any
             location on any date, for comparison and baselining purpose.
             Defaults to True.
+
+            one (bool, optional): If True, return the first observation only.
 
         Returns:
             PlaceObsList: A list of policy status counts by location.
@@ -167,6 +170,10 @@ class PolicyStatusCounter(QueryResolver):
 
         # order by value
         data.sort(key=lambda x: -x.value)
+
+        # if one requested, only return one
+        if one and len(data) > 0:
+            data = [data[0]]
 
         # prepare basic response
         res_counted: str = (
