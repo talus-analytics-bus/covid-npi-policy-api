@@ -812,11 +812,12 @@ def get_challenge(
 
 
 @db_session
-@cached
+# @cached
 def get_place(
-    iso3=None,
-    level=None,
-    fields=list(),
+    iso3="",
+    level="",
+    ansi_fips="",
+    fields=None,
     include_policy_count=False,
 ):
     """Returns Place instance data that match the provided filters."""
@@ -825,6 +826,7 @@ def get_place(
         for i in db.Place
         if (iso3 == "" or i.iso3.lower() == iso3)
         and (level == "" or i.level.lower() == level)
+        and (ansi_fips == "" or i.ansi_fips == ansi_fips)
     )[:][:]
 
     data = None
@@ -1715,6 +1717,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             "iso3",
             "country_name",
             "area2",
+            "ansi_fips",
         )
 
         join_policy_number = not join_place and field == "policy.policy_number"
