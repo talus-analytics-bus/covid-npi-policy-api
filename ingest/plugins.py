@@ -373,10 +373,18 @@ class CovidPolicyPlugin(IngestPlugin):
         """
 
         # get Airtable client for specified base
+        api_key: str = os.environ.get("AIRTABLE_API_KEY", None)
+        if api_key is None:
+            raise NotImplementedError(
+                "Airtable API key is required. Please define it in "
+                "environment variable 'AIRTABLE_API_KEY' and re-run this "
+                "ingest script."
+            )
+
         client = AirtableSource(
             name="Airtable",
             base_key=base_key,
-            api_key=os.environ.get("AIRTABLE_API_KEY"),
+            api_key=api_key,
         )
         self.client = client
 
