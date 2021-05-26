@@ -4,7 +4,7 @@ Metrics database.
 
 """
 import pprint
-from typing import Dict, List
+from typing import Dict
 from alive_progress import alive_bar
 from datetime import datetime, date
 from pony.orm.core import Database, commit, select
@@ -109,7 +109,7 @@ def upsert_nyt_state_covid_data(
     # upsert metric for daily US NEW deaths
     upsert(
         db.Metric,
-        {"metric_name": "covid_new_cases_provinces", "metric_id": 93},
+        {"metric_name": "covid_new_deaths_provinces", "metric_id": 93},
         {
             "temporal_resolution": "daily",
             "spatial_resolution": "state",
