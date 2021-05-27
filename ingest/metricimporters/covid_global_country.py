@@ -21,7 +21,7 @@ def upsert_jhu_country_covid_data(
     all_dt_dict: Dict[str, db_metric.models.DateTime],
 ):
     """Upsert JHU country-level COVID caseload data and derived metrics for
-    the USA.
+    global countries.
 
     Args:
         db (Database): Metrics database connection (PonyORM)
@@ -50,7 +50,7 @@ def upsert_jhu_country_covid_data(
 
     print("\nUpserting relevant metrics...")
 
-    # upsert metric for daily US caseload
+    # upsert metric for daily country caseload
     _action, covid_total_cases_countries = upsert(
         db.Metric,
         {
@@ -72,7 +72,7 @@ def upsert_jhu_country_covid_data(
     )
     commit()
 
-    # upsert metric for daily US NEW caseload
+    # upsert metric for daily country NEW caseload
     upsert(
         db.Metric,
         {"metric_name": "covid_new_cases_countries", "metric_id": 76},
@@ -93,7 +93,7 @@ def upsert_jhu_country_covid_data(
     )
     commit()
 
-    # upsert metric for 7-day US NEW caseload
+    # upsert metric for 7-day country NEW caseload
     upsert(
         db.Metric,
         {
@@ -117,7 +117,7 @@ def upsert_jhu_country_covid_data(
     )
     commit()
 
-    # upsert metric for daily US deaths
+    # upsert metric for daily country deaths
     _action, covid_total_deaths_countries = upsert(
         db.Metric,
         {
