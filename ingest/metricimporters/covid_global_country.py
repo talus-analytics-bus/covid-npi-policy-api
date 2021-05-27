@@ -252,6 +252,19 @@ def jhu_caseload_csv_to_dict(download_url: str, db):
             "Canada",
         ):
             special_country_rows[row_list[1]].append(row_list)
+        # elif row_list[1] in (
+        #     "England",
+        #     "Northern Ireland",
+        #     "Wales",
+        #     "Scotland",
+        # ):
+        #     # if row is home nation of UK, recode it as a country
+        #     # TODO check this
+        #     new_row_list = row_list.copy()
+        #     new_row_list[1] = new_row_list[0]
+        #     new_row_list[0] = ""
+        #     row_lists.append(row_list)
+        #     row_lists.append(new_row_list)
         else:
             row_lists.append(row_list)
 
