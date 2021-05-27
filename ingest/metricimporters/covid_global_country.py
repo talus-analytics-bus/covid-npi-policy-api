@@ -5,11 +5,12 @@ Metrics database.
 """
 from collections import defaultdict
 import pprint
-from typing import Dict
+from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
 from alive_progress import alive_bar
 from datetime import datetime, date
 from pony.orm.core import Database, commit, db_session, select
 import requests
+from requests.models import Response
 import db_metric
 from ingest.util import upsert
 
@@ -219,33 +220,55 @@ def upsert_jhu_country_covid_data(
 
 
 @db_session
-def jhu_caseload_csv_to_dict(download_url: str, db):
+def jhu_caseload_csv_to_dict(
+    download_url: str, db: Database
+) -> Dict[str, Any]:
+    """Returns a dictionary of COVID-19 case data from the JHU GitHub, given
+    the download URL and the database object.
 
-    r = requests.get(download_url, allow_redirects=True)
-    rows = r.iter_lines(decode_unicode=True)
+    Args:
+        download_url (str): The download URL for a CSV file of COVID-19 case
+        data by country by date
+
+        db (Database): The PonyORM database object.
+
+    Returns:
+        Dict[str, Any]: A dictionary of COVID-19 case data by country by date
+    """
+
+    # get data from download URL
+    r: Response = requests.get(download_url, allow_redirects=True)
+    rows: Iterator = r.iter_lines(decode_unicode=True)
 
     # remove the header row from the generator
-    headers_raw = next(rows).split(",")
-    dates_raw = headers_raw[4:]
-    dates = list()
+    headers_raw: List[str] = next(rows).split(",")
+    dates_raw: List[str] = headers_raw[4:]
+    dates: List[str] = list()
+    d: str = None
     for d in dates_raw:
-        date_parts = d.split("/")
-        mm = date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
-        dd = date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
-        yyyy = (
+        date_parts: List[str] = d.split("/")
+        mm: str = (
+            date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
+        )
+        dd: str = (
+            date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
+        )
+        yyyy: str = (
             date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
         )
-        date_str = yyyy + "-" + mm + "-" + dd
+        date_str: str = yyyy + "-" + mm + "-" + dd
         dates.append(date_str)
 
-    headers = headers_raw[0:4] + dates
-    skip = ("Lat", "Long", "Province/State")
+    headers: List[str] = headers_raw[0:4] + dates
+    skip: Tuple[str, str, str] = ("Lat", "Long", "Province/State")
 
     # keep dictionary of special row lists that need to be summed
-    special_country_rows = defaultdict(list)
-    row_lists = list()
+    # TODO confirm this approach is necessary
+    special_country_rows: DefaultDict[str, list] = defaultdict(list)
+    row_lists: list = list()
+    row: str = None
     for row in rows:
-        row_list = row.split(",")
+        row_list: List[str] = row.split(",")
         if row_list[1] in (
             "Australia",
             "China",
