@@ -303,9 +303,10 @@ class CovidCaseloadPlugin(IngestPlugin):
         self,
         db: Database,
         db_amp: Database,
-        do_county: bool = True,
         do_state: bool = True,
         do_global: bool = True,
+        do_global_daily: bool = True,
+        do_county: bool = True,
     ):
         """Upsert COVID data from different sources.
 
@@ -322,6 +323,10 @@ class CovidCaseloadPlugin(IngestPlugin):
 
             do_global (bool, optional): If True, ingests country-level COVID
             data for the globe, False otherwise. Defaults to True.
+
+            do_global_daily (bool, optional): If True, ingests country-level
+            COVID data for the globe from daily reports for select countries,
+            False otherwise. Defaults to True.
         """
 
         # get dict of database datetimes with keys as YYYY-MM-DD for speed
@@ -337,8 +342,10 @@ class CovidCaseloadPlugin(IngestPlugin):
             upsert_nyt_state_covid_data(db, db_amp, all_dt_dict)
         if do_county:
             upsert_nyt_county_covid_data(db, db_amp, all_dt_dict)
-        if do_global:
-            upsert_jhu_country_covid_data(db, db_amp, all_dt_dict)
+        if do_global or do_global_daily:
+            upsert_jhu_country_covid_data(
+                db, db_amp, all_dt_dict, do_global, do_global_daily
+            )
 
 
 class CovidPolicyPlugin(IngestPlugin):

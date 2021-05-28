@@ -371,9 +371,10 @@ class PolicyStatusCounter(QueryResolver):
                 value=value,
             )
         else:
-            raise ValueError(
-                "Expected query to have 1 result row, but found " + str(len(q))
-            )
+            # raise ValueError(
+            #     "Expected query to have 1 result row, but found " + str(len(q))
+            # )
+            return None
         return place_obs
 
     def _QueryResolver__validate_args(

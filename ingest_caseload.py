@@ -39,6 +39,14 @@ parser.add_argument(
     help="ingest global data",
 )
 parser.add_argument(
+    "-gd",
+    "--globe-daily",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest global data from daily reports",
+)
+parser.add_argument(
     "-a",
     "--all",
     default=False,
@@ -87,8 +95,10 @@ if __name__ == "__main__":
     do_county = args.county or args.all
     do_state = args.state or args.all
     do_global = args.globe or args.all
+    do_global_daily = args.globe_daily or args.all
     do_refresh_materialized_views = (
         args.globe
+        or args.globe_daily
         or args.state
         or args.county
         or args.materialized_views
@@ -98,13 +108,14 @@ if __name__ == "__main__":
     # generate database mapping and ingest data for the COVID-AMP project
     db.generate_mapping(create_tables=False)
     db_amp.generate_mapping(create_tables=False)
-    if do_state or do_global or do_county:
+    if do_state or do_global or do_global_daily or do_county:
         plugin = CovidCaseloadPlugin()
         plugin.upsert_covid_data(
             db,
             db_amp,
             do_state=do_state,
             do_global=do_global,
+            do_global_daily=do_global_daily,
             do_county=do_county,
         )
 

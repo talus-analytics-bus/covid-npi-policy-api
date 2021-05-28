@@ -3,13 +3,17 @@ Methods to ingest global country-level COVID data into the Talus
 Metrics database.
 
 """
-from collections import defaultdict
+from db_metric.models import Place
+from ingest.metricimporters.helpers import get_place_from_name
 import pprint
-from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
-from alive_progress import alive_bar
-from datetime import datetime, date
-from pony.orm.core import Database, commit, db_session, select
 import requests
+import csv
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Union
+from unicodedata import numeric
+from alive_progress import alive_bar
+from datetime import datetime, date, timedelta
+from pony.orm.core import Database, commit, db_session, select
 from requests.models import Response
 import db_metric
 from ingest.util import upsert
@@ -22,6 +26,8 @@ def upsert_jhu_country_covid_data(
     db: Database,
     db_amp: Database,
     all_dt_dict: Dict[str, db_metric.models.DateTime],
+    do_global: bool = True,
+    do_global_daily: bool = True,
 ):
     """Upsert JHU country-level COVID caseload data and derived metrics for
     global countries.
@@ -33,6 +39,12 @@ def upsert_jhu_country_covid_data(
 
         all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
         date string of Metrics database datetime records
+
+        do_global_daily (bool, optional): If true, ingest COVID-19 case and
+        death data for select states/provinces from the JHU CSSE daily reports
+
+        do_global_daily (bool, optional): If true, ingest COVID-19 case and
+        death data for for countries from time series report (single file)
     """
     print("\nFetching data from JHU GitHub...")
     download_url = (
@@ -47,8 +59,34 @@ def upsert_jhu_country_covid_data(
         "csse_covid_19_time_series/"
         "time_series_covid19_deaths_global.csv"
     )
-    data = jhu_caseload_csv_to_dict(download_url, db)
-    data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
+    download_url_daily: str = (
+        "https://raw.githubusercontent.com/"
+        "CSSEGISandData/COVID-19/master/"
+        "csse_covid_19_data/csse_covid_19_daily_reports/"
+    )
+    data: list = list()
+    data_deaths: list = list()
+    if do_global:
+        data = jhu_caseload_csv_to_dict(download_url, db)
+        data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
+    print("data")
+    print(data)
+    # concatenate data from daily reports, if ingesting
+    if do_global_daily:
+        data_daily: list = list()
+        data_deaths_daily: list = list()
+        [data_daily, data_deaths_daily] = jhu_daily_csv_to_dict(
+            download_url_daily,
+            db,
+            province_names={
+                "Scotland",
+                "Wales",
+                "Northern Ireland",
+                "England",
+            },
+        )
+        data += data_daily
+        data_deaths += data_deaths_daily
     print("Done.")
 
     print("\nUpserting relevant metrics...")
@@ -219,6 +257,127 @@ def upsert_jhu_country_covid_data(
     print("Done.")
 
 
+def jhu_daily_csv_to_dict(
+    download_url_daily: str,
+    db: Database,
+    province_names: Set[str],
+) -> Tuple[List[dict], List[dict]]:
+    """Get JHU country-level COVID caseload data and derived metrics for
+    global countries from daily reports. This approach is needed to get data
+    from UK home nations England, Wales, Northern Ireland, and Scotland, since
+    JHU does not publish their COVID-19 data in the composite CSV file of all
+    dates.
+
+    Args:
+        download_url_daily (str): The base URL for the download location of
+        daily CSV report files.
+
+        db (Database): Metrics database connection (PonyORM)
+
+        db_amp (Database): COVID AMP database connection (PonyORM)
+
+        all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
+        date string of Metrics database datetime records
+
+        loc_names (Set[str]): The names of the provinces for which data should
+        be extracted and represented at the country level.
+
+    Returns:
+        Tuple[List[dict], List[dict]]: (1) List of case data records and (2)
+        list of death data records.
+    """
+
+    # For each date within the date range provided (YYYY-MM-DD)
+    date_range: Tuple[date, date] = (date(2020, 1, 27), date.today())
+
+    dates_to_check: List[date] = list()
+    cur_date: date = date_range[0]
+    while cur_date <= date_range[1]:
+        dates_to_check.append(cur_date)
+        cur_date = cur_date + timedelta(days=1)
+
+    data: List[Dict[str, Union[str | numeric]]] = list()
+    data_deaths: List[Dict[str, Union[str | numeric]]] = list()
+    missing_place_names: Set[str] = set()
+    date_to_check: date = None
+    with alive_bar(
+        len(dates_to_check),
+        title="Importing national-level cases and deaths data from "
+        "daily reports",
+    ) as bar:
+        for date_to_check in dates_to_check:
+            bar()
+            url_date_str: str = date_to_check.strftime("%m-%d-%Y")
+
+            # Fetch the daily CSV file from JHU GitHub
+            cur_download_url: str = download_url_daily + url_date_str + ".csv"
+            r: Response = requests.get(cur_download_url, allow_redirects=True)
+            rows: Iterator = r.iter_lines(decode_unicode=True)
+
+            # extract header row from iterator
+            headers: List[str] = next(rows).split(",")
+
+            # For each location needed
+            row: str = None
+            for row in rows:
+
+                row_values: List[str] = next(csv.reader([row]))
+                row_dict: Dict[str, str] = dict()
+                header: str = None
+                idx: int = None
+                for idx, header in enumerate(headers):
+                    row_dict[header] = row_values[idx]
+
+                province_state: str = row_dict.get("Province_State", None)
+                if province_state in province_names:
+                    # Get the "confirmed" case value
+                    # name, date, value place
+                    datum: Dict[str, Union[str | numeric]] = dict(
+                        date=str(date_to_check)
+                    )
+                    datum_deaths: Dict[str, Union[str | numeric]] = dict(
+                        date=str(date_to_check)
+                    )
+                    datum["value"] = get_int_or_none(row_dict, "Confirmed")
+                    datum_deaths["value"] = get_int_or_none(row_dict, "Deaths")
+                    datum["name"] = province_state
+                    datum_deaths["name"] = province_state
+                    place: Place = get_place_from_name(db, province_state)
+
+                    if place is None:
+                        missing_place_names.add(province_state)
+                    else:
+                        datum["place"] = place
+                        datum_deaths["place"] = place
+                        data.append(datum)
+                        data_deaths.append(datum_deaths)
+
+    # List missing place names
+    if len(missing_place_names) > 0:
+        print_missing_place_names(missing_place_names)
+
+    # Return the output
+    return (data, data_deaths)
+
+
+def get_int_or_none(row_dict: dict, key: str) -> int:
+    """Returns the value for the defined `key` in `row_dict` as an integer or
+    None if it does not exist.
+
+    Args:
+        row_dict (dict): A dict of data
+        key (str): A key to check
+
+    Returns:
+        int: The int-parsed value of the key or None
+    """
+    val_str: str = row_dict.get(key, None)
+    if val_str is not None:
+        return int(val_str)
+    else:
+        return None
+
+
 @db_session
 def jhu_caseload_csv_to_dict(
     download_url: str, db: Database
@@ -311,7 +470,7 @@ def jhu_caseload_csv_to_dict(
 
     row_lists += new_row_lists
 
-    missing_names = set()
+    missing_place_names: Set[str] = set()
     data = list()
     for row_list in row_lists:
         if row_list[0] != "":
@@ -334,13 +493,14 @@ def jhu_caseload_csv_to_dict(
                 idx += 1
 
         # get place ISO, ID from name
+
         p = select(
             i
             for i in db.Place
             if i.name == datum["name"] or datum["name"] in i.other_names
         ).first()
         if p is None:
-            missing_names.add(datum["name"])
+            missing_place_names.add(datum["name"])
             continue
         else:
             datum["place"] = p
@@ -353,11 +513,16 @@ def jhu_caseload_csv_to_dict(
             datum_final["place"] = datum["place"]
             data.append(datum_final)
 
+    if len(missing_place_names) > 0:
+        print_missing_place_names(missing_place_names)
+
+    # return output
+    return data
+
+
+def print_missing_place_names(missing_place_names):
     print(
         "These places in the JHU dataset were missing from the COVID AMP "
         "places database:"
     )
-    pp.pprint(missing_names)
-
-    # return output
-    return data
+    pp.pprint(missing_place_names)
