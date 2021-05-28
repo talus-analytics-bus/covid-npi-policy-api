@@ -15,120 +15,123 @@ from enum import Enum
 #     jk = 'jk'
 #     ac = 'ac'
 
+
 class FilterFieldsPolicy(str, Enum):
     # TODO use inheritance to create `ClassNameExport` from this class
-    primary_ph_measure = 'primary_ph_measure'
+    primary_ph_measure = "primary_ph_measure"
 
 
 class PolicyFields(str, Enum):
-    id = 'id'
-    policy_name = 'policy_name'
-    policy_number = 'policy_number'
-    desc = 'desc'
-    name_and_desc = 'name_and_desc'
-    primary_ph_measure = 'primary_ph_measure'
-    ph_measure_details = 'ph_measure_details'
-    policy_type = 'policy_type'
-    authority_name = 'authority_name'
-    subtarget = 'subtarget'
-    date_issued = 'date_issued'
-    date_start_effective = 'date_start_effective'
-    date_end_anticipated = 'date_end_anticipated'
-    date_end_actual = 'date_end_actual'
-    auth_entity = 'auth_entity'
-    auth_entity_place_level = 'auth_entity.place.level'
-    auth_entity_place_loc = 'auth_entity.place.loc'
-    court_challenges_id = 'court_challenges.id'
-    place = 'place'
-    file = 'file'
-    none = ''
+    id = "id"
+    policy_name = "policy_name"
+    policy_number = "policy_number"
+    desc = "desc"
+    name_and_desc = "name_and_desc"
+    primary_ph_measure = "primary_ph_measure"
+    ph_measure_details = "ph_measure_details"
+    policy_type = "policy_type"
+    authority_name = "authority_name"
+    subtarget = "subtarget"
+    date_issued = "date_issued"
+    date_start_effective = "date_start_effective"
+    date_end_anticipated = "date_end_anticipated"
+    date_end_actual = "date_end_actual"
+    auth_entity = "auth_entity"
+    auth_entity_place_level = "auth_entity.place.level"
+    auth_entity_place_loc = "auth_entity.place.loc"
+    court_challenges_id = "court_challenges.id"
+    place = "place"
+    file = "file"
+    none = ""
 
 
 class PlanFields(str, Enum):
-    id = 'id'
-    source_id = 'source_id'
+    id = "id"
+    source_id = "source_id"
 
     # descriptive information
-    name = 'name'
-    desc = 'desc'
-    name_and_desc = 'name_and_desc'
-    primary_loc = 'primary_loc'
-    org_name = 'org_name'
-    org_type = 'org_type'
+    name = "name"
+    desc = "desc"
+    name_and_desc = "name_and_desc"
+    primary_loc = "primary_loc"
+    org_name = "org_name"
+    org_type = "org_type"
 
     # dates
-    date_issued = 'date_issued'
-    date_start_effective = 'date_start_effective'
-    date_end_effective = 'date_end_effective'
+    date_issued = "date_issued"
+    date_start_effective = "date_start_effective"
+    date_end_effective = "date_end_effective"
 
     # standardized fields / tags
-    n_phases = 'n_phases'
-    auth_entity_has_authority = 'auth_entity_has_authority'
-    reqs_essential = 'reqs_essential'
-    reqs_private = 'reqs_private'
-    reqs_school = 'reqs_school'
-    reqs_social = 'reqs_social'
-    reqs_hospital = 'reqs_hospital'
-    reqs_public = 'reqs_public'
-    reqs_other = 'reqs_other'
+    n_phases = "n_phases"
+    auth_entity_has_authority = "auth_entity_has_authority"
+    reqs_essential = "reqs_essential"
+    reqs_private = "reqs_private"
+    reqs_school = "reqs_school"
+    reqs_social = "reqs_social"
+    reqs_hospital = "reqs_hospital"
+    reqs_public = "reqs_public"
+    reqs_other = "reqs_other"
 
     # university only
-    residential = 'residential'
+    residential = "residential"
 
     # sourcing and PDFs
-    plan_data_source = 'plan_data_source'
-    announcement_data_source = 'announcement_data_source'
-    file = 'file'
+    plan_data_source = "plan_data_source"
+    announcement_data_source = "announcement_data_source"
+    file = "file"
 
     # relationships
-    place = 'place'
-    auth_entity = 'auth_entity'
-    none = ''
+    place = "place"
+    auth_entity = "auth_entity"
+    none = ""
 
 
 class CourtChallengeFields(str, Enum):
-    id = 'id'
-    matter_numbers = 'matter_numbers'
-    case_name = 'case_name'
-    case_number = 'case_number'
-    court = 'court'
-    jurisdiction = 'jurisdiction'
-    filed_in_state_or_federal_court = 'filed_in_state_or_federal_court'
-    government_order_upheld_or_enjoined = 'government_order_upheld_or_enjoined'
-    summary_of_action = 'summary_of_action'
-    policy_or_law_name = 'policy_or_law_name'
-    parties = 'parties'
-    legal_citation = 'legal_citation'
-    holding = 'holding'
-    complaint_category = 'complaint_category'
-    data_source_for_complaint = 'data_source_for_complaint'
-    data_source_for_decision = 'data_source_for_decision'
-    date_of_decision = 'date_of_decision'
-    date_of_complaint = 'date_of_complaint'
-    parties_or_citation_and_summary_of_action = 'parties_or_citation_and_summary_of_action'
-    policy_status = 'policy_status'
-    case_status = 'case_status'
+    id = "id"
+    matter_numbers = "matter_numbers"
+    case_name = "case_name"
+    case_number = "case_number"
+    court = "court"
+    jurisdiction = "jurisdiction"
+    filed_in_state_or_federal_court = "filed_in_state_or_federal_court"
+    government_order_upheld_or_enjoined = "government_order_upheld_or_enjoined"
+    summary_of_action = "summary_of_action"
+    policy_or_law_name = "policy_or_law_name"
+    parties = "parties"
+    legal_citation = "legal_citation"
+    holding = "holding"
+    complaint_category = "complaint_category"
+    data_source_for_complaint = "data_source_for_complaint"
+    data_source_for_decision = "data_source_for_decision"
+    date_of_decision = "date_of_decision"
+    date_of_complaint = "date_of_complaint"
+    parties_or_citation_and_summary_of_action = (
+        "parties_or_citation_and_summary_of_action"
+    )
+    policy_status = "policy_status"
+    case_status = "case_status"
 
     # related entities
-    policies = 'policies'
-    none = ''
+    policies = "policies"
+    none = ""
 
 
 class PlaceFields(str, Enum):
-    id = 'id'
-    level = 'level'
-    iso3 = 'iso3'
-    country_name = 'country_name'
-    area1 = 'area1'
-    area2 = 'area2'
-    loc = 'loc'
-    home_rule = 'home_rule'
-    dillons_rule = 'dillons_rule'
-    policies = 'policies'
-    plans = 'plans'
-    auth_entities = 'auth_entities'
-    observations = 'observations'
-    policy_numbers = 'policy_numbers'
+    id = "id"
+    level = "level"
+    iso3 = "iso3"
+    country_name = "country_name"
+    area1 = "area1"
+    area2 = "area2"
+    loc = "loc"
+    home_rule = "home_rule"
+    dillons_rule = "dillons_rule"
+    policies = "policies"
+    plans = "plans"
+    auth_entities = "auth_entities"
+    observations = "observations"
+    policy_numbers = "policy_numbers"
 
 
 class Response(BaseModel):
@@ -194,7 +197,7 @@ class Court_Challenge(BaseModel):
     case_status: str = None
 
     # related entities
-    policies: List['Policy'] = None
+    policies: List["Policy"] = None
 
 
 class Policy(BaseModel):
@@ -241,6 +244,7 @@ class PolicyNumber(BaseModel):
 
 class Plan(BaseModel):
     """Plans. Similar to policies but they lack legal authority."""
+
     id: int = None
     source_id: str = None
 
@@ -295,51 +299,55 @@ class PolicyStatusCount(BaseModel):
 
 
 examplePolicyFilter = {
-    'dates_in_effect': [
-        '2019-12-31',
-        '2022-12-31',
+    "dates_in_effect": [
+        "2019-12-31",
+        "2022-12-31",
     ]
 }
 
 
 class ExportFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
-        {}, title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have."
+        {},
+        title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
     )
 
 
 class PolicyFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
-        examplePolicyFilter, title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have."
+        examplePolicyFilter,
+        title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
     )
 
 
 class PlanFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
-        {"date_issued": ["2019-12-31", "2022-12-31"]}, title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have."
+        {"date_issued": ["2019-12-31", "2022-12-31"]},
+        title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
     )
 
 
 class ChallengeFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
-        {"date_of_complaint": ["2019-12-31", "2022-12-31"]}, title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have."
+        {"date_of_complaint": ["2019-12-31", "2022-12-31"]},
+        title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
     )
 
 
 class PolicyFilters(PolicyFiltersNoOrdering):
-    ordering: List[list] = [['id', 'asc']]
+    ordering: List[list] = [["id", "asc"]]
 
 
 class PlanFilters(PlanFiltersNoOrdering):
-    ordering: List[list] = [['id', 'asc']]
+    ordering: List[list] = [["id", "asc"]]
 
 
 class ChallengeFilters(ChallengeFiltersNoOrdering):
-    ordering: List[list] = [['id', 'asc']]
+    ordering: List[list] = [["id", "asc"]]
 
 
 class PolicyList(Response):
@@ -379,142 +387,318 @@ class MetadataList(Response):
 
 
 class Iso3Codes(str, Enum):
-    all_countries = 'All countries'
-    ARG = 'ARG'
-    AUS = 'AUS'
-    BOL = 'BOL'
-    BRA = 'BRA'
-    BWA = 'BWA'
-    CAN = 'CAN'
-    CHE = 'CHE'
-    CHL = 'CHL'
-    CHN = 'CHN'
-    CIV = 'CIV'
-    COD = 'COD'
-    COL = 'COL'
-    CUB = 'CUB'
-    CZE = 'CZE'
-    DEU = 'DEU'
-    DJI = 'DJI'
-    DNK = 'DNK'
-    ECU = 'ECU'
-    EGY = 'EGY'
-    ESP = 'ESP'
-    EST = 'EST'
-    ETH = 'ETH'
-    FRA = 'FRA'
-    GBR = 'GBR'
-    GHA = 'GHA'
-    GIN = 'GIN'
-    GUF = 'GUF'
-    GUY = 'GUY'
-    HKG = 'HKG'
-    HND = 'HND'
-    IND = 'IND'
-    IRL = 'IRL'
-    IRN = 'IRN'
-    IRQ = 'IRQ'
-    ISL = 'ISL'
-    ISR = 'ISR'
-    ITA = 'ITA'
-    JOR = 'JOR'
-    JPN = 'JPN'
-    KOR = 'KOR'
-    LBY = 'LBY'
-    MAC = 'MAC'
-    MAR = 'MAR'
-    MEX = 'MEX'
-    MHL = 'MHL'
-    MNG = 'MNG'
-    MYS = 'MYS'
-    NER = 'NER'
-    NGA = 'NGA'
-    NOR = 'NOR'
-    NZL = 'NZL'
-    OMN = 'OMN'
-    PAN = 'PAN'
-    PER = 'PER'
-    PHL = 'PHL'
-    PRY = 'PRY'
-    RUS = 'RUS'
-    SAU = 'SAU'
-    SEN = 'SEN'
-    SLV = 'SLV'
-    SOM = 'SOM'
-    SUR = 'SUR'
-    SWE = 'SWE'
-    TCD = 'TCD'
-    THA = 'THA'
-    UGA = 'UGA'
-    UMI = 'UMI'
-    URY = 'URY'
-    USA = 'USA'
-    VEN = 'VEN'
-    YEM = 'YEM'
-    ZAF = 'ZAF'
-    none = ''
+    all_countries = "All countries"
+    ABW = "ABW"
+    AFG = "AFG"
+    AGO = "AGO"
+    AIA = "AIA"
+    ALA = "ALA"
+    ALB = "ALB"
+    AND = "AND"
+    ARE = "ARE"
+    ARG = "ARG"
+    ARM = "ARM"
+    ASM = "ASM"
+    ATA = "ATA"
+    ATF = "ATF"
+    ATG = "ATG"
+    AUS = "AUS"
+    AUT = "AUT"
+    AZE = "AZE"
+    BDI = "BDI"
+    BEL = "BEL"
+    BEN = "BEN"
+    BES = "BES"
+    BFA = "BFA"
+    BGD = "BGD"
+    BGR = "BGR"
+    BHR = "BHR"
+    BHS = "BHS"
+    BIH = "BIH"
+    BLM = "BLM"
+    BLR = "BLR"
+    BLZ = "BLZ"
+    BMU = "BMU"
+    BOL = "BOL"
+    BRA = "BRA"
+    BRB = "BRB"
+    BRN = "BRN"
+    BTN = "BTN"
+    BWA = "BWA"
+    CAF = "CAF"
+    CAN = "CAN"
+    CHE = "CHE"
+    CHL = "CHL"
+    CHN = "CHN"
+    CIV = "CIV"
+    CMR = "CMR"
+    COD = "COD"
+    COG = "COG"
+    COK = "COK"
+    COL = "COL"
+    COM = "COM"
+    CPV = "CPV"
+    CRI = "CRI"
+    CUB = "CUB"
+    CUW = "CUW"
+    CYM = "CYM"
+    CYP = "CYP"
+    CZE = "CZE"
+    DEU = "DEU"
+    DJI = "DJI"
+    DMA = "DMA"
+    DNK = "DNK"
+    DOM = "DOM"
+    DZA = "DZA"
+    EAZ = "EAZ"
+    ECU = "ECU"
+    EGY = "EGY"
+    ERI = "ERI"
+    ESH = "ESH"
+    ESP = "ESP"
+    EST = "EST"
+    ETH = "ETH"
+    FIN = "FIN"
+    FJI = "FJI"
+    FLK = "FLK"
+    FRA = "FRA"
+    FRO = "FRO"
+    FSM = "FSM"
+    GAB = "GAB"
+    GBR = "GBR"
+    GB_NIR = "GB-NIR"
+    GB_ENG = "GB-ENG"
+    GB_SCT = "GB-SCT"
+    GB_WLS = "GB-WLS"
+    GEO = "GEO"
+    GGY = "GGY"
+    GHA = "GHA"
+    GIB = "GIB"
+    GIN = "GIN"
+    GLP = "GLP"
+    GMB = "GMB"
+    GNB = "GNB"
+    GNQ = "GNQ"
+    GRC = "GRC"
+    GRD = "GRD"
+    GRL = "GRL"
+    GTM = "GTM"
+    GUF = "GUF"
+    GUM = "GUM"
+    GUY = "GUY"
+    HKG = "HKG"
+    HMD = "HMD"
+    HND = "HND"
+    HRV = "HRV"
+    HTI = "HTI"
+    HUN = "HUN"
+    IDN = "IDN"
+    IMN = "IMN"
+    IND = "IND"
+    IOT = "IOT"
+    IRL = "IRL"
+    IRN = "IRN"
+    IRQ = "IRQ"
+    ISL = "ISL"
+    ISR = "ISR"
+    ITA = "ITA"
+    JAM = "JAM"
+    JEY = "JEY"
+    JOR = "JOR"
+    JPN = "JPN"
+    KAZ = "KAZ"
+    KEN = "KEN"
+    KGZ = "KGZ"
+    KHM = "KHM"
+    KIR = "KIR"
+    KNA = "KNA"
+    KOR = "KOR"
+    KWT = "KWT"
+    LAO = "LAO"
+    LBN = "LBN"
+    LBR = "LBR"
+    LBY = "LBY"
+    LCA = "LCA"
+    LIE = "LIE"
+    LKA = "LKA"
+    LSO = "LSO"
+    LTU = "LTU"
+    LUX = "LUX"
+    LVA = "LVA"
+    MAC = "MAC"
+    MAF = "MAF"
+    MAR = "MAR"
+    MCO = "MCO"
+    MDA = "MDA"
+    MDG = "MDG"
+    MDV = "MDV"
+    MEX = "MEX"
+    MHL = "MHL"
+    MKD = "MKD"
+    MLI = "MLI"
+    MLT = "MLT"
+    MMR = "MMR"
+    MNE = "MNE"
+    MNG = "MNG"
+    MNP = "MNP"
+    MOZ = "MOZ"
+    MRT = "MRT"
+    MSR = "MSR"
+    MUS = "MUS"
+    MWI = "MWI"
+    MYS = "MYS"
+    NAM = "NAM"
+    NCL = "NCL"
+    NER = "NER"
+    NFK = "NFK"
+    NGA = "NGA"
+    NIC = "NIC"
+    NIU = "NIU"
+    NLD = "NLD"
+    NOR = "NOR"
+    NPL = "NPL"
+    NRU = "NRU"
+    NZL = "NZL"
+    OMN = "OMN"
+    PAK = "PAK"
+    PAN = "PAN"
+    PCN = "PCN"
+    PER = "PER"
+    PHL = "PHL"
+    PLW = "PLW"
+    PNG = "PNG"
+    POL = "POL"
+    PRI = "PRI"
+    PRK = "PRK"
+    PRT = "PRT"
+    PRY = "PRY"
+    PSE = "PSE"
+    PYF = "PYF"
+    QAT = "QAT"
+    REU = "REU"
+    ROU = "ROU"
+    RUS = "RUS"
+    RWA = "RWA"
+    SAU = "SAU"
+    SDN = "SDN"
+    SEN = "SEN"
+    SGP = "SGP"
+    SGS = "SGS"
+    SHN = "SHN"
+    SLB = "SLB"
+    SLE = "SLE"
+    SLV = "SLV"
+    SMR = "SMR"
+    SOM = "SOM"
+    SPM = "SPM"
+    SRB = "SRB"
+    SSD = "SSD"
+    STP = "STP"
+    SUR = "SUR"
+    SVK = "SVK"
+    SVN = "SVN"
+    SWE = "SWE"
+    SWZ = "SWZ"
+    SXM = "SXM"
+    SYC = "SYC"
+    SYR = "SYR"
+    TCA = "TCA"
+    TCD = "TCD"
+    TGO = "TGO"
+    THA = "THA"
+    TJK = "TJK"
+    TKM = "TKM"
+    TLS = "TLS"
+    TON = "TON"
+    TTO = "TTO"
+    TUN = "TUN"
+    TUR = "TUR"
+    TUV = "TUV"
+    TWN = "TWN"
+    TZA = "TZA"
+    UGA = "UGA"
+    UKR = "UKR"
+    UMI = "UMI"
+    URY = "URY"
+    USA = "USA"
+    UZB = "UZB"
+    VAT = "VAT"
+    VCT = "VCT"
+    VEN = "VEN"
+    VGB = "VGB"
+    VIR = "VIR"
+    VNM = "VNM"
+    VUT = "VUT"
+    WLF = "WLF"
+    WSM = "WSM"
+    YEM = "YEM"
+    ZAF = "ZAF"
+    ZMB = "ZMB"
+    ZWE = "ZWE"
+    none = ""
 
 
 StateNames = Enum(
-    value='StateNames',
-    names=[('All states and territories', 'All states and territories'),
-           ('Alabama', 'Alabama'),
-           ('Alaska', 'Alaska'),
-           ('American Samoa', 'American Samoa'),
-           ('Arizona', 'Arizona'),
-           ('Arkansas', 'Arkansas'),
-           ('California', 'California'),
-           ('Colorado', 'Colorado'),
-           ('Connecticut', 'Connecticut'),
-           ('Delaware', 'Delaware'),
-           ('District of Columbia', 'District of Columbia'),
-           ('Florida', 'Florida'),
-           ('Georgia', 'Georgia'),
-           ('Guam', 'Guam'),
-           ('Hawaii', 'Hawaii'),
-           ('Idaho', 'Idaho'),
-           ('Illinois', 'Illinois'),
-           ('Indiana', 'Indiana'),
-           ('Iowa', 'Iowa'),
-           ('Kansas', 'Kansas'),
-           ('Kentucky', 'Kentucky'),
-           ('Louisiana', 'Louisiana'),
-           ('Maine', 'Maine'),
-           ('Maryland', 'Maryland'),
-           ('Massachusetts', 'Massachusetts'),
-           ('Michigan', 'Michigan'),
-           ('Minnesota', 'Minnesota'),
-           ('Mississippi', 'Mississippi'),
-           ('Missouri', 'Missouri'),
-           ('Montana', 'Montana'),
-           ('Nebraska', 'Nebraska'),
-           ('Nevada', 'Nevada'),
-           ('New Hampshire', 'New Hampshire'),
-           ('New Jersey', 'New Jersey'),
-           ('New Mexico', 'New Mexico'),
-           ('New York', 'New York'),
-           ('North Carolina', 'North Carolina'),
-           ('North Dakota', 'North Dakota'),
-           ('Northern Mariana Islands', 'Northern Mariana Islands'),
-           ('Ohio', 'Ohio'),
-           ('Oklahoma', 'Oklahoma'),
-           ('Oregon', 'Oregon'),
-           ('Pennsylvania', 'Pennsylvania'),
-           ('Puerto Rico', 'Puerto Rico'),
-           ('Rhode Island', 'Rhode Island'),
-           ('South Carolina', 'South Carolina'),
-           ('South Dakota', 'South Dakota'),
-           ('Tennessee', 'Tennessee'),
-           ('Texas', 'Texas'),
-           ('US Virgin Islands', 'US Virgin Islands'),
-           ('Unspecified', 'Unspecified'),
-           ('Utah', 'Utah'),
-           ('Vermont', 'Vermont'),
-           ('Virginia', 'Virginia'),
-           ('Washington', 'Washington'),
-           ('West Virginia', 'West Virginia'),
-           ('Wisconsin', 'Wisconsin'),
-           ('Wyoming', 'Wyoming'),
-           ('none', ''),
-           ]
+    value="StateNames",
+    names=[
+        ("All states and territories", "All states and territories"),
+        ("Alabama", "Alabama"),
+        ("Alaska", "Alaska"),
+        ("American Samoa", "American Samoa"),
+        ("Arizona", "Arizona"),
+        ("Arkansas", "Arkansas"),
+        ("California", "California"),
+        ("Colorado", "Colorado"),
+        ("Connecticut", "Connecticut"),
+        ("Delaware", "Delaware"),
+        ("District of Columbia", "District of Columbia"),
+        ("Florida", "Florida"),
+        ("Georgia", "Georgia"),
+        ("Guam", "Guam"),
+        ("Hawaii", "Hawaii"),
+        ("Idaho", "Idaho"),
+        ("Illinois", "Illinois"),
+        ("Indiana", "Indiana"),
+        ("Iowa", "Iowa"),
+        ("Kansas", "Kansas"),
+        ("Kentucky", "Kentucky"),
+        ("Louisiana", "Louisiana"),
+        ("Maine", "Maine"),
+        ("Maryland", "Maryland"),
+        ("Massachusetts", "Massachusetts"),
+        ("Michigan", "Michigan"),
+        ("Minnesota", "Minnesota"),
+        ("Mississippi", "Mississippi"),
+        ("Missouri", "Missouri"),
+        ("Montana", "Montana"),
+        ("Nebraska", "Nebraska"),
+        ("Nevada", "Nevada"),
+        ("New Hampshire", "New Hampshire"),
+        ("New Jersey", "New Jersey"),
+        ("New Mexico", "New Mexico"),
+        ("New York", "New York"),
+        ("North Carolina", "North Carolina"),
+        ("North Dakota", "North Dakota"),
+        ("Northern Mariana Islands", "Northern Mariana Islands"),
+        ("Ohio", "Ohio"),
+        ("Oklahoma", "Oklahoma"),
+        ("Oregon", "Oregon"),
+        ("Pennsylvania", "Pennsylvania"),
+        ("Puerto Rico", "Puerto Rico"),
+        ("Rhode Island", "Rhode Island"),
+        ("South Carolina", "South Carolina"),
+        ("South Dakota", "South Dakota"),
+        ("Tennessee", "Tennessee"),
+        ("Texas", "Texas"),
+        ("US Virgin Islands", "US Virgin Islands"),
+        ("Unspecified", "Unspecified"),
+        ("Utah", "Utah"),
+        ("Vermont", "Vermont"),
+        ("Virginia", "Virginia"),
+        ("Washington", "Washington"),
+        ("West Virginia", "West Virginia"),
+        ("Wisconsin", "Wisconsin"),
+        ("Wyoming", "Wyoming"),
+        ("none", ""),
+    ],
 )
