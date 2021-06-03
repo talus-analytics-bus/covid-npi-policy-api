@@ -6,7 +6,7 @@ from os import sys
 # local modules
 from api import schema
 from db import db
-from ingest.plugins import CovidPolicyPlugin
+from ingest.plugins import CovidPolicyPlugin, assign_policy_group_numbers
 
 # setup arguments
 parser = argparse.ArgumentParser(
@@ -62,6 +62,7 @@ parser.add_argument(
 )
 
 if __name__ == "__main__":
+
     # constants
     # command line arguments
     args = parser.parse_args()
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         schema.add_search_text()
 
     if args.group_numbers or ingest_policies:
-        plugin.assign_policy_group_numbers(db)
+        assign_policy_group_numbers(db)
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:

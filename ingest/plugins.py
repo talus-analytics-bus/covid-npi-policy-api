@@ -1,5 +1,6 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
+from api.models import Policy
 from pony.orm.core import Database
 from db.models import Place
 from typing import DefaultDict, Dict, List, Tuple
@@ -1040,40 +1041,6 @@ class CovidPolicyPlugin(IngestPlugin):
                         commit()
 
         return self
-
-    @db_session
-    def assign_policy_group_numbers(self, db):
-        # assign group numbers
-        policy_sections = select(i for i in db.Policy).order_by(
-            db.Policy.primary_ph_measure,
-            db.Policy.ph_measure_details,
-            db.Policy.relaxing_or_restricting,
-            db.Policy.policy_name,
-            db.Policy.date_start_effective,
-        )[:][:]
-
-        # sort
-        def key_func(x):
-            return (
-                f"""{x.primary_ph_measure} -- {x.ph_measure_details} --"""
-                f""" {x.relaxing_or_restricting} -- {x.policy_name} """
-                f"""-- {x.date_start_effective}"""
-            )
-
-        policy_sections.sort(key=key_func)
-
-        ps_iter = itertools.groupby(policy_sections, key=key_func)
-
-        group_number = 0
-        print(
-            "\nAssigning group numbers to policies with similar attributes..."
-        )
-        for key, records in ps_iter:
-            for r in list(records):
-                r.group_number = group_number
-            group_number += 1
-        commit()
-        print("Assigned.")
 
     @db_session
     def post_process_policy_numbers(self, db):
@@ -2855,3 +2822,41 @@ class CovidPolicyPlugin(IngestPlugin):
                 )
                 i = i + 1
             return entities
+
+
+@db_session
+def assign_policy_group_numbers(db):
+    # assign group numbers
+    # TODO include concept of place here
+    policy_sections = select(i for i in db.Policy).order_by(
+        db.Policy.primary_ph_measure,
+        db.Policy.ph_measure_details,
+        db.Policy.relaxing_or_restricting,
+        db.Policy.policy_name,
+        db.Policy.date_start_effective,
+    )[:][:]
+
+    # sort
+    def key_func(x: Policy):
+        place_loc_list: List[str] = [i.loc for i in x.place]
+        place_loc_list.sort()
+        place_loc_str: str = "_".join(place_loc_list)
+        return (
+            f"""{x.primary_ph_measure} -- {x.ph_measure_details} --"""
+            f""" {x.relaxing_or_restricting} -- {x.policy_name} """
+            f"""-- {x.date_start_effective} """
+            f"""-- {place_loc_str}"""
+        )
+
+    policy_sections.sort(key=key_func)
+
+    ps_iter = itertools.groupby(policy_sections, key=key_func)
+
+    group_number = 0
+    print("\nAssigning group numbers to policies with similar attributes...")
+    for key, records in ps_iter:
+        for r in list(records):
+            r.group_number = group_number
+        group_number += 1
+    commit()
+    print("Assigned.")
