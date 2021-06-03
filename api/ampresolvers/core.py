@@ -15,7 +15,7 @@ class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
-    @cached
+    # @cached
     @db_session
     def get_policy_status_counts(
         self,
@@ -107,8 +107,11 @@ class PolicyStatusCounter(QueryResolver):
         if filters is not None:
             q = api.schema.apply_entity_filters(q, db.Policy, filters)
             if include_zeros and "level" in filters:
+                zero_filters: dict = dict(level=filters["level"])
+                if loc_field in filters:
+                    zero_filters[loc_field] = filters[loc_field]
                 q_all_time = api.schema.apply_entity_filters(
-                    q_all_time, db.Policy, dict(level=filters["level"])
+                    q_all_time, db.Policy, zero_filters
                 )
 
         # get policy counts by location
@@ -231,7 +234,7 @@ class PolicyStatusCounter(QueryResolver):
             Query: The modified query.
         """
         q_group_numbers: Query = self.__get_policies_with_distinct_groups()
-        q = select(i for i in q for j, _ in q_group_numbers if i.id == j)
+        q = select(i for i in q for (j, _) in q_group_numbers if i.id == j)
         return q
 
     @cached
