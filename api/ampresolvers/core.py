@@ -15,7 +15,7 @@ class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
-    # @cached
+    @cached
     @db_session
     def get_policy_status_counts(
         self,
@@ -200,7 +200,7 @@ class PolicyStatusCounter(QueryResolver):
             k: str = None
             v: Any = None
             for k, v in filters.items():
-                if k != "dates_in_effect":
+                if k not in ("dates_in_effect", "iso3", "area1", "ansi_fips"):
                     filters_no_dates[k] = v
 
             # get min/max for all time
@@ -374,9 +374,6 @@ class PolicyStatusCounter(QueryResolver):
                 value=value,
             )
         else:
-            # raise ValueError(
-            #     "Expected query to have 1 result row, but found " + str(len(q))
-            # )
             return None
         return place_obs
 
