@@ -46,16 +46,23 @@ def upsert_nyt_county_covid_data(
         i for i in db_amp.Version if i.type == "COVID-19 county case data"
     )
     for_dates = set()
-    if data_version is not None:
-        most_recent_data_date: date = data_version.last_datum_date
 
-        # get strings of dates between most recent data date and present day
-        today: date = date.today()
-        iter_date: date = most_recent_data_date
+    most_recent_data_date: date = (
+        data_version.last_datum_date
+        if (
+            data_version is not None
+            and data_version.last_datum_date is not None
+        )
+        else date(2020, 1, 27)
+    )
 
-        while iter_date != today:
-            for_dates.add(str(iter_date))
-            iter_date += timedelta(days=1)
+    # get strings of dates between most recent data date and present day
+    today: date = date.today()
+    iter_date: date = most_recent_data_date
+
+    while iter_date != today:
+        for_dates.add(str(iter_date))
+        iter_date += timedelta(days=1)
 
     data = nyt_county_caseload_csv_to_dict(download_url, for_dates=for_dates)
     print("Done.")
@@ -219,11 +226,11 @@ def upsert_nyt_county_covid_data(
         for name_data in data:
             bar()
             # prepend zeros
-            name_db: str = ""
-            if len(name_data) == 4:
-                name_db = "0" + name_data
-            else:
-                name_db = name_data
+            name_db: str = name_data
+            # if len(name_data) == 4:
+            #     name_db = "0" + name_data
+            # else:
+            #     name_db = name_data
             place = all_places_dict.get(name_db, None)
             if place is None:
                 missing.add(name_db)

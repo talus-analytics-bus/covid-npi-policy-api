@@ -207,7 +207,7 @@ def nyt_county_caseload_csv_to_dict(
 
         file_dict[row_list[UNIQUE_ID_IDX]].append(row_list)
 
-    for county_name, data in file_dict.items():
+    for _county_name, data in file_dict.items():
         for day in data:
             # skip unless matches date if provided
             if for_dates is not None and day[0] not in for_dates:
