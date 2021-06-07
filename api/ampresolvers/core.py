@@ -367,7 +367,7 @@ class PolicyStatusCounter(QueryResolver):
         # return first records for min and max number of active policies
         all_res = q.order_by(lambda i, j, k: (k, i, j))[:][:]
         q_min: Query = get_first(all_res, as_list=True)
-        q_max: Query = [all_res[len(all_res) - 1]]
+        q_max: Query = [all_res[len(all_res) - 1]] if len(all_res) > 0 else []
         min_obs = self.__get_obs_from_q_result(q_min)
         max_obs = self.__get_obs_from_q_result(q_max)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
