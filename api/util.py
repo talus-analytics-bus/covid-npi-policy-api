@@ -3,6 +3,7 @@
 from datetime import datetime
 import functools
 import pathlib
+from typing import Any, List, Union
 import urllib3
 import certifi
 import os
@@ -123,3 +124,38 @@ def cached(func):
         # key = str(kwargs) + ':' + type
 
     return wrapper
+
+
+def get_first(
+    i: Union[set, list], default: Any = None, as_list: bool = False
+) -> Any:
+    """Given a set or list, return the first element of that list if it has
+    one, otherwise return the default.
+
+    Args:
+        i (Union[set, list]): The set or list
+        default (Any, optional): The default value to return if the set or list
+        has no elements. Defaults to None.
+        as_list (bool, optional): If True, returns a list with the value,
+        otherwise returns only the value. If value is None then an empty list
+        is returned.
+
+    Returns:
+        Union[Any, List[Any]]: The first value of the set or list, or the
+        default value if the set or list has no elements. If `as_list` is True,
+        a list with one element is returned, but if the element is None then
+        an empty list is returned.
+    """
+    v: Any = None
+    if len(i) > 0:
+        v = i[0]
+    else:
+        v = default
+
+    if not as_list:
+        return v
+    else:
+        if v is None:
+            return list()
+        else:
+            return [v]

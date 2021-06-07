@@ -29,8 +29,8 @@ date_counts as (
             select min("num_active_policies") as "num_active_policies"
             from date_counts
         )
-    order by 3,
-        1,
+    order by 3 desc,
+        1 desc,
         2
     limit 1
 )
@@ -42,8 +42,8 @@ UNION
             select max("num_active_policies") as "num_active_policies"
             from date_counts
         )
-    order by 3,
-        1,
+    order by 3 desc,
+        1 desc,
         2
     limit 1
 );

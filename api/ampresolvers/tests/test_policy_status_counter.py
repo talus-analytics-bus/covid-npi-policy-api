@@ -70,11 +70,11 @@ def compare_max(sql_fn: str, geo_res: str, by_group_number: bool) -> None:
         max: PlaceObs = res.max_all_time
         day_date, iso3, value = get_fields_from_placeobs(max)
         assert len(rows) == 2
-        assert rows[1] == (day_date, iso3, value)
+        assert rows[0] == (day_date, iso3, value)
 
 
-def get_fields_from_placeobs(max):
-    day_date: datetime.date = max.datestamp
-    iso3: str = max.place_name
-    value: int = max.value
+def get_fields_from_placeobs(obs):
+    day_date: datetime.date = obs.datestamp
+    iso3: str = obs.place_name
+    value: int = obs.value
     return day_date, iso3, value

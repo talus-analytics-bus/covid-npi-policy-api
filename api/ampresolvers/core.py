@@ -1,14 +1,22 @@
 from queryresolver.core import QueryResolver
 import api
 from api.models import PlaceObs, PlaceObsList
-from api.util import cached
+from api.util import cached, get_first
 from db import db
-from db.models import DayDate, Place, Policy, Policy_Date
+from db.models import (
+    DayDate,
+    Place,
+    Policy,
+    Policy_By_Group_Number,
+    Policy_Date,
+)
 from typing import Any, Tuple
 from datetime import date
-from pony.orm.core import Query, count, db_session, select
+from pony.orm.core import JOIN, Query, count, db_session, select
 from pony.orm.ormtypes import raw_sql
 from pony.orm.core import min as pony_min
+
+# set_sql_debug(debug=True, show_values=True)
 
 
 class PolicyStatusCounter(QueryResolver):
@@ -233,8 +241,12 @@ class PolicyStatusCounter(QueryResolver):
         Returns:
             Query: The modified query.
         """
-        q_group_numbers: Query = self.__get_policies_with_distinct_groups()
-        q = select(i for i in q for (j, _) in q_group_numbers if i.id == j)
+        q = select(
+            i
+            for i in q
+            for pbgn in Policy_By_Group_Number
+            if JOIN(i == pbgn.fk_policy_id)
+        )
         return q
 
     @cached
@@ -277,6 +289,16 @@ class PolicyStatusCounter(QueryResolver):
             observations, respectively.
         """
         q_filtered_policies: Query = select(i for i in Policy)
+        # q_filtered_policies: Query = None
+        # if by_group_number:
+        #     q_filtered_policies = select(
+        #         i
+        #         for i in Policy
+        #         for pbgn in Policy_By_Group_Number
+        #         if i.id == pbgn.fk_policy_id
+        #     )
+        # else:
+        #     q_filtered_policies = select(i for i in Policy)
 
         # if counting policies beneath the geographic level defined by `level`,
         # add them to the filters
@@ -292,35 +314,60 @@ class PolicyStatusCounter(QueryResolver):
             )
 
         # if requested, only count the first policy with each group number
-        if by_group_number:
-            q_filtered_policies = self.__get_distinct_groups_in_policy_q(
-                q_filtered_policies
-            )
+        # if by_group_number:
+        #     q_filtered_policies = self.__get_distinct_groups_in_policy_q(
+        #         q_filtered_policies
+        #     )
 
         # get number of active filtered policies by date and location active
-        q: Query = select(
-            (
-                dd.day_date,
-                getattr(pl, loc_field),
-                count(pd),
+        q: Query = None
+        if by_group_number:
+            q = select(
+                (
+                    dd.day_date,
+                    getattr(pl, loc_field),
+                    count(pd),
+                )
+                for pd in Policy_Date
+                for dd in DayDate
+                for pl in Place
+                for p in q_filtered_policies
+                for pbgn in Policy_By_Group_Number
+                if date(2019, 1, 1) <= dd.day_date
+                and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
+                and pd.start_date <= dd.day_date
+                and pd.end_date >= dd.day_date
+                and JOIN(pd.fk_policy_id == p.id)
+                and JOIN(pl in p.place)
+                and (pl.level == level or filter_by_subgeo)
+                and (pl.iso3 == "USA" or level == "Country")
+                and JOIN(pbgn.fk_policy_id == p)
             )
-            for pd in Policy_Date
-            for dd in DayDate
-            for pl in Place
-            for p in q_filtered_policies
-            for p_pl in p.place
-            if date(2019, 1, 1) <= dd.day_date
-            and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
-            and pd.start_date <= dd.day_date
-            and pd.end_date >= dd.day_date
-            and pd.fk_policy_id == p.id
-            and pl == p_pl
-            and (pl.level == level or filter_by_subgeo)
-        )
+        else:
+            q = select(
+                (
+                    dd.day_date,
+                    getattr(pl, loc_field),
+                    count(pd),
+                )
+                for pd in Policy_Date
+                for dd in DayDate
+                for pl in Place
+                for p in q_filtered_policies
+                if date(2019, 1, 1) <= dd.day_date
+                and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
+                and pd.start_date <= dd.day_date
+                and pd.end_date >= dd.day_date
+                and JOIN(pd.fk_policy_id == p.id)
+                and JOIN(pl in p.place)
+                and (pl.level == level or filter_by_subgeo)
+                and (pl.iso3 == "USA" or level == "Country")
+            )
 
         # return first records for min and max number of active policies
-        q_min: Query = q.order_by(lambda i, j, k: (k, i, j)).limit(1)
-        q_max: Query = q.order_by(lambda i, j, k: (-k, i, j)).limit(1)
+        all_res = q.order_by(lambda i, j, k: (k, i, j))[:][:]
+        q_min: Query = get_first(all_res, as_list=True)
+        q_max: Query = [all_res[len(all_res) - 1]]
         min_obs = self.__get_obs_from_q_result(q_min)
         max_obs = self.__get_obs_from_q_result(q_max)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
@@ -338,7 +385,7 @@ class PolicyStatusCounter(QueryResolver):
         """
         return select(
             (pony_min(i.id), i.group_number) for i in Policy
-        ).order_by(lambda id, group_number: (id, group_number))
+        ).order_by(lambda id, group_number: (group_number, id))
 
     def __get_obs_from_q_result(self, q: Query) -> PlaceObs:
         """Returns a place observation corresponding to the result of the query
