@@ -73,11 +73,14 @@ class PolicyStatusCounter(QueryResolver):
         """
 
         # validate arguments and raise exceptions if errors
+        # TODO errors for illogical count_parent_geo vals
+        # TODO error if filter_by_subgeo AND count_parent_geo
         self._QueryResolver__validate_args(
             geo_res=geo_res, filter_by_subgeo=filter_by_subgeo
         )
 
         # get correct location field and level value for filtering
+        # TODO add support for multiple levels
         loc_field: str = api.helpers.get_loc_field_from_geo_res(geo_res)
         level: str = api.helpers.get_level_from_geo_res(geo_res)
 
@@ -89,13 +92,15 @@ class PolicyStatusCounter(QueryResolver):
         # GET POLICIES FROM DATABASE # -------------------------------------- #
         # filter by level = [geo], unless counting sub-[geo] only; if so, then
         # filter by level != [geo or higher]
+        # TODO add support for multiple levels
         if not filter_by_subgeo:
             filters["level"] = [level]
 
         # define query to get policies from database
         q: Query = select(i for i in db.Policy)
 
-        # if zeros requested, get all locations with any data (before filters)
+        # if zeros requested, initialize query to get all locations with any
+        # data (before filters)
         q_all_time = select(i for i in db.Policy) if include_zeros else None
 
         # if counting only sub-[geo] policies, filter policies by
@@ -128,6 +133,7 @@ class PolicyStatusCounter(QueryResolver):
         # GET POLICY COUNTS BY LOCATION # ----------------------------------- #
         # if requested, only count the first policy with each group number,
         # otherwise count each policy
+        # TODO put `counter` under if-else, move up code that uses it to here
         q_policies_by_loc: Query = None
         counter: PolicyStatusCounter = (
             self if (by_group_number or include_min_max) else None
@@ -192,6 +198,7 @@ class PolicyStatusCounter(QueryResolver):
                     raise ValueError("Unknown geo_res: " + geo_res)
 
         # order by value
+        # TODO change to desc=True instead of negative value
         data.sort(key=lambda x: -x.value)
 
         # if one record requested, only return one record
@@ -202,6 +209,8 @@ class PolicyStatusCounter(QueryResolver):
         res_counted: str = (
             geo_res if not filter_by_subgeo else "sub-" + geo_res
         )
+
+        # TODO mention parent geos if count_parent_geo enabled
         res = api.models.PlaceObsList(
             data=data,
             success=True,
@@ -228,7 +237,7 @@ class PolicyStatusCounter(QueryResolver):
             ] = counter.__get_max_min_counts(
                 geo_res=geo_res,
                 filters_no_dates=filters_no_dates,
-                level=level,
+                level=level,  # TODO add support for multiple levels
                 loc_field=loc_field,
                 by_group_number=by_group_number,
                 filter_by_subgeo=filter_by_subgeo,
@@ -265,7 +274,7 @@ class PolicyStatusCounter(QueryResolver):
         self,
         geo_res: str,
         filters_no_dates: dict,
-        level: str,
+        level: str,  # TODO add support for multiple levels
         loc_field: str,
         by_group_number: bool = False,
         filter_by_subgeo: bool = False,
@@ -300,16 +309,6 @@ class PolicyStatusCounter(QueryResolver):
             observations, respectively.
         """
         q_filtered_policies: Query = select(i for i in Policy)
-        # q_filtered_policies: Query = None
-        # if by_group_number:
-        #     q_filtered_policies = select(
-        #         i
-        #         for i in Policy
-        #         for pbgn in Policy_By_Group_Number
-        #         if i.id == pbgn.fk_policy_id
-        #     )
-        # else:
-        #     q_filtered_policies = select(i for i in Policy)
 
         # if counting policies beneath the geographic level defined by `level`,
         # add them to the filters
@@ -323,12 +322,6 @@ class PolicyStatusCounter(QueryResolver):
             q_filtered_policies = api.schema.apply_entity_filters(
                 q_filtered_policies, Policy, filters_no_dates
             )
-
-        # if requested, only count the first policy with each group number
-        # if by_group_number:
-        #     q_filtered_policies = self.__get_distinct_groups_in_policy_q(
-        #         q_filtered_policies
-        #     )
 
         # get number of active filtered policies by date and location active
         q: Query = None
@@ -439,7 +432,8 @@ class PolicyStatusCounter(QueryResolver):
         self, geo_res: str, filter_by_subgeo: bool
     ):
         """Validate input arguments."""
-
+        # TODO errors for illogical count_parent_geo vals
+        # TODO error if filter_by_subgeo AND count_parent_geo
         if geo_res == "county" and filter_by_subgeo is True:
             raise NotImplementedError(
                 "Cannot count sub-geography policies for counties."
