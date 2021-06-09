@@ -1,3 +1,4 @@
+# TODO consider refactoring some methods into a helpers.py
 from api.types import GeoRes
 from queryresolver.core import QueryResolver
 import api
@@ -521,6 +522,8 @@ class PolicyStatusCounter(QueryResolver):
         area1_idx: int,
         iso3_idx: int,
     ) -> List[Tuple[str, int, str, str, str]]:
+        # TODO simplify and streamline
+        # TODO add comments
         parent_rows: List[Tuple[str, int, str, str, str]] = list()
         parent_geo: GeoRes = None
         for parent_geo in counted_parent_geos:
