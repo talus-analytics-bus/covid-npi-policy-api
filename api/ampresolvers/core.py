@@ -324,6 +324,7 @@ class PolicyStatusCounter(QueryResolver):
             )
 
         # get number of active filtered policies by date and location active
+        # TODO reuse code better below
         q: Query = None
         if by_group_number:
             q = select(
