@@ -16,8 +16,6 @@ from pony.orm.core import JOIN, Query, count, db_session, select
 from pony.orm.ormtypes import raw_sql
 from pony.orm.core import min as pony_min
 
-# set_sql_debug(debug=True, show_values=True)
-
 
 class PolicyStatusCounter(QueryResolver):
     def __init__(self):
@@ -74,33 +72,34 @@ class PolicyStatusCounter(QueryResolver):
             PlaceObsList: A list of policy status counts by location.
         """
 
+        # validate arguments and raise exceptions if errors
         self._QueryResolver__validate_args(
             geo_res=geo_res, filter_by_subgeo=filter_by_subgeo
         )
 
-        # get correct location field and level for filtering
+        # get correct location field and level value for filtering
         loc_field: str = api.helpers.get_loc_field_from_geo_res(geo_res)
-        level = api.helpers.get_level_from_geo_res(geo_res)
+        level: str = api.helpers.get_level_from_geo_res(geo_res)
 
-        # for state/county level: filter by USA only
+        # if geo res is state or county, filter by USA only
         for_usa_only: bool = geo_res in ("state", "county")
         if for_usa_only:
             filters["iso3"] = ["USA"]
 
-        # get ordered policies from database
-        # if not counting sub-[geo] only, then filter by level = [sub_geo]
-        # otherwise, below filter by level != [geo or higher]
+        # GET POLICIES FROM DATABASE # -------------------------------------- #
+        # filter by level = [geo], unless counting sub-[geo] only; if so, then
+        # filter by level != [geo or higher]
         if not filter_by_subgeo:
             filters["level"] = [level]
 
-        # get policies
+        # define query to get policies from database
         q: Query = select(i for i in db.Policy)
 
-        # get all locations with any data (before filters) for counting zeros,
-        # if zeros requested
+        # if zeros requested, get all locations with any data (before filters)
         q_all_time = select(i for i in db.Policy) if include_zeros else None
 
-        # filter policies by correct levels if counting only sub-[geo] policies
+        # if counting only sub-[geo] policies, filter policies by
+        # correct levels
         if filter_by_subgeo:
             q = api.schema.apply_subgeo_filter(q, geo_res)
             if include_zeros:
@@ -111,9 +110,13 @@ class PolicyStatusCounter(QueryResolver):
         # initialize output data
         data: list = None
 
-        # apply filters if any
+        # apply filters, if any
         if filters is not None:
+
+            # apply filters to standard policy data query
             q = api.schema.apply_entity_filters(q, db.Policy, filters)
+
+            # if counting zeros, apply filters to query that counts zeros
             if include_zeros and "level" in filters:
                 zero_filters: dict = dict(level=filters["level"])
                 if loc_field in filters:
@@ -122,39 +125,48 @@ class PolicyStatusCounter(QueryResolver):
                     q_all_time, db.Policy, zero_filters
                 )
 
-        # get policy counts by location
-        # if requested, only count the first policy with each group number
-        q_loc: Query = None
+        # GET POLICY COUNTS BY LOCATION # ----------------------------------- #
+        # if requested, only count the first policy with each group number,
+        # otherwise count each policy
+        q_policies_by_loc: Query = None
         counter: PolicyStatusCounter = (
             self if (by_group_number or include_min_max) else None
         )
         if not by_group_number:
-            q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
+            q_policies_by_loc = select(
+                (getattr(i.place, loc_field), count(i)) for i in q
+            )
         else:
-            q_distinct_groups: Query = (
+            q_distinct_group_nums: Query = (
                 counter.__get_distinct_groups_in_policy_q(q)
             )
-            q_loc = select(
+            q_policies_by_loc = select(
                 (getattr(i.place, loc_field), count(i))
-                for i in q_distinct_groups
+                for i in q_distinct_group_nums
             )
 
+        # initialize core response data
         data_tmp = dict()
         place_name: str = None
         value: int = None
-        for place_name, value in q_loc:
+        for place_name, value in q_policies_by_loc:
             if place_name not in data_tmp:
                 data_tmp[place_name] = PlaceObs(
                     place_name=place_name, value=value
                 )
         data = list(data_tmp.values())
 
-        # add "zeros" to the data if requested
+        # add "zeros" to the data, if requested
         if include_zeros:
+
+            # get result of query showing which places had policies ever
             q_all_time = select(
                 (i.place.iso3, i.place.area1, i.place.ansi_fips, i.place.level)
                 for i in q_all_time
             )[:][:]
+
+            # add a "zero" observation for each of these places if the place is
+            # not already present in the response data
             iso3: str = None
             area1: str = None
             ansi_fips: str = None
@@ -182,7 +194,7 @@ class PolicyStatusCounter(QueryResolver):
         # order by value
         data.sort(key=lambda x: -x.value)
 
-        # if one requested, only return one
+        # if one record requested, only return one record
         if one and len(data) > 0:
             data = [data[0]]
 
@@ -198,8 +210,7 @@ class PolicyStatusCounter(QueryResolver):
             f"""policies, grouped by {geo_res}""",
         )
 
-        # add extra requested data to response # ---------------------------- #
-
+        # ADD EXTRA REQUESTED DATA TO RESPONSE # ---------------------------- #
         # get min and max values of policies matching the filters for any date,
         # not just the defined date (if defined)
         if include_min_max:
