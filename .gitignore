@@ -6,6 +6,7 @@ db/config-local.ini
 
 # temp files
 tmp/
+tmp_*.py
 
 # mypy config
 mypy.ini
