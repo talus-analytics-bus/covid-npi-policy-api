@@ -1,6 +1,7 @@
 """Define API endpoints"""
 # standard modules
-from api.ampresolvers.core import PolicyStatusCounter
+from api.types import GeoRes
+from api.ampresolvers import PolicyStatusCounter
 from datetime import date
 from enum import Enum
 
@@ -482,13 +483,6 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
-# define allowed geo_res values
-class GeoRes(str, Enum):
-    country = "country"
-    state = "state"
-    county = "county"
-
-
 @app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
@@ -542,6 +536,12 @@ async def post_policy_status_counts(
         " `geo_res` (geographic resolution). If false, only counts policies"
         " *at* it.",
     ),
+    counted_parent_geos: List[GeoRes] = Query(
+        list(),
+        description="If defined, adds counts for the defined parent "
+        "geographies to the count of the geography defined in `geo_res`. "
+        "Otherwise, only counts for `geo_res` are returned.",
+    ),
     merge_like_policies: bool = Query(
         True,
         description="If true, more accurately weights policy counts by"
@@ -562,6 +562,7 @@ async def post_policy_status_counts(
         include_zeros=include_zeros,
         include_min_max=include_min_max,
         one=one,
+        counted_parent_geos=counted_parent_geos,
     )
     return res
 
