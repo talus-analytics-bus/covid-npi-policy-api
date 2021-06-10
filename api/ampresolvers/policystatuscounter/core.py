@@ -168,7 +168,7 @@ class PolicyStatusCounter(QueryResolver):
             place_area1,
             place_iso3,
         ) in q_policies_by_loc:
-            if place_level in (None, "Unspecified"):
+            if place_loc_val in (None, "Unspecified"):
                 continue
             if place_loc_val not in data_tmp:
                 composite_value: int = native_value
@@ -206,8 +206,8 @@ class PolicyStatusCounter(QueryResolver):
             iso3: str = None
             place_area1: str = None
             ansi_fips: str = None
-            levels: str = None
-            for iso3, place_area1, ansi_fips, levels in q_all_time:
+            _level: str = None
+            for iso3, place_area1, ansi_fips, _level in q_all_time:
                 if geo_res == GeoRes.country:
                     if iso3 not in data_tmp:
                         zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
