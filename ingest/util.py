@@ -242,6 +242,21 @@ def get_fips_no_zeros(raw_fips: str) -> str:
         return str(int(raw_fips))
 
 
+def get_fips_with_zeros(raw_fips: str) -> str:
+    """Returns value of raw FIPS code with zero prepended if it is not already
+
+    Args:
+        raw_fips (str): Raw county FIPS code, possibly missing leading zero
+
+    Returns:
+        str: County FIPS code with leading zero if applicable
+    """
+    if len(raw_fips) == 4:
+        return "0" + raw_fips
+    else:
+        return raw_fips
+
+
 def nyt_caseload_csv_to_dict(download_url: str):
 
     output = defaultdict(list)
