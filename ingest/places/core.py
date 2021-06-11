@@ -87,6 +87,7 @@ def add_local_plus_state_places():
 
     # for each county, get its state
     county_place: AmpPlace = None
+    n_added: int = 0
     with alive_bar(
         len(counties), title="Adding local plus state/province places"
     ) as bar:
@@ -100,7 +101,8 @@ def add_local_plus_state_places():
             )
             # upsert place that is level "Local plus state / province"
             county_plus_state_place: AmpPlace = None
-            _action, county_plus_state_place = upsert(
+            action: str = None
+            action, county_plus_state_place = upsert(
                 AmpPlace,
                 {
                     "level": "Local plus state/province",
@@ -114,9 +116,13 @@ def add_local_plus_state_places():
                 },
             )
 
+            if action == "insert":
+                n_added = n_added + 1
+
             # link all policies
             county_plus_state_place.policies = (
                 county_place.policies + state_place.policies
             )
 
         commit()
+    print(f"""Added {n_added} missing local + state places to AMP database""")
