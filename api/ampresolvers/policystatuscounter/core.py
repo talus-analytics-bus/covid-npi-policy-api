@@ -341,7 +341,7 @@ class PolicyStatusCounter(QueryResolver):
         )
         return q[:][:]
 
-    # @cached
+    @cached
     def __get_max_min_counts(
         self,
         geo_res: GeoRes,
@@ -427,7 +427,7 @@ class PolicyStatusCounter(QueryResolver):
                     cat_and_subcat_filters_sql += " and "
                     vals_str: str = ", ".join(["'" + x + "'" for x in vals])
                     cat_and_subcat_filters_sql += (
-                        f"""p.{field} in ({vals_str})"""
+                        f"""pol.{field} in ({vals_str})"""
                     )
         if cat_and_subcat_filters_sql != "":
             return cat_and_subcat_filters_sql
