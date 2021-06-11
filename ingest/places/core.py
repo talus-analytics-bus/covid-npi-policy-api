@@ -116,10 +116,11 @@ def add_local_plus_state_places():
                 },
             )
 
+            # increment count if newly added place
             if action == "insert":
                 n_added = n_added + 1
 
-            # link all policies
+            # link all county + state policies to place
             county_plus_state_place.policies = (
                 county_place.policies + state_place.policies
             )
