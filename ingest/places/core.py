@@ -38,6 +38,7 @@ def add_missing_usa_local_areas():
 
     # For each county place from metrics database
     metric_county: MetricPlace = None
+    n_added: int = 0
     with alive_bar(
         len(metric_counties), title="Adding missing counties to AMP database"
     ) as bar:
@@ -60,8 +61,10 @@ def add_missing_usa_local_areas():
                     ansi_fips=metric_county.fips,
                 )
                 new_amp_place.loc = get_place_loc(new_amp_place)
+                n_added = n_added + 1
                 commit()
                 print("Added AMP place for " + new_amp_place.loc)
+    print(f"""Added {n_added} county records to AMP database""")
 
 
 @db_session
