@@ -15,7 +15,7 @@ from db.models import (
     Policy_Date,
     Policy_Day_Dates,
 )
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Set
 from datetime import date
 from pony.orm.core import (
     JOIN,
@@ -27,7 +27,6 @@ from pony.orm.core import (
     desc,
 )
 from pony.orm.ormtypes import raw_sql
-from pony.orm.core import min as pony_min
 
 
 class PolicyStatusCounter(QueryResolver):
@@ -360,11 +359,15 @@ class PolicyStatusCounter(QueryResolver):
         ) as file:
             sql: str = file.read()
             with db.get_connection().cursor() as curs:
+                place_filters_sql: str = self.__get_place_filters_sql(levels)
+                policy_filters_sql: str = (
+                    self.__get_cat_and_subcat_filters_sql(filters_no_dates)
+                )
                 curs.execute(
                     sql
                     % {
-                        "place_filters_sql": f"""pl.level = '{levels[0]}' """
-                        """and pl.iso3 = 'USA'""",
+                        "place_filters_sql": place_filters_sql,
+                        "policy_filters_sql": policy_filters_sql,
                     }
                 )
                 res = curs.fetchone()
@@ -375,6 +378,61 @@ class PolicyStatusCounter(QueryResolver):
             max_obs,
         )
         return max_min_counts
+
+    def __get_place_filters_sql(self, levels: List[str]) -> str:
+        """Given the levels for which max policy status counts are needed,
+        return the correct filtering code.
+
+        Args:
+            levels (List[str]): The levels for which max policy status counts
+            are needed.
+
+        Raises:
+            NotImplementedError: Only one level can be requested.
+
+        Returns:
+            str: The correct filtering SQL statement(s).
+        """
+
+        # Apply level filters
+        if len(levels) > 1:
+            raise NotImplementedError(
+                "Expected only one level but found: " + levels
+            )
+        level: str = levels[0]
+        place_filters_sql: str = f"""pl.level = '{level}' """
+
+        if level != "Country":
+            place_filters_sql = place_filters_sql + "and pl.iso3 = 'USA'"
+
+        return place_filters_sql
+
+    def __get_cat_and_subcat_filters_sql(self, filters: dict) -> str:
+        """Given the filters dictionary, return SQL "where" clause capturing
+        category and subcategory filters, or true if no such filters
+
+        Args:
+            filters (dict): The filters
+
+        Returns:
+            str: The where clause
+        """
+        cat_and_subcat_filters_sql = ""
+        fields: Set[str] = {"primary_ph_measure", "ph_measure_details"}
+        field: str = None
+        for field in fields:
+            if field in filters:
+                vals: List[str] = filters[field]
+                if len(vals) > 0:
+                    cat_and_subcat_filters_sql += " and "
+                    vals_str: str = ", ".join(["'" + x + "'" for x in vals])
+                    cat_and_subcat_filters_sql += (
+                        f"""p.{field} in ({vals_str})"""
+                    )
+        if cat_and_subcat_filters_sql != "":
+            return cat_and_subcat_filters_sql
+        else:
+            return "and true"
 
     @cached
     def __get_max_min_counts_orig(
@@ -512,17 +570,6 @@ class PolicyStatusCounter(QueryResolver):
         )
         return max_min_counts
 
-    def __get_policies_with_distinct_groups(self) -> Query:
-        """Returns a query selectinig the `id` of the first Policy record with
-        each group number, as defined in the field `Policy.group_number`.
-
-        Returns:
-            Query: The query.
-        """
-        return select(
-            (pony_min(i.id), i.group_number) for i in Policy
-        ).order_by(lambda id, group_number: (group_number, id))
-
     def __get_obs_from_q_result(self, res: tuple, loc_field: str) -> PlaceObs:
         """Returns a place observation corresponding to the result of the query
         that selects a single record with the data fields required by a place
@@ -573,52 +620,3 @@ class PolicyStatusCounter(QueryResolver):
             raise NotImplementedError(
                 "Cannot count sub-geography policies for counties."
             )
-
-    def __get_parent_geo_rows(
-        self,
-        raw_data: List[Tuple[str, int, str, str, str]],
-        cur_area1: str,
-        cur_iso3: str,
-        geo_res: GeoRes,
-        counted_parent_geos: List[GeoRes],
-        level_idx: int,
-        area1_idx: int,
-        iso3_idx: int,
-    ) -> List[Tuple[str, int, str, str, str]]:
-        # TODO simplify and s   treamline
-        # TODO add comments
-        parent_rows: List[Tuple[str, int, str, str, str]] = list()
-        parent_geo: GeoRes = None
-        for parent_geo in counted_parent_geos:
-            if geo_res == GeoRes.county:
-                if parent_geo == GeoRes.state:
-                    parent_rows = parent_rows + [
-                        x
-                        for x in raw_data
-                        if x[level_idx] == "State / Province"
-                        and x[area1_idx] == cur_area1
-                    ]
-                elif parent_geo == GeoRes.country:
-                    parent_rows = parent_rows + [
-                        x
-                        for x in raw_data
-                        if x[level_idx] == "Country"
-                        and x[iso3_idx] == cur_iso3
-                    ]
-                else:
-                    raise ValueError(
-                        "Unexpected geographic resolution: " + parent_geo
-                    )
-            elif geo_res == GeoRes.state:
-                if parent_geo == GeoRes.country:
-                    parent_rows = parent_rows + [
-                        x
-                        for x in raw_data
-                        if x[level_idx] == "Country"
-                        and x[iso3_idx] == cur_iso3
-                    ]
-            else:
-                raise ValueError(
-                    "Unexpected geographic resolution: " + parent_geo
-                )
-        return parent_rows
