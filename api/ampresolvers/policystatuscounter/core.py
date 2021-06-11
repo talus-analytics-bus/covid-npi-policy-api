@@ -160,7 +160,7 @@ class PolicyStatusCounter(QueryResolver):
         # initialize core response data
         data_tmp = dict()
         place_loc_val: str = None
-        _place_level: str = None
+        place_level: str = None
         place_area1: str = None
         _place_iso3: str = None
         value: int = None
@@ -168,10 +168,12 @@ class PolicyStatusCounter(QueryResolver):
         for (
             place_loc_val,
             value,
-            _place_level,
+            place_level,
             place_area1,
             _place_iso3,
         ) in q_policies_by_loc:
+            if place_level not in filters["level"]:
+                continue
             if place_loc_val in (None, "Unspecified"):
                 continue
             if place_loc_val not in data_tmp:
@@ -229,7 +231,16 @@ class PolicyStatusCounter(QueryResolver):
 
         # if one record requested, only return one record
         if one and len(data) > 0:
-            data = [data[0]]
+            if loc_field in filters:
+                match: PlaceObs = [
+                    x for x in data if x.place_name == filters[loc_field][0]
+                ]
+                if len(match) > 0:
+                    data = [match[0]]
+                else:
+                    data = [data[0]]
+            else:
+                data = [data[0]]
 
         # prepare basic response
         res_counted: str = (
@@ -317,7 +328,7 @@ class PolicyStatusCounter(QueryResolver):
         )
         return q
 
-    @cached
+    # @cached
     def __get_zero_count_data(
         self, filters: dict, loc_field: str, for_usa_only: bool
     ):
