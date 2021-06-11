@@ -38,26 +38,30 @@ def add_missing_usa_local_areas():
 
     # For each county place from metrics database
     metric_county: MetricPlace = None
-    for metric_county in metric_counties:
-        # If it is not in the AMP database, add it
-        missing: bool = not any(
-            x
-            for x in amp_counties
-            if int(x.ansi_fips) == int(metric_county.fips)
-        )
-        if missing:
-            metric_state_name: str = metric_county.description
-            new_amp_place: AmpPlace = AmpPlace(
-                level="Local",
-                iso3="USA",
-                country_name="United States of America (USA)",
-                area1=metric_state_name,
-                area2=metric_county.name + ", " + metric_state_name,
-                ansi_fips=metric_county.fips,
+    with alive_bar(
+        len(metric_counties), title="Adding missing counties to AMP database"
+    ) as bar:
+        for metric_county in metric_counties:
+            # If it is not in the AMP database, add it
+            bar()
+            missing: bool = not any(
+                x
+                for x in amp_counties
+                if int(x.ansi_fips) == int(metric_county.fips)
             )
-            new_amp_place.loc = get_place_loc(new_amp_place)
-            commit()
-            print("Added AMP place for " + new_amp_place.loc)
+            if missing:
+                metric_state_name: str = metric_county.description
+                new_amp_place: AmpPlace = AmpPlace(
+                    level="Local",
+                    iso3="USA",
+                    country_name="United States of America (USA)",
+                    area1=metric_state_name,
+                    area2=metric_county.name + ", " + metric_state_name,
+                    ansi_fips=metric_county.fips,
+                )
+                new_amp_place.loc = get_place_loc(new_amp_place)
+                commit()
+                print("Added AMP place for " + new_amp_place.loc)
 
 
 @db_session
