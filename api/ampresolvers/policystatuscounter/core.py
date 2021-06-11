@@ -1,4 +1,4 @@
-# TODO consider refactoring some methods into a helpers.py
+from ingest.util import get_fips_with_zeros
 from api.types import GeoRes
 from queryresolver.core import QueryResolver
 import api
@@ -14,7 +14,7 @@ from db.models import (
 )
 from typing import Any, List, Tuple
 from datetime import date
-from pony.orm.core import JOIN, Query, count, db_session, select
+from pony.orm.core import JOIN, Query, count, db_session, left_join, select
 from pony.orm.ormtypes import raw_sql
 from pony.orm.core import min as pony_min
 
@@ -24,11 +24,11 @@ class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
-    @cached
+    # @cached
     @db_session
     def get_policy_status_counts(
         self,
-        geo_res: str,
+        geo_res: GeoRes,
         filters: dict = dict(),
         by_group_number: bool = True,
         filter_by_subgeo: bool = False,
@@ -80,15 +80,18 @@ class PolicyStatusCounter(QueryResolver):
         self._QueryResolver__validate_args(
             geo_res=geo_res,
             filter_by_subgeo=filter_by_subgeo,
-            counted_parent_geos=counted_parent_geos,
         )
 
         # get correct location field and level value for filtering
-        loc_field: str = api.helpers.get_loc_field_from_geo_res(geo_res)
-        levels: List[str] = self.__get_all_levels(geo_res, counted_parent_geos)
+        loc_field: str = geo_res.get_loc_field()
+        levels: List[str] = [geo_res.get_level()]
 
         # if geo res is state or county, filter by USA only
-        for_usa_only: bool = geo_res in ("state", "county")
+        for_usa_only: bool = geo_res in (
+            GeoRes.state,
+            GeoRes.county,
+            GeoRes.county_plus_state,
+        )
         if for_usa_only:
             filters["iso3"] = ["USA"]
 
@@ -121,13 +124,19 @@ class PolicyStatusCounter(QueryResolver):
         if filters is not None:
 
             # apply filters to standard policy data query
-            q = api.schema.apply_entity_filters(q, db.Policy, filters)
+            q = api.schema.apply_entity_filters(
+                q,
+                db.Policy,
+                filters,
+            )
 
             # if counting zeros, apply filters to query that counts zeros
             if include_zeros and "level" in filters:
                 zero_filters: dict = dict(level=filters["level"])
                 if loc_field in filters:
                     zero_filters[loc_field] = filters[loc_field]
+                if for_usa_only:
+                    zero_filters["iso3"] = "USA"
                 q_all_time = api.schema.apply_entity_filters(
                     q_all_time, db.Policy, zero_filters
                 )
@@ -142,7 +151,7 @@ class PolicyStatusCounter(QueryResolver):
         else:
             subquery = self.__get_distinct_groups_in_policy_q(q)
 
-        q_policies_by_loc = select(
+        q_policies_by_loc = left_join(
             (
                 getattr(i.place, loc_field),
                 count(i),
@@ -153,42 +162,37 @@ class PolicyStatusCounter(QueryResolver):
             for i in subquery
         )
 
+        policies_by_loc: List[tuple] = q_policies_by_loc[:][:]
+
+        # all_unspec: bool = all(
+        #     x[0] in (None, "Unspecified") for x in policies_by_loc
+        # )
+
         # initialize core response data
         data_tmp = dict()
         place_loc_val: str = None
-        place_level: str = None
+        _place_level: str = None
         place_area1: str = None
-        place_iso3: str = None
-        native_value: int = None
+        _place_iso3: str = None
+        value: int = None
         value_idx: int = 1
         for (
             place_loc_val,
-            native_value,
-            place_level,
+            value,
+            _place_level,
             place_area1,
-            place_iso3,
+            _place_iso3,
         ) in q_policies_by_loc:
             if place_loc_val in (None, "Unspecified"):
                 continue
             if place_loc_val not in data_tmp:
-                composite_value: int = native_value
-                # if counting parent geos, add their values, if any
-                if len(counted_parent_geos) > 0:
-                    parent_rows: list = self.__get_parent_geo_rows(
-                        q_policies_by_loc,
-                        place_area1,
-                        place_iso3,
-                        geo_res,
-                        counted_parent_geos,
-                        level_idx=2,
-                        area1_idx=3,
-                        iso3_idx=4,
-                    )
-                    composite_value = composite_value + sum(
-                        x[value_idx] for x in parent_rows
-                    )
-                data_tmp[place_loc_val] = PlaceObs(
-                    place_name=place_loc_val, value=composite_value
+                place_loc_val_final: str = (
+                    "0" + place_loc_val
+                    if len(place_loc_val) == 4 and loc_field == "ansi_fips"
+                    else place_loc_val
+                )
+                data_tmp[place_loc_val_final] = PlaceObs(
+                    place_name=place_loc_val_final, value=value
                 )
         data = list(data_tmp.values())
 
@@ -196,8 +200,13 @@ class PolicyStatusCounter(QueryResolver):
         if include_zeros:
 
             # get result of query showing which places had policies ever
-            q_all_time = select(
-                (i.place.iso3, i.place.area1, i.place.ansi_fips, i.place.level)
+            q_all_time = left_join(
+                (
+                    i.place.iso3,
+                    i.place.area1,
+                    i.place.ansi_fips,
+                    i.place.level,
+                )
                 for i in q_all_time
             )[:][:]
 
@@ -218,14 +227,53 @@ class PolicyStatusCounter(QueryResolver):
                             place_name=place_area1, value=0
                         )
                         data.append(zero_obs)
-                elif geo_res == GeoRes.county:
+                elif geo_res in (GeoRes.county, GeoRes.county_plus_state):
+                    if ansi_fips is None:
+                        continue
                     if iso3 == "USA" and ansi_fips not in data_tmp:
+                        ansi_fips_final: str = (
+                            "0" + ansi_fips
+                            if len(ansi_fips) == 4
+                            else ansi_fips
+                        )
                         zero_obs: PlaceObs = PlaceObs(
-                            place_name=ansi_fips, value=0
+                            place_name=ansi_fips_final, value=0
                         )
                         data.append(zero_obs)
                 else:
                     raise ValueError("Unknown geo_res: " + geo_res)
+
+        # if counting parent resolutions, add data for any children of
+        # parent(s) not already included
+        if len(counted_parent_geos) > 0:
+            if geo_res == GeoRes.county:
+                area1_counts: List[tuple] = [
+                    x for x in policies_by_loc if x[2] == "State / Province"
+                ]
+                # for each local area, if not in response yet, get parent geo
+                # count and add to response using that
+                amp_counties: List[Place] = select(
+                    i for i in Place if i.level == "Local" and i.iso3 == "USA"
+                )
+                amp_county: Place = None
+                for amp_county in amp_counties:
+                    amp_county_fips_tmp: str = amp_county.ansi_fips
+                    amp_county_fips: str = get_fips_with_zeros(
+                        amp_county_fips_tmp
+                    )
+                    if amp_county_fips not in data_tmp:
+                        # get parent geo count(s)
+                        parent_geo_counts: List[tuple] = [
+                            x for x in area1_counts if x[3] == amp_county.area1
+                        ]
+                        # add them to the response
+                        if len(parent_geo_counts) > 0:
+                            data.append(
+                                PlaceObs(
+                                    place_name=amp_county_fips,
+                                    value=parent_geo_counts[0][value_idx],
+                                )
+                            )
 
         # order by value
         data.sort(key=lambda x: x.value, reverse=True)
@@ -289,16 +337,14 @@ class PolicyStatusCounter(QueryResolver):
         return res
 
     def __get_all_levels(
-        self, geo_res: str, counted_parent_geos: List[GeoRes]
+        self, geo_res: GeoRes, counted_parent_geos: List[GeoRes]
     ) -> List[str]:
         # get level implied by geographic resolution of interest
-        geo_res_level: str = api.helpers.get_level_from_geo_res(geo_res)
+        geo_res_level: str = geo_res.get_level()
 
         # get level(s) implied by parent geographic resolution(s) that will be
         # counted in addition to the geo. res. of interest, if any
-        parent_levels: List[str] = [
-            api.helpers.get_level_from_geo_res(x) for x in counted_parent_geos
-        ]
+        parent_levels: List[str] = [x.get_level() for x in counted_parent_geos]
         # combine and return
         levels: List[str] = [geo_res_level] + parent_levels
         return levels
@@ -322,10 +368,10 @@ class PolicyStatusCounter(QueryResolver):
         )
         return q
 
-    @cached
+    # @cached
     def __get_max_min_counts(
         self,
-        geo_res: str,
+        geo_res: GeoRes,
         filters_no_dates: dict,
         levels: List[str],
         loc_field: str,
@@ -377,6 +423,7 @@ class PolicyStatusCounter(QueryResolver):
             )
 
         # get number of active filtered policies by date and location active
+        # TODO fix code below so it works with counted parent geographies
         # TODO reuse code better below
         q: Query = None
         if by_group_number:
@@ -490,25 +537,13 @@ class PolicyStatusCounter(QueryResolver):
 
     def _QueryResolver__validate_args(
         self,
-        geo_res: str,
+        geo_res: GeoRes,
         filter_by_subgeo: bool,
-        counted_parent_geos: List[GeoRes],
     ):
         """Validate input arguments."""
-        geo_res_enum: GeoRes = GeoRes(geo_res)
         if geo_res == "county" and filter_by_subgeo is True:
             raise NotImplementedError(
                 "Cannot count sub-geography policies for counties."
-            )
-        elif len(counted_parent_geos) > 0 and filter_by_subgeo:
-            raise NotImplementedError(
-                "Cannot count sub-geography policies while also counting "
-                "values parent geographies."
-            )
-        elif any(not geo_res_enum.is_child_of(x) for x in counted_parent_geos):
-            raise ValueError(
-                f"""Geographic resolution '{geo_res}' is not a child of one """
-                f"""of the following: \n\t{counted_parent_geos}"""
             )
 
     def __get_parent_geo_rows(
@@ -522,7 +557,7 @@ class PolicyStatusCounter(QueryResolver):
         area1_idx: int,
         iso3_idx: int,
     ) -> List[Tuple[str, int, str, str, str]]:
-        # TODO simplify and streamline
+        # TODO simplify and s   treamline
         # TODO add comments
         parent_rows: List[Tuple[str, int, str, str, str]] = list()
         parent_geo: GeoRes = None

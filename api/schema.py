@@ -1,6 +1,5 @@
 """Define API data processing methods"""
 # standard modules
-from api.helpers import get_loc_field_from_geo_res
 from .util import cached
 import math
 import itertools
@@ -1093,7 +1092,7 @@ def get_policy_status(
         if filters is not None:
             q = apply_entity_filters(q, db.Policy, filters)
 
-        loc_field: str = get_loc_field_from_geo_res(geo_res)
+        loc_field: str = GeoRes(geo_res).get_loc_field()
 
         level: str = None
         if geo_res == "country":
@@ -1500,26 +1499,35 @@ def get_label_from_value(field, value):
 
 
 @db_session
-def apply_entity_filters(q, entity_class, filters: dict = dict()):
+def apply_entity_filters(
+    q: Query,
+    entity_class: db.Entity,
+    filters: dict = dict(),
+) -> Query:
     """Given the PonyORM query for policies and relevant filters, applies
-    filters with AND logic.
+    filters with AND logic within each field and OR logic across each field.
 
-    TODO ensure this works for arbitrary large numbers of filtered fields.
+    Args:
+        q (Query): The query to be filtered, consisting of one unjoined entity
 
-    Parameters
-    ----------
-    q : pony.orm.Query
-        A Query instance, e.g., created by a call to `select`, for policies
-    filters : dict[str, list]
-        Dictionary with keys of field names and values of lists of
-        allowed values (AND logic).
+        entity_class (db.Entity): The class representing the entity
 
-    Returns
-    -------
-    pony.orm.Query
-        The query with filters applied.
+        filters (dict, optional): The set of filters to apply. Defaults
+        to dict().
 
+        geo_res (GeoRes, optional): The geographic resolution of the place
+        being filtered on. Defaults to None if not applicable.
+
+        counted_parent_geos (List[GeoRes], optional): The geographic
+        resolutions of parent geographies which should be filtered on. Defaults
+        to list() if not applicable. This is currently only used when counting
+        the number of policies by area, in cases when the policies affecting
+        parent areas are desired to be added to the count.
+
+    Returns:
+        Query: The query with filter statement applied
     """
+
     # for each filter set provided
     for field, allowed_values in filters.items():
         # if no values were specified, assume no filter is applied
@@ -1735,14 +1743,43 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             "subtarget",
         )
 
-        # if filter is a join, apply the filter to the linked entity
-        # joined to place entity
+        # # if filter is a join, apply the filter to the linked entity
+        # # joined to place entity
+        # allow_parents: bool = False
+        # counting_parent_geos: bool = (
+        #     counted_parent_geos is not None and len(counted_parent_geos) > 0
+        # )
+        # if geo_res is not None and counting_parent_geos:
+        #     geo_res_loc_field: str = geo_res.get_loc_field()
+        #     is_geo_res_loc: bool = geo_res_loc_field == field
+        #     allow_parents = is_geo_res_loc and len(counted_parent_geos) > 0
         if join_place:
             q = q.filter(
                 lambda i: exists(
                     t for t in i.place if getattr(t, field) in allowed_values
                 )
             )
+
+            # if not allow_parents:
+            #     q = q.filter(
+            #         lambda i: exists(
+            #             t
+            #             for t in i.place
+            #             if getattr(t, field) in allowed_values
+            #         )
+            #     )
+            # else:
+            #     parent_levels: List[str] = [
+            #         x.get_level() for x in counted_parent_geos
+            #     ]
+            #     q = q.filter(
+            #         lambda i: exists(
+            #             t
+            #             for t in i.place
+            #             if getattr(t, field) in allowed_values
+            #             or t.level in parent_levels
+            #         )
+            #     )
         # joined to policy entity: policy number field
         elif join_policy_number:
             q = q.filter(

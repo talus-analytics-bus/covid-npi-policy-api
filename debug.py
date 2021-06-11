@@ -3,7 +3,10 @@
 # import pandas as pd
 
 # local modules
-from api.ampresolvers.tests import test_policy_status_counter
+
+
+from ingest.places.core import add_local_plus_state_places
+
 
 if __name__ == "__main__":
-    test_policy_status_counter.test_countries()
+    add_local_plus_state_places()
