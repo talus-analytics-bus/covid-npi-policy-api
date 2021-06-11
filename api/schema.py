@@ -1,5 +1,6 @@
 """Define API data processing methods"""
 # standard modules
+from typing import Any
 from .util import cached
 import math
 import itertools
@@ -1754,11 +1755,23 @@ def apply_entity_filters(
         #     is_geo_res_loc: bool = geo_res_loc_field == field
         #     allow_parents = is_geo_res_loc and len(counted_parent_geos) > 0
         if join_place:
-            q = q.filter(
-                lambda i: exists(
-                    t for t in i.place if getattr(t, field) in allowed_values
+            if len(allowed_values) > 1:
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.place
+                        if getattr(t, field) in allowed_values
+                    )
                 )
-            )
+            elif len(allowed_values) > 0:
+                allowed_value: Any = allowed_values[0]
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.place
+                        if getattr(t, field) == allowed_value
+                    )
+                )
 
             # if not allow_parents:
             #     q = q.filter(

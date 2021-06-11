@@ -9,6 +9,7 @@ from db import db
 from db_metric import db as db_metric
 
 
+@db_session
 def add_missing_usa_local_areas():
     """If missing, adds a place for each USA local area represented in the
     Metric database that is not already in the AMP database
@@ -63,7 +64,7 @@ def add_missing_usa_local_areas():
                 new_amp_place.loc = get_place_loc(new_amp_place)
                 n_added = n_added + 1
                 commit()
-                print("Added AMP place for " + new_amp_place.loc)
+                # print("Added AMP place for " + new_amp_place.loc)
     print(f"""Added {n_added} county records to AMP database""")
 
 

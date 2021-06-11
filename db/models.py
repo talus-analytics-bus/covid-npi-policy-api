@@ -106,6 +106,7 @@ class Policy(db.Entity):
         "Court_Challenge", table="policies_to_court_challenges"
     )
     _policy_by_group_number = Optional("Policy_By_Group_Number")
+    _policy_day_dates = Optional("Policy_Day_Dates")
 
     # Currently unused attributes
     # policy_number = Optional(int)
@@ -753,3 +754,9 @@ class Policy_By_Group_Number(db.Entity):
     _view_ = "policy_by_group_number"
     fk_policy_id = PrimaryKey("Policy")
     group_number = Required(int)
+
+
+class Policy_Day_Dates(db.Entity):
+    _view_ = "policy_day_dates"
+    fk_policy_id = PrimaryKey("Policy")
+    day_date = Required(date)

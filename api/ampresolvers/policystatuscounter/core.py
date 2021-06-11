@@ -1,9 +1,11 @@
-from ingest.util import get_fips_with_zeros
+from os import getcwd
+
+# from ingest.util import get_fips_with_zeros
 from api.types import GeoRes
 from queryresolver.core import QueryResolver
 import api
 from api.models import PlaceObs, PlaceObsList
-from api.util import cached, get_first
+from api.util import cached
 from db import db
 from db.models import (
     DayDate,
@@ -11,10 +13,19 @@ from db.models import (
     Policy,
     Policy_By_Group_Number,
     Policy_Date,
+    Policy_Day_Dates,
 )
 from typing import Any, List, Tuple
 from datetime import date
-from pony.orm.core import JOIN, Query, count, db_session, left_join, select
+from pony.orm.core import (
+    JOIN,
+    Query,
+    count,
+    db_session,
+    left_join,
+    select,
+    desc,
+)
 from pony.orm.ormtypes import raw_sql
 from pony.orm.core import min as pony_min
 
@@ -24,7 +35,7 @@ class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
-    # @cached
+    @cached
     @db_session
     def get_policy_status_counts(
         self,
@@ -106,16 +117,12 @@ class PolicyStatusCounter(QueryResolver):
 
         # if zeros requested, initialize query to get all locations with any
         # data (before filters)
-        q_all_time = select(i for i in db.Policy) if include_zeros else None
+        data_all_time: Query = None
 
         # if counting only sub-[geo] policies, filter policies by
         # correct levels
         if filter_by_subgeo:
             q = api.schema.apply_subgeo_filter(q, geo_res)
-            if include_zeros:
-                q_all_time = api.schema.apply_subgeo_filter(
-                    q_all_time, geo_res
-                )
 
         # initialize output data
         data: list = None
@@ -129,17 +136,6 @@ class PolicyStatusCounter(QueryResolver):
                 db.Policy,
                 filters,
             )
-
-            # if counting zeros, apply filters to query that counts zeros
-            if include_zeros and "level" in filters:
-                zero_filters: dict = dict(level=filters["level"])
-                if loc_field in filters:
-                    zero_filters[loc_field] = filters[loc_field]
-                if for_usa_only:
-                    zero_filters["iso3"] = "USA"
-                q_all_time = api.schema.apply_entity_filters(
-                    q_all_time, db.Policy, zero_filters
-                )
 
         # GET POLICY COUNTS BY LOCATION # ----------------------------------- #
         # if requested, only count the first policy with each group number,
@@ -162,12 +158,6 @@ class PolicyStatusCounter(QueryResolver):
             for i in subquery
         )
 
-        policies_by_loc: List[tuple] = q_policies_by_loc[:][:]
-
-        # all_unspec: bool = all(
-        #     x[0] in (None, "Unspecified") for x in policies_by_loc
-        # )
-
         # initialize core response data
         data_tmp = dict()
         place_loc_val: str = None
@@ -175,7 +165,7 @@ class PolicyStatusCounter(QueryResolver):
         place_area1: str = None
         _place_iso3: str = None
         value: int = None
-        value_idx: int = 1
+        # value_idx: int = 1
         for (
             place_loc_val,
             value,
@@ -198,17 +188,9 @@ class PolicyStatusCounter(QueryResolver):
 
         # add "zeros" to the data, if requested
         if include_zeros:
-
-            # get result of query showing which places had policies ever
-            q_all_time = left_join(
-                (
-                    i.place.iso3,
-                    i.place.area1,
-                    i.place.ansi_fips,
-                    i.place.level,
-                )
-                for i in q_all_time
-            )[:][:]
+            data_all_time: List[tuple] = self.__get_zero_count_data(
+                filters, loc_field, for_usa_only
+            )
 
             # add a "zero" observation for each of these places if the place is
             # not already present in the response data
@@ -216,7 +198,7 @@ class PolicyStatusCounter(QueryResolver):
             place_area1: str = None
             ansi_fips: str = None
             _level: str = None
-            for iso3, place_area1, ansi_fips, _level in q_all_time:
+            for iso3, place_area1, ansi_fips, _level in data_all_time:
                 if geo_res == GeoRes.country:
                     if iso3 not in data_tmp:
                         zero_obs: PlaceObs = PlaceObs(place_name=iso3, value=0)
@@ -242,38 +224,6 @@ class PolicyStatusCounter(QueryResolver):
                         data.append(zero_obs)
                 else:
                     raise ValueError("Unknown geo_res: " + geo_res)
-
-        # if counting parent resolutions, add data for any children of
-        # parent(s) not already included
-        if len(counted_parent_geos) > 0:
-            if geo_res == GeoRes.county:
-                area1_counts: List[tuple] = [
-                    x for x in policies_by_loc if x[2] == "State / Province"
-                ]
-                # for each local area, if not in response yet, get parent geo
-                # count and add to response using that
-                amp_counties: List[Place] = select(
-                    i for i in Place if i.level == "Local" and i.iso3 == "USA"
-                )
-                amp_county: Place = None
-                for amp_county in amp_counties:
-                    amp_county_fips_tmp: str = amp_county.ansi_fips
-                    amp_county_fips: str = get_fips_with_zeros(
-                        amp_county_fips_tmp
-                    )
-                    if amp_county_fips not in data_tmp:
-                        # get parent geo count(s)
-                        parent_geo_counts: List[tuple] = [
-                            x for x in area1_counts if x[3] == amp_county.area1
-                        ]
-                        # add them to the response
-                        if len(parent_geo_counts) > 0:
-                            data.append(
-                                PlaceObs(
-                                    place_name=amp_county_fips,
-                                    value=parent_geo_counts[0][value_idx],
-                                )
-                            )
 
         # order by value
         data.sort(key=lambda x: x.value, reverse=True)
@@ -368,8 +318,66 @@ class PolicyStatusCounter(QueryResolver):
         )
         return q
 
+    @cached
+    def __get_zero_count_data(
+        self, filters: dict, loc_field: str, for_usa_only: bool
+    ):
+        q: Query = select(i for i in db.Policy)
+        zero_filters: dict = dict()
+        if "level" in filters:
+            zero_filters["level"] = filters["level"]
+        if loc_field in filters:
+            zero_filters[loc_field] = filters[loc_field]
+        if for_usa_only:
+            zero_filters["iso3"] = ["USA"]
+        q = api.schema.apply_entity_filters(q, db.Policy, zero_filters)
+        q = left_join(
+            (
+                i.place.iso3,
+                i.place.area1,
+                i.place.ansi_fips,
+                i.place.level,
+            )
+            for i in q
+        )
+        return q[:][:]
+
     # @cached
     def __get_max_min_counts(
+        self,
+        geo_res: GeoRes,
+        filters_no_dates: dict,
+        levels: List[str],
+        loc_field: str,
+        by_group_number: bool = False,
+        filter_by_subgeo: bool = False,
+    ) -> Tuple[PlaceObs, PlaceObs]:
+        # try to recapture SQL in PonyORM
+        res: tuple = None
+        with open(
+            getcwd() + "/api/sql_templates/template_get_max_policies_pg.sql",
+            "r",
+        ) as file:
+            sql: str = file.read()
+            with db.get_connection().cursor() as curs:
+                curs.execute(
+                    sql
+                    % {
+                        "place_filters_sql": f"""pl.level = '{levels[0]}' """
+                        """and pl.iso3 = 'USA'""",
+                    }
+                )
+                res = curs.fetchone()
+        min_obs: Query = PlaceObs(place_name="n/a", value=1)
+        max_obs = self.__get_obs_from_q_result(res, loc_field)
+        max_min_counts: Tuple[PlaceObs, PlaceObs] = (
+            min_obs,
+            max_obs,
+        )
+        return max_min_counts
+
+    @cached
+    def __get_max_min_counts_orig(
         self,
         geo_res: GeoRes,
         filters_no_dates: dict,
@@ -427,30 +435,46 @@ class PolicyStatusCounter(QueryResolver):
         # TODO reuse code better below
         q: Query = None
         if by_group_number:
-            q = select(
-                (
-                    dd.day_date,
-                    getattr(pl, loc_field),
-                    count(pd),
-                )
-                for pd in Policy_Date
-                for dd in DayDate
-                for pl in Place
+            q: Query = select(
+                (pdd.day_date, pl.id, count(p))
                 for p in q_filtered_policies
                 for pbgn in Policy_By_Group_Number
-                if date(2019, 1, 1) <= dd.day_date
-                and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
-                and pd.start_date <= dd.day_date
-                and pd.end_date >= dd.day_date
-                and JOIN(pd.fk_policy_id == p.id)
-                and JOIN(pl in p.place)
-                and (pl.level in levels or filter_by_subgeo)
-                and (
-                    pl.iso3 == "USA"
-                    or ("Country" in levels and len(levels) == 1)
-                )
-                and JOIN(pbgn.fk_policy_id == p)
+                for pdd in Policy_Day_Dates
+                for pl in p.place
+                if JOIN(pbgn.fk_policy_id == p)
+                and JOIN(pdd.fk_policy_id == p)
+                and pl.level == levels[0]
+                and pl.iso3 == "USA"
+                # and (pl.level in levels or filter_by_subgeo)
+                # and (
+                #     pl.iso3 == "USA"
+                #     or ("Country" in levels and len(levels) == 1)
+                # )
             )
+            # q_old = select(
+            #     (
+            #         dd.day_date,
+            #         getattr(pl, loc_field),
+            #         count(pd),
+            #     )
+            #     for pd in Policy_Date
+            #     for dd in DayDate
+            #     for pl in Place
+            #     for p in q_filtered_policies
+            #     for pbgn in Policy_By_Group_Number
+            #     if date(2019, 1, 1) <= dd.day_date
+            #     and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
+            #     and pd.start_date <= dd.day_date
+            #     and pd.end_date >= dd.day_date
+            #     and JOIN(pd.fk_policy_id == p.id)
+            #     and JOIN(pl in p.place)
+            #     and (pl.level in levels or filter_by_subgeo)
+            #     and (
+            #         pl.iso3 == "USA"
+            #         or ("Country" in levels and len(levels) == 1)
+            #     )
+            #     and JOIN(pbgn.fk_policy_id == p)
+            # )
         else:
             q = select(
                 (
@@ -468,19 +492,20 @@ class PolicyStatusCounter(QueryResolver):
                 and pd.end_date >= dd.day_date
                 and JOIN(pd.fk_policy_id == p.id)
                 and JOIN(pl in p.place)
-                and (pl.level in levels or filter_by_subgeo)
-                and (
-                    pl.iso3 == "USA"
-                    or ("Country" in levels and len(levels) == 1)
-                )
+                # and (pl.level in levels or filter_by_subgeo)
+                # and (
+                #     pl.iso3 == "USA"
+                #     or ("Country" in levels and len(levels) == 1)
+                # )
             )
 
         # return first records for min and max number of active policies
-        all_res = q.order_by(lambda i, j, k: (k, i, j))[:][:]
-        q_min: Query = get_first(all_res, as_list=True)
+        all_res = q.order_by(desc(3), 2, 1)[:][:]
+        # q_min: Query = get_first(all_res, as_list=True)
         q_max: Query = [all_res[len(all_res) - 1]] if len(all_res) > 0 else []
-        min_obs = self.__get_obs_from_q_result(q_min)
-        max_obs = self.__get_obs_from_q_result(q_max)
+        # min_obs = self.__get_obs_from_q_result(q_min)
+        min_obs: Query = PlaceObs(place_name="n/a", value=1)
+        max_obs = self.__get_obs_from_q_result(q_max, loc_field)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
             min_obs,
             max_obs,
@@ -498,7 +523,7 @@ class PolicyStatusCounter(QueryResolver):
             (pony_min(i.id), i.group_number) for i in Policy
         ).order_by(lambda id, group_number: (group_number, id))
 
-    def __get_obs_from_q_result(self, q: Query) -> PlaceObs:
+    def __get_obs_from_q_result(self, res: tuple, loc_field: str) -> PlaceObs:
         """Returns a place observation corresponding to the result of the query
         that selects a single record with the data fields required by a place
         observation: the datestamp, place name, and value.
@@ -507,6 +532,9 @@ class PolicyStatusCounter(QueryResolver):
             q (Query): The query selecting a single record with data fields
             corresponding to and required by a place observation.
 
+            loc_field(str): The field in which location information that should
+            be returned is stored.
+
         Raises:
             ValueError: Query result has more than 1 result row.
             ValueError: Query result row has other than 3 column values.
@@ -514,26 +542,26 @@ class PolicyStatusCounter(QueryResolver):
         Returns:
             PlaceObs: The place observation.
         """
-        place_obs: PlaceObs = None
-        if len(q) == 1:
+        if res is None:
+            return None
+        else:
+            place_obs: PlaceObs = None
             datestamp: date = None
-            place_name: str = None
+            place_id: int = None
             value: int = None
-            q_vals: Tuple[date, str, int] = q[0]
+            q_vals: Tuple[date, int, int] = res
             if len(q_vals) != 3:
                 raise ValueError(
                     "Expected query result row to have 3 column values,"
                     " but found " + str(len(q_vals))
                 )
-            datestamp, place_name, value = q_vals
+            datestamp, place_id, value = q_vals
             place_obs: PlaceObs = PlaceObs(
                 datestamp=datestamp,
-                place_name=place_name,
+                place_name=getattr(Place[place_id], loc_field),
                 value=value,
             )
-        else:
-            return None
-        return place_obs
+            return place_obs
 
     def _QueryResolver__validate_args(
         self,
