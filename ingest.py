@@ -1,6 +1,10 @@
 """Run data ingest application"""
 # standard modules and packages
 import argparse
+from ingest.places.core import (
+    add_local_plus_state_places,
+    add_missing_usa_local_areas,
+)
 from os import sys
 
 # local modules
@@ -100,6 +104,12 @@ if __name__ == "__main__":
             plugin.post_process_policies(db, include_court_challenges=True)
 
     if ingest_policies:
+
+        # add missing local area places if needed
+        add_local_plus_state_places()
+        add_missing_usa_local_areas()
+
+        # ingest main data
         client.load_data().process_data(db)
 
         # post-process places
