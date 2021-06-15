@@ -1329,6 +1329,10 @@ def get_optionset(
                 for i in entity_class
                 if len(getattr(i, class_name_field)) > 0
             ).filter(lambda x: x is not None)
+            if field == "level":
+                options = options.filter(
+                    lambda x: x != "Local plus state/province"
+                )
         else:
             if entity_name not in ("Policy", "Plan"):
                 options = select(
