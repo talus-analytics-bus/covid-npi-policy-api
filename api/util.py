@@ -168,7 +168,9 @@ def set_level_filters_from_geo_filters(filters: dict) -> None:
     Args:
         filters (dict): The filters passed to method `schema.get_policy`
     """
-    if filters is not None:
+    if filters is not None and (
+        "level" not in filters or len(filters["level"]) == 0
+    ):
         if "area2" in filters:
             filters["level"] = ["Local"]
         elif "area1" in filters:
