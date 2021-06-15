@@ -1,6 +1,6 @@
 """Ingest utility methods"""
 # standard packages
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Union
 import urllib3
 import certifi
 import requests
@@ -242,19 +242,25 @@ def get_fips_no_zeros(raw_fips: str) -> str:
         return str(int(raw_fips))
 
 
-def get_fips_with_zeros(raw_fips: str) -> str:
+def get_fips_with_zeros(raw_fips: Union[str, int]) -> str:
     """Returns value of raw FIPS code with zero prepended if it is not already
 
     Args:
-        raw_fips (str): Raw county FIPS code, possibly missing leading zero
+        raw_fips Union[str, int]: Raw county FIPS code, possibly missing
+        leading zero
 
     Returns:
         str: County FIPS code with leading zero if applicable
     """
-    if len(raw_fips) == 4:
-        return "0" + raw_fips
+    raw_fips_type: Any = type(raw_fips)
+    if raw_fips_type not in (str, int):
+        raise ValueError("Expected str or int, got " + str(raw_fips_type))
     else:
-        return raw_fips
+        fips_tmp: str = raw_fips if type(raw_fips) == str else str(raw_fips)
+        if len(fips_tmp) == 4:
+            return "0" + fips_tmp
+        else:
+            return fips_tmp
 
 
 def nyt_caseload_csv_to_dict(download_url: str):
