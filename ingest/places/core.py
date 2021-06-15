@@ -1,4 +1,4 @@
-from ingest.util import upsert
+from ingest.util import get_fips_with_zeros, upsert
 from ingest.plugins import get_place_loc
 from typing import List
 from alive_progress import alive_bar
@@ -59,7 +59,7 @@ def add_missing_usa_local_areas():
                     country_name="United States of America (USA)",
                     area1=metric_state_name,
                     area2=metric_county.name + ", " + metric_state_name,
-                    ansi_fips=metric_county.fips,
+                    ansi_fips=get_fips_with_zeros(metric_county.fips),
                 )
                 new_amp_place.loc = get_place_loc(new_amp_place)
                 n_added = n_added + 1
@@ -107,11 +107,12 @@ def add_local_plus_state_places():
                 AmpPlace,
                 {
                     "level": "Local plus state/province",
-                    "ansi_fips": county_place.ansi_fips,
+                    "ansi_fips": get_fips_with_zeros(county_place.ansi_fips),
                 },
                 {
                     "area1": county_place.area1,
                     "area2": county_place.area2,
+                    "iso3": "USA",
                     "loc": county_place.loc,
                     "country_name": county_place.country_name,
                 },
