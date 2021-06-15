@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
 from typing import Any
-from .util import cached
+from .util import cached, set_level_filters_from_geo_filters
 import math
 import itertools
 import logging
@@ -499,6 +499,9 @@ def get_policy(
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
+
+    # define level filters based on geographic filters provided, if any
+    set_level_filters_from_geo_filters(filters)
 
     # apply filters if any
     if filters is not None:

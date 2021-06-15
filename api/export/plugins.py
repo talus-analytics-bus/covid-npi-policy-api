@@ -1,14 +1,11 @@
 """Project-specific plugins for export module"""
 # standard modules
-from io import BytesIO
 from datetime import date
 from collections import defaultdict
-import types
+from typing import List
 
 # 3rd party modules
-from pony.orm import db_session, select
-from openpyxl import load_workbook
-import pandas as pd
+from pony.orm import select
 import pprint
 
 # local modules
@@ -243,9 +240,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i
             for i in db.Metadata
-            if i.export == True
-            # and i.ingest_field != ''
-            and i.class_name == class_name
+            if i.export == True and i.class_name == class_name
         ).order_by(db.Metadata.order)
 
         # get all policies (one policy per row exported)
@@ -356,6 +351,19 @@ class CovidPolicyExportPlugin(ExcelExport):
                     row[dd.colgroup][
                         "Permalink for plan announcement PDF(s)"
                     ] = "\n".join(permalinks)
+                    continue
+                elif dd.field == "level":
+                    places_for_levels: set = (
+                        d.place
+                        if dd.entity_name == "Place"
+                        else [x.place for x in d.auth_entity]
+                    )
+                    vals: List[str] = [
+                        x.level
+                        for x in places_for_levels
+                        if x.level != "Local plus state/province"
+                    ]
+                    row[dd.colgroup][dd.display_name] = "; ".join(vals)
                     continue
 
                 # check whether it is a policy or a joined entity

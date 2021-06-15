@@ -159,3 +159,19 @@ def get_first(
             return list()
         else:
             return [v]
+
+
+def set_level_filters_from_geo_filters(filters: dict) -> None:
+    """Given a set of filters for `get_policy`, return the set of filters with
+    place level filters added based on existing geographic area filters, if any
+
+    Args:
+        filters (dict): The filters passed to method `schema.get_policy`
+    """
+    if filters is not None:
+        if "area2" in filters:
+            filters["level"] = ["Local"]
+        elif "area1" in filters:
+            filters["level"] = "State / Province"
+        elif "country_name" in filters:
+            filters["level"] = "Country"
