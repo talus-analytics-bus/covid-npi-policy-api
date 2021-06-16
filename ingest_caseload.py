@@ -73,7 +73,7 @@ def refresh_materialized_views():
     cur = conn.cursor()
 
     # single statement to refresh all materialized views relevant
-    to_refresh: List[str] = ["74", "77", "94"]
+    to_refresh: List[str] = ["74", "77", "94", "104"]
     stmt_list: List[str] = list()
     id: Optional[str]
     for id in to_refresh:
