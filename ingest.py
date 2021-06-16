@@ -106,8 +106,8 @@ if __name__ == "__main__":
     if ingest_policies:
 
         # add missing local area places if needed
-        add_local_plus_state_places()
         add_missing_usa_local_areas()
+        add_local_plus_state_places()
 
         # ingest main data
         client.load_data().process_data(db)
