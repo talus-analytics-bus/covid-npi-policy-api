@@ -1,5 +1,6 @@
 """Define API endpoints"""
 # standard modules
+from api.ampresolvers.optionsetgetter.core import OptionSetGetter
 from api.types import GeoRes
 from api.ampresolvers import PolicyStatusCounter
 from datetime import date
@@ -693,7 +694,8 @@ async def get_optionset(
     state_name: StateNames = state_name_def,
     iso3: Iso3Codes = iso3_def,
 ):
-    return schema.get_optionset(
+    getter: OptionSetGetter = OptionSetGetter()
+    return getter.get_optionset(
         fields=fields,
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
