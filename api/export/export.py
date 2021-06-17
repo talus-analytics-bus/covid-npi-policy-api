@@ -13,10 +13,8 @@ import pandas as pd
 from .formats import WorkbookFormats
 
 
-class ExcelExport():
-    """Parent class for project-specific Excel export.
-
-    """
+class ExcelExport:
+    """Parent class for project-specific Excel export."""
 
     def __init__(self):
         return None
@@ -24,11 +22,12 @@ class ExcelExport():
     def build(self, **kwargs):
         # Create bytes output to return to client
         io = BytesIO()
-        writer = pd.ExcelWriter('temp.xlsx', engine='xlsxwriter')
+        writer = pd.ExcelWriter("temp.xlsx", engine="xlsxwriter")
         writer.book.filename = io
 
         # add a worksheet
         workbook = writer.book
+        workbook.set_size(3000, 3000)
 
         # add content
         self.add_content(workbook, **kwargs)
@@ -45,11 +44,11 @@ class ExcelExport():
         return content
 
     def add_content(self):
-        print('Not implemented')
+        print("Not implemented")
         return False
 
 
-class WorkbookTab():
+class WorkbookTab:
     """Define settings for a workbook sheet to be written to an XLSX file.
 
     Parameters
@@ -102,9 +101,9 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        if self.type == 'data':
+        if self.type == "data":
             return 0
-        elif self.type == 'legend':
+        elif self.type == "legend":
             return 1
 
     def write_rows(self, worksheet, data):
@@ -123,7 +122,7 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        init_irow = self.init_irow['data']
+        init_irow = self.init_irow["data"]
         init_icol = self.get_init_icol()
         irow = init_irow
         icol = init_icol
@@ -132,10 +131,10 @@ class WorkbookTab():
                 for colname in row[colgroup]:
                     value = row[colgroup][colname]
                     # special formatting
-                    if colname.endswith('date') and value is None:
-                        value = 'Unspecified'
-                    elif value == 'Unspecified':
-                        value = ''
+                    if colname.endswith("date") and value is None:
+                        value = "Unspecified"
+                    elif value == "Unspecified":
+                        value = ""
 
                     worksheet.write(irow, icol, value, self.formats.cell())
                     icol = icol + 1
@@ -159,11 +158,11 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        init_irow = self.init_irow['colnames']
+        init_irow = self.init_irow["colnames"]
         init_icol = self.get_init_icol()
         irow = init_irow
         icol = init_icol
-        bg_colors = ['#386DA5', '#1F416D']
+        bg_colors = ["#386DA5", "#1F416D"]
         bg_color_idx = 0
         row = data[0]
         worksheet.set_row(irow, 40)
@@ -173,12 +172,11 @@ class WorkbookTab():
             bg_color = bg_colors[bg_color_idx % 2]
             for colname in row[colgroup]:
                 worksheet.write(
-                    irow,
-                    icol,
-                    colname,
-                    self.formats.colname(bg_color)
+                    irow, icol, colname, self.formats.colname(bg_color)
                 )
-                if self.type == 'legend' and colname in ('Policy relaxing or restricting'):
+                if self.type == "legend" and colname in (
+                    "Policy relaxing or restricting"
+                ):
                     worksheet.set_column(icol, icol, 100)
                 else:
                     worksheet.set_column(icol, icol, 50)
@@ -202,7 +200,7 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        init_irow = self.init_irow['colgroups']
+        init_irow = self.init_irow["colgroups"]
         init_icol = self.get_init_icol()
         irow = init_irow
         icol_end = init_icol
@@ -214,14 +212,18 @@ class WorkbookTab():
             for colname in row[colgroup]:
                 icol_end = icol_end + 1
                 if len(row[colgroup]) == 1:
-                    worksheet.write(irow, icol_start, colgroup,
-                                    self.formats.colgroup())
+                    worksheet.write(
+                        irow, icol_start, colgroup, self.formats.colgroup()
+                    )
                 else:
                     if (icol_end - icol_start + 1) == len(row[colgroup]):
                         worksheet.merge_range(
-                            irow, icol_start, irow, icol_end,
+                            irow,
+                            icol_start,
+                            irow,
+                            icol_end,
                             colgroup,
-                            self.formats.colgroup()
+                            self.formats.colgroup(),
                         )
 
     def write_legend_labels(self, worksheet):
@@ -239,12 +241,12 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        init_irow = self.init_irow['colnames']
+        init_irow = self.init_irow["colnames"]
         worksheet.set_column(0, 0, 50)
         rows = [
-            (init_irow, 'Column name', self.formats.colname('#1F416D')),
-            (init_irow + 1, 'Definition', self.formats.legend_cell()),
-            (init_irow + 2, 'Allowed values', self.formats.legend_cell()),
+            (init_irow, "Column name", self.formats.colname("#1F416D")),
+            (init_irow + 1, "Definition", self.formats.legend_cell()),
+            (init_irow + 2, "Allowed values", self.formats.legend_cell()),
         ]
         for irow, text, cell_format in rows:
             worksheet.write(irow, 0, text, cell_format)
@@ -270,16 +272,12 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        self.write_logo(worksheet,
-                        logo_fn,
-                        logo_offset,
-                        90)
+        self.write_logo(worksheet, logo_fn, logo_offset, 90)
         self.write_title(worksheet, title)
 
         today = date.today()
-        self.write_subtitle(worksheet, 'Downloaded on ' + str(today))
-        self.write_intro_text(
-            worksheet, intro_text)
+        self.write_subtitle(worksheet, "Downloaded on " + str(today))
+        self.write_intro_text(worksheet, intro_text)
 
     def write_logo(self, worksheet, logo_fn, logo_offset, row_height):
         """Add the logo at the specified filename path to the upper-left corner.
@@ -301,13 +299,15 @@ class WorkbookTab():
         """
         worksheet.set_row(0, row_height)
         worksheet.insert_image(
-            0, 0, logo_fn,
+            0,
+            0,
+            logo_fn,
             {
-                'object_position': 3,
-                'y_scale': 1.1,
-                'x_offset': logo_offset['x_offset'],
-                'y_offset': logo_offset['y_offset'],
-            }
+                "object_position": 3,
+                "y_scale": 1.1,
+                "x_offset": logo_offset["x_offset"],
+                "y_offset": logo_offset["y_offset"],
+            },
         )
 
     def write_title(self, worksheet, text):
@@ -326,7 +326,7 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        irow = self.init_irow['title']
+        irow = self.init_irow["title"]
         worksheet.write(irow, 0, text, self.formats.title())
 
     def write_subtitle(self, worksheet, text):
@@ -345,7 +345,7 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        irow = self.init_irow['subtitle']
+        irow = self.init_irow["subtitle"]
         worksheet.write(irow, 0, text, self.formats.subtitle())
 
     def write_intro_text(self, worksheet, text):
@@ -364,14 +364,12 @@ class WorkbookTab():
             Description of returned object.
 
         """
-        irow = self.init_irow['intro_text']
+        irow = self.init_irow["intro_text"]
         icol_start = 0
         icol_end = 1
         worksheet.set_row(irow, 70)
         worksheet.merge_range(
-            irow, icol_start, irow, icol_end,
-            text,
-            self.formats.intro_text()
+            irow, icol_start, irow, icol_end, text, self.formats.intro_text()
         )
 
 
@@ -402,50 +400,50 @@ class GenericExcelExport(ExcelExport):
         self.db = db
         self.data = None
         self.init_irow = {
-            'logo': 0,
-            'title': 1,
-            'subtitle': 2,
-            'intro_text': 3,
-            'gap': 4,
-            'colgroups': 5,
-            'colnames': 6,
-            'data': 7
+            "logo": 0,
+            "title": 1,
+            "subtitle": 2,
+            "intro_text": 3,
+            "gap": 4,
+            "colgroups": 5,
+            "colnames": 6,
+            "data": 7,
         }
 
         # Define a sheet settings instance for each tab of the XLSX
         self.sheet_settings = [
             WorkbookTab(
-                name='Exported data',
-                type='data',
-                intro_text='This is placeholder intro text for the main data sheet of the workbook. It can be edited by changing the `text` argument to the function `write_intro_text` in module `~/py/api/excel.py`.',
+                name="Exported data",
+                type="data",
+                intro_text="This is placeholder intro text for the main data sheet of the workbook. It can be edited by changing the `text` argument to the function `write_intro_text` in module `~/py/api/excel.py`.",
                 init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
+                    "logo": 0,
+                    "title": 1,
+                    "subtitle": 2,
+                    "intro_text": 3,
+                    "gap": 4,
+                    "colgroups": 5,
+                    "colnames": 6,
+                    "data": 7,
                 },
-                data_getter=self.default_data_getter
+                data_getter=self.default_data_getter,
             ),
             WorkbookTab(
-                name='Legend',
-                type='legend',
-                intro_text='This is a placeholder for a legend sheet.',
+                name="Legend",
+                type="legend",
+                intro_text="This is a placeholder for a legend sheet.",
                 init_irow={
-                    'logo': 0,
-                    'title': 1,
-                    'subtitle': 2,
-                    'intro_text': 3,
-                    'gap': 4,
-                    'colgroups': 5,
-                    'colnames': 6,
-                    'data': 7
+                    "logo": 0,
+                    "title": 1,
+                    "subtitle": 2,
+                    "intro_text": 3,
+                    "gap": 4,
+                    "colgroups": 5,
+                    "colnames": 6,
+                    "data": 7,
                 },
-                data_getter=self.default_data_getter_legend
-            )
+                data_getter=self.default_data_getter_legend,
+            ),
         ]
 
     def add_content(self, workbook):
@@ -473,24 +471,25 @@ class GenericExcelExport(ExcelExport):
 
             settings.write_header(
                 worksheet,
-                logo_fn='./api/assets/images/logo-talus.png',
+                logo_fn="./api/assets/images/logo-talus.png",
                 title=settings.name,
-                intro_text=settings.intro_text)
+                intro_text=settings.intro_text,
+            )
 
             data = settings.data
             settings.write_colgroups(worksheet, data)
             settings.write_colnames(worksheet, data)
             settings.write_rows(worksheet, data)
 
-            if settings.type == 'legend':
+            if settings.type == "legend":
                 settings.write_legend_labels(worksheet)
-            elif settings.type == 'data':
-                worksheet.freeze_panes(settings.init_irow['colnames'], 0)
+            elif settings.type == "data":
+                worksheet.freeze_panes(settings.init_irow["colnames"], 0)
                 worksheet.autofilter(
-                    settings.init_irow['colnames'],
+                    settings.init_irow["colnames"],
                     0,
-                    settings.init_irow['colnames'],
-                    settings.num_cols - 1
+                    settings.init_irow["colnames"],
+                    settings.num_cols - 1,
                 )
 
         return self
@@ -503,28 +502,24 @@ class GenericExcelExport(ExcelExport):
         # dictionaries with key = colname, value = data to show
         return [
             {
-                'Basic information':
-                {
-                    'Name': 'Mike',
-                    'E-mail': 'mvanmaele@talusanalytics.com',
+                "Basic information": {
+                    "Name": "Mike",
+                    "E-mail": "mvanmaele@talusanalytics.com",
                 },
-                'Additional details':
-                {
-                    'Hobbies': 'Opera; Triathlon; Yoga',
-                    'Favorite color': 'Blue',
-                }
+                "Additional details": {
+                    "Hobbies": "Opera; Triathlon; Yoga",
+                    "Favorite color": "Blue",
+                },
             },
             {
-                'Basic information':
-                {
-                    'Name': 'Mike2',
-                    'E-mail': 'mvanmaele@talusanalytics.com2',
+                "Basic information": {
+                    "Name": "Mike2",
+                    "E-mail": "mvanmaele@talusanalytics.com2",
                 },
-                'Additional details':
-                {
-                    'Hobbies': 'Opera; Triathlon; Yoga2',
-                    'Favorite color': 'Blue2',
-                }
+                "Additional details": {
+                    "Hobbies": "Opera; Triathlon; Yoga2",
+                    "Favorite color": "Blue2",
+                },
             },
         ]
 
@@ -536,27 +531,23 @@ class GenericExcelExport(ExcelExport):
         # dictionaries with key = colname, value = data to show
         return [
             {
-                'Basic information':
-                {
-                    'Name': 'The name',
-                    'E-mail': 'The e-mail',
+                "Basic information": {
+                    "Name": "The name",
+                    "E-mail": "The e-mail",
                 },
-                'Additional details':
-                {
-                    'Hobbies': 'Any semicolon-delimited list of hobbies',
-                    'Favorite color': 'Any color',
-                }
+                "Additional details": {
+                    "Hobbies": "Any semicolon-delimited list of hobbies",
+                    "Favorite color": "Any color",
+                },
             },
             {
-                'Basic information':
-                {
-                    'Name': 'Any text',
-                    'E-mail': 'Any email',
+                "Basic information": {
+                    "Name": "Any text",
+                    "E-mail": "Any email",
                 },
-                'Additional details':
-                {
-                    'Hobbies': 'Any semicolon-delimited list of text',
-                    'Favorite color': 'Any text',
-                }
+                "Additional details": {
+                    "Hobbies": "Any semicolon-delimited list of text",
+                    "Favorite color": "Any text",
+                },
             },
         ]
