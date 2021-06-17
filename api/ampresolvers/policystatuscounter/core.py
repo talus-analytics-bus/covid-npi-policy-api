@@ -80,6 +80,15 @@ class PolicyStatusCounter(QueryResolver):
             PlaceObsList: A list of policy status counts by location.
         """
 
+        # # DEBUG Profile code time
+        # import cProfile
+        # import pstats
+        # import io
+        # from pstats import SortKey
+
+        # pr = cProfile.Profile()
+        # pr.enable()
+
         # validate arguments and raise exceptions if errors
         self._QueryResolver__validate_args(
             geo_res=geo_res,
@@ -284,6 +293,15 @@ class PolicyStatusCounter(QueryResolver):
             # define min/max for all time
             res.min_all_time = min_max_counts[0]
             res.max_all_time = min_max_counts[1]
+
+        # # DEBUG Write profiling results to text file
+        # pr.disable()
+        # s = io.StringIO()
+        # sortby = SortKey.CUMULATIVE
+        # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        # ps.print_stats()
+        # with open("debug.txt", "w") as file:
+        #     file.write(s.getvalue())
 
         # return response data
         return res
