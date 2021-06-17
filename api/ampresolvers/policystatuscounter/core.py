@@ -320,7 +320,7 @@ class PolicyStatusCounter(QueryResolver):
         )
         return q
 
-    # @cached
+    @cached
     def __get_zero_count_data(
         self, filters: dict, loc_field: str, for_usa_only: bool
     ):
