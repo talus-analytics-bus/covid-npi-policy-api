@@ -276,12 +276,9 @@ class PolicyStatusCounter(QueryResolver):
             min_max_counts: Tuple[
                 PlaceObs, PlaceObs
             ] = self.__get_max_min_counts(
-                geo_res=geo_res,
                 filters_no_dates=filters_no_dates,
                 levels=levels,
                 loc_field=loc_field,
-                by_group_number=by_group_number,
-                filter_by_subgeo=filter_by_subgeo,
             )
 
             # define min/max for all time
@@ -369,12 +366,9 @@ class PolicyStatusCounter(QueryResolver):
     @cached
     def __get_max_min_counts(
         self,
-        geo_res: GeoRes,
         filters_no_dates: dict,
         levels: List[str],
         loc_field: str,
-        by_group_number: bool = False,
-        filter_by_subgeo: bool = False,
     ) -> Tuple[PlaceObs, PlaceObs]:
         # try to recapture SQL in PonyORM
         res: tuple = None
