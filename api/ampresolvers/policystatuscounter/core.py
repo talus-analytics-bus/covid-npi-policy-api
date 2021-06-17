@@ -38,6 +38,7 @@ class PolicyStatusCounter(QueryResolver):
         filter_by_subgeo: bool = False,
         include_zeros: bool = True,
         include_min_max: bool = True,
+        count_min_max_by_cat: bool = False,
         one: bool = False,
         counted_parent_geos: List[GeoRes] = list(),
     ) -> PlaceObsList:
@@ -274,12 +275,23 @@ class PolicyStatusCounter(QueryResolver):
         # not just the defined date (if defined)
         if include_min_max:
             # get filtered policies, skipping any date filters
+            filters_to_skip: Set[str] = {
+                "dates_in_effect",
+                "iso3",
+                "area1",
+                "ansi_fips",
+            }
+            
+            # if policy count min/max should not be computed on a cat/subcat
+            # basis, skip those filters if they're present
+            if not count_min_max_by_cat:
+                filters_to_skip |= {"primary_ph_measure", "ph_measure_details"}
             filters_no_dates: dict = dict()
-            k: str = None
-            v: Any = None
-            for k, v in filters.items():
-                if k not in ("dates_in_effect", "iso3", "area1", "ansi_fips"):
-                    filters_no_dates[k] = v
+            field: str = None
+            field_val: Any = None
+            for field, field_val in filters.items():
+                if field not in filters_to_skip:
+                    filters_no_dates[field] = field_val
 
             # get min/max for all time
             min_max_counts: Tuple[

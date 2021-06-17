@@ -531,6 +531,13 @@ async def post_policy_status_counts(
         " and maximum values of the policy status counts that have ever"
         " occurred over all dates. If false, do not include.",
     ),
+    count_min_max_by_cat: bool = Query(
+        False,
+        description="If true, computes min/max policy counts taking into "
+        "account and category (`primary_ph_measure`) or subcategory "
+        "(`ph_measure_details`) filters provided in the request body. If false"
+        ", only computes min/max policy counts across all categories.",
+    ),
     count_sub: bool = Query(
         False,
         description="If true, counts all policies *beneath* the selected"
@@ -562,6 +569,7 @@ async def post_policy_status_counts(
         filter_by_subgeo=count_sub,
         include_zeros=include_zeros,
         include_min_max=include_min_max,
+        count_min_max_by_cat=count_min_max_by_cat,
         one=one,
         counted_parent_geos=counted_parent_geos,
     )
