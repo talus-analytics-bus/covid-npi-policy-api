@@ -148,13 +148,14 @@ class PolicyStatusCounter(QueryResolver):
 
         q_policies_by_loc = left_join(
             (
-                getattr(i.place, loc_field),
+                getattr(p, loc_field),
                 count(i),
-                i.place.level,
-                i.place.area1,
-                i.place.iso3,
+                p.level,
+                p.area1,
+                p.iso3,
             )
             for i in subquery
+            for p in i.place
         )
 
         # initialize core response data
