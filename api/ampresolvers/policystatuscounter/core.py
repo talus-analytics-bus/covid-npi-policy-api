@@ -332,25 +332,44 @@ class PolicyStatusCounter(QueryResolver):
     def __get_zero_count_data(
         self, filters: dict, loc_field: str, for_usa_only: bool
     ):
-        q: Query = select(i for i in db.Policy)
-        zero_filters: dict = dict()
-        if "level" in filters:
-            zero_filters["level"] = filters["level"]
-        if loc_field in filters:
-            zero_filters[loc_field] = filters[loc_field]
-        if for_usa_only:
-            zero_filters["iso3"] = ["USA"]
-        q = api.schema.apply_entity_filters(q, db.Policy, zero_filters)
-        q = left_join(
-            (
-                i.place.iso3,
-                i.place.area1,
-                i.place.ansi_fips,
-                i.place.level,
-            )
-            for i in q
+        is_one_place: bool = (
+            loc_field in filters
+            and len(filters[loc_field]) > 0
+            and "level" in filters
         )
-        return q[:][:]
+        if is_one_place:
+            q: Query = select(
+                (p.iso3, p.area1, p.ansi_fips, p.level)
+                for p in Place
+                if (
+                    p.level in filters["level"]
+                    and getattr(p, loc_field) == filters[loc_field][0]
+                    and count(p.policies) > 0
+                )
+            )
+            return q[:][:]
+        else:
+            q: Query = select(i for i in db.Policy)
+            zero_filters: dict = dict()
+            if "level" in filters:
+                zero_filters["level"] = filters["level"]
+            if is_one_place:
+                zero_filters[loc_field] = filters[loc_field]
+            if for_usa_only:
+                zero_filters["iso3"] = ["USA"]
+            q = left_join(
+                (
+                    p.iso3,
+                    p.area1,
+                    p.ansi_fips,
+                    p.level,
+                )
+                for i in q
+                for p in i.place
+                if p.level in zero_filters["level"]
+                and (p.iso3 == "USA" or not for_usa_only)
+            )
+            return q[:][:]
 
     @cached
     def __get_max_min_counts(
