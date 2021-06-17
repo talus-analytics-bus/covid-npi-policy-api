@@ -195,7 +195,7 @@ class PolicyStatusCounter(QueryResolver):
         # add "zeros" to the data, if requested
         if include_zeros:
             data_all_time: List[tuple] = self.__get_zero_count_data(
-                filters, loc_field, for_usa_only
+                filters=filters, loc_field=loc_field, for_usa_only=for_usa_only
             )
 
             # add a "zero" observation for each of these places if the place is
@@ -281,7 +281,7 @@ class PolicyStatusCounter(QueryResolver):
                 "area1",
                 "ansi_fips",
             }
-            
+
             # if policy count min/max should not be computed on a cat/subcat
             # basis, skip those filters if they're present
             if not count_min_max_by_cat:
