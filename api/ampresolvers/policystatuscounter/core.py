@@ -8,12 +8,8 @@ from api.models import PlaceObs, PlaceObsList
 from api.util import cached
 from db import db
 from db.models import (
-    DayDate,
     Place,
-    Policy,
     Policy_By_Group_Number,
-    Policy_Date,
-    Policy_Day_Dates,
 )
 from typing import Any, List, Tuple, Set
 from datetime import date
@@ -24,9 +20,7 @@ from pony.orm.core import (
     db_session,
     left_join,
     select,
-    desc,
 )
-from pony.orm.ormtypes import raw_sql
 
 
 class PolicyStatusCounter(QueryResolver):
@@ -464,142 +458,6 @@ class PolicyStatusCounter(QueryResolver):
             return cat_and_subcat_filters_sql
         else:
             return "and true"
-
-    @cached
-    def __get_max_min_counts_orig(
-        self,
-        geo_res: GeoRes,
-        filters_no_dates: dict,
-        levels: List[str],
-        loc_field: str,
-        by_group_number: bool = False,
-        filter_by_subgeo: bool = False,
-    ) -> Tuple[PlaceObs, PlaceObs]:
-        """Return place observations corresponding to the max- and min-valued
-        policy status counts matching the provided arguments across all dates
-        for which data are available.
-
-        Args:
-            geo_res (str): The geographic resolution of the policies to query.
-            Must be one of "country", "state", or "county.
-
-            filters_no_dates (dict): The filters to apply to policies, but not
-            including any filters on date fields.
-
-            level (str): The level of the place affected by the policy. Must be
-            one of "Country", "State / Province", or "Local".
-
-            loc_field (str): The data field from which to obtain the name of
-            the location affected by the policy.
-
-            by_group_number (bool, optional): True if only the first policy
-            with each group number should be counted. This corrects for similar
-            policies by avoiding overcounting them. Defaults to False.
-
-            filter_by_subgeo (bool, optional): If True, counts all policies
-            *beneath* the selected `geo_res` (geographic resolution). If false,
-            only counts policies *at* it. Defaults to False.
-
-        Returns:
-            Tuple[PlaceObs, PlaceObs]: The min- and max-valued place
-            observations, respectively.
-        """
-        q_filtered_policies: Query = select(i for i in Policy)
-
-        # if counting policies beneath the geographic level defined by `level`,
-        # add them to the filters
-        if filter_by_subgeo:
-            q_filtered_policies = api.schema.apply_subgeo_filter(
-                q_filtered_policies, geo_res
-            )
-
-        # apply filters, if any
-        if filters_no_dates is not None:
-            q_filtered_policies = api.schema.apply_entity_filters(
-                q_filtered_policies, Policy, filters_no_dates
-            )
-
-        # get number of active filtered policies by date and location active
-        # TODO fix code below so it works with counted parent geographies
-        # TODO reuse code better below
-        q: Query = None
-        if by_group_number:
-            q: Query = select(
-                (pdd.day_date, pl.id, count(p))
-                for p in q_filtered_policies
-                for pbgn in Policy_By_Group_Number
-                for pdd in Policy_Day_Dates
-                for pl in p.place
-                if JOIN(pbgn.fk_policy_id == p)
-                and JOIN(pdd.fk_policy_id == p)
-                and pl.level == levels[0]
-                and pl.iso3 == "USA"
-                # and (pl.level in levels or filter_by_subgeo)
-                # and (
-                #     pl.iso3 == "USA"
-                #     or ("Country" in levels and len(levels) == 1)
-                # )
-            )
-            # q_old = select(
-            #     (
-            #         dd.day_date,
-            #         getattr(pl, loc_field),
-            #         count(pd),
-            #     )
-            #     for pd in Policy_Date
-            #     for dd in DayDate
-            #     for pl in Place
-            #     for p in q_filtered_policies
-            #     for pbgn in Policy_By_Group_Number
-            #     if date(2019, 1, 1) <= dd.day_date
-            #     and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
-            #     and pd.start_date <= dd.day_date
-            #     and pd.end_date >= dd.day_date
-            #     and JOIN(pd.fk_policy_id == p.id)
-            #     and JOIN(pl in p.place)
-            #     and (pl.level in levels or filter_by_subgeo)
-            #     and (
-            #         pl.iso3 == "USA"
-            #         or ("Country" in levels and len(levels) == 1)
-            #     )
-            #     and JOIN(pbgn.fk_policy_id == p)
-            # )
-        else:
-            q = select(
-                (
-                    dd.day_date,
-                    getattr(pl, loc_field),
-                    count(pd),
-                )
-                for pd in Policy_Date
-                for dd in DayDate
-                for pl in Place
-                for p in q_filtered_policies
-                if date(2019, 1, 1) <= dd.day_date
-                and dd.day_date <= raw_sql(f"""DATE '{str(date.today())}'""")
-                and pd.start_date <= dd.day_date
-                and pd.end_date >= dd.day_date
-                and JOIN(pd.fk_policy_id == p.id)
-                and JOIN(pl in p.place)
-                # and (pl.level in levels or filter_by_subgeo)
-                # and (
-                #     pl.iso3 == "USA"
-                #     or ("Country" in levels and len(levels) == 1)
-                # )
-            )
-
-        # return first records for min and max number of active policies
-        all_res = q.order_by(desc(3), 2, 1)[:][:]
-        # q_min: Query = get_first(all_res, as_list=True)
-        q_max: Query = [all_res[len(all_res) - 1]] if len(all_res) > 0 else []
-        # min_obs = self.__get_obs_from_q_result(q_min)
-        min_obs: Query = PlaceObs(place_name="n/a", value=1)
-        max_obs = self.__get_obs_from_q_result(q_max, loc_field)
-        max_min_counts: Tuple[PlaceObs, PlaceObs] = (
-            min_obs,
-            max_obs,
-        )
-        return max_min_counts
 
     def __get_obs_from_q_result(self, res: tuple, loc_field: str) -> PlaceObs:
         """Returns a place observation corresponding to the result of the query
