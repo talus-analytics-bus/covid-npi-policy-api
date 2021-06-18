@@ -5,8 +5,17 @@ import json
 from datetime import date
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, \
-    StrArray, select, db_session, IntArray
+from pony.orm import (
+    PrimaryKey,
+    Required,
+    Optional,
+    Optional,
+    Set,
+    StrArray,
+    select,
+    db_session,
+    IntArray,
+)
 
 # local modules
 from .config import db
@@ -30,10 +39,7 @@ def custom_delete(entity_class, records):
         The number of records deleted from the database.
 
     """
-    to_delete = select(
-        i for i in entity_class
-        if i not in records
-    )
+    to_delete = select(i for i in entity_class if i not in records)
     to_delete.delete()
     return len(to_delete)
 
@@ -49,6 +55,7 @@ class Version(db.Entity):
 
 class Metadata(db.Entity):
     """Display names, definitions, etc. for fields."""
+
     _table_ = "metadata"
     field = Required(str)
     table_name = Optional(str)
@@ -76,6 +83,7 @@ class Metadata(db.Entity):
 
 class Glossary(db.Entity):
     """Definitions of terms, including parents of sub-categories."""
+
     _table_ = "glossary"
     id = PrimaryKey(int, auto=True)
     term = Required(str)
@@ -96,6 +104,7 @@ class Glossary(db.Entity):
 
 class Plan(db.Entity):
     """Plans. Similar to policies but they lack legal authority."""
+
     id = PrimaryKey(int, auto=False)
     source_id = Required(str)
 
@@ -132,10 +141,10 @@ class Plan(db.Entity):
     announcement_data_source = Optional(str)
 
     # relationships
-    policy = Optional('Policy')
-    file = Set('File', table="file_to_plan")
-    place = Set('Place', table="place_to_plan")
-    auth_entity = Set('Auth_Entity', table="auth_entity_to_plan")
+    policy = Optional("Policy")
+    file = Set("File", table="file_to_plan")
+    place = Set("Place", table="place_to_plan")
+    auth_entity = Set("Auth_Entity", table="auth_entity_to_plan")
 
     # TODO reuse code from `Policy` entity instead of repeating here
 
@@ -164,25 +173,30 @@ class Plan(db.Entity):
 
         """
         # get which fields should be returned by entity name
-        return_fields_by_entity = \
-            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
-            in kwargs else dict()
+        return_fields_by_entity = (
+            kwargs["return_fields_by_entity"]
+            if "return_fields_by_entity" in kwargs
+            else dict()
+        )
 
         # if `only` was specified, use that as the `policy` entity's return
         # fields, and delete the `return_fields_by_entity` data.
-        if 'only' in kwargs:
-            return_fields_by_entity['plan'] = kwargs['only']
-            del kwargs['only']
-        del kwargs['return_fields_by_entity']
+        if "only" in kwargs:
+            return_fields_by_entity["plan"] = kwargs["only"]
+            del kwargs["only"]
+        del kwargs["return_fields_by_entity"]
 
         # convert the policy instance to a dictionary, which may contain
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
         instance_dict = None
-        if 'plan' in return_fields_by_entity and \
-                len(return_fields_by_entity['plan']) > 0:
+        if (
+            "plan" in return_fields_by_entity
+            and len(return_fields_by_entity["plan"]) > 0
+        ):
             instance_dict = Plan.to_dict(
-                self, only=return_fields_by_entity['plan'], **kwargs)
+                self, only=return_fields_by_entity["plan"], **kwargs
+            )
         else:
             instance_dict = Plan.to_dict(self, **kwargs)
 
@@ -199,7 +213,7 @@ class Plan(db.Entity):
             # and flexible
 
             # Place
-            if k == 'place':
+            if k == "place":
                 instances = list()
 
                 for id in v:
@@ -210,29 +224,28 @@ class Plan(db.Entity):
                 instance_dict[k] = instances
 
             # Auth_Entity
-            elif k == 'auth_entity':
+            elif k == "auth_entity":
                 instances = list()
                 for id in v:
                     instances.append(Auth_Entity[id].to_dict())
                 instance_dict[k] = instances
 
             # File
-            elif k == 'file':
-                instance_dict['file'] = list()
-                file_fields = ['id']
+            elif k == "file":
+                instance_dict["file"] = list()
+                file_fields = ["id"]
                 for id in v:
                     instance = File[id]
                     doc_instance_dict = instance.to_dict(only=file_fields)
 
                     # append file dict to list
-                    instance_dict['file'].append(
-                        doc_instance_dict['id']
-                    )
+                    instance_dict["file"].append(doc_instance_dict["id"])
         return instance_dict
 
 
 class Policy(db.Entity):
     """Non-pharmaceutical intervention (NPI) policies."""
+
     id = PrimaryKey(int, auto=False)
     source_id = Required(str)
 
@@ -265,16 +278,15 @@ class Policy(db.Entity):
     date_end_actual = Optional(date)
 
     # relationships
-    file = Set('File', table="file_to_policy")
-    auth_entity = Set('Auth_Entity', table="auth_entity_to_policy")
-    place = Set('Place', table="place_to_policy")
-    policy_numbers = Set('Policy_Number', table="policy_number_to_policy")
-    prior_policy = Set('Policy', table="policy_to_prior_policy")
-    _prior_policy = Set('Policy', reverse='prior_policy')
-    plan = Optional('Plan')
+    file = Set("File", table="file_to_policy")
+    auth_entity = Set("Auth_Entity", table="auth_entity_to_policy")
+    place = Set("Place", table="place_to_policy")
+    policy_numbers = Set("Policy_Number", table="policy_number_to_policy")
+    prior_policy = Set("Policy", table="policy_to_prior_policy")
+    _prior_policy = Set("Policy", reverse="prior_policy")
+    plan = Optional("Plan")
     court_challenges = Set(
-        'Court_Challenge',
-        table="policies_to_court_challenges"
+        "Court_Challenge", table="policies_to_court_challenges"
     )
 
     # Currently unused attributes
@@ -307,41 +319,46 @@ class Policy(db.Entity):
 
         """
         # get which fields should be returned by entity name
-        return_fields_by_entity = \
-            kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
-            in kwargs else dict()
+        return_fields_by_entity = (
+            kwargs["return_fields_by_entity"]
+            if "return_fields_by_entity" in kwargs
+            else dict()
+        )
 
         # if `only` was specified, use that as the `policy` entity's return
         # fields, and delete the `return_fields_by_entity` data.
-        if 'only' in kwargs:
-            return_fields_by_entity['policy'] = kwargs['only']
-            del kwargs['only']
-        del kwargs['return_fields_by_entity']
+        if "only" in kwargs:
+            return_fields_by_entity["policy"] = kwargs["only"]
+            del kwargs["only"]
+        del kwargs["return_fields_by_entity"]
 
         # convert the policy instance to a dictionary, which may contain
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
         instance_dict = None
-        if 'policy' in return_fields_by_entity and \
-                len(return_fields_by_entity['policy']) > 0:
+        if (
+            "policy" in return_fields_by_entity
+            and len(return_fields_by_entity["policy"]) > 0
+        ):
             instance_dict = Policy.to_dict(
-                self, only=return_fields_by_entity['policy'], **kwargs)
+                self, only=return_fields_by_entity["policy"], **kwargs
+            )
         else:
             instance_dict = Policy.to_dict(self, **kwargs)
 
         # if requested, return only certain fields for certain linked entities
-        only_place = return_fields_by_entity.get('place', ())
-        only_challenge = return_fields_by_entity.get('court_challenges', ())
+        only_place = return_fields_by_entity.get("place", ())
+        only_challenge = return_fields_by_entity.get("court_challenges", ())
 
         # ensure id field is always returned
         if len(only_place) > 0:
             only_place = set(only_place)
-            only_place.add('id')
+            only_place.add("id")
             only_place = tuple(only_place)
 
         if len(only_challenge) > 0:
             only_challenge = set(only_challenge)
-            only_challenge.add('id')
+            only_challenge.add("id")
             only_challenge = tuple(only_challenge)
 
         # iterate over the items in the Policy instance's dictionary in search
@@ -358,7 +375,7 @@ class Policy(db.Entity):
             # and flexible
 
             # Place
-            if k == 'place':
+            if k == "place":
                 instances = list()
                 for id in v:
                     try:
@@ -368,11 +385,13 @@ class Policy(db.Entity):
                 instance_dict[k] = instances
 
             # Place
-            if k == 'court_challenges':
+            if k == "court_challenges":
                 instances = list()
                 for id in v:
                     try:
-                        instances.append(Court_Challenge[id].to_dict(only=only_challenge))
+                        instances.append(
+                            Court_Challenge[id].to_dict(only=only_challenge)
+                        )
                     except:
                         pass
                 if len(instances) > 0:
@@ -380,35 +399,35 @@ class Policy(db.Entity):
                 instance_dict[k] = instances
 
             # Auth_Entity
-            elif k == 'auth_entity':
+            elif k == "auth_entity":
                 instances = list()
                 for id in v:
                     try:
-                        only = return_fields_by_entity.get('auth_entity', ())
+                        only = return_fields_by_entity.get("auth_entity", ())
                         instances.append(
-                            Auth_Entity[id].to_dict_2(only=only, only_place=only_place)
+                            Auth_Entity[id].to_dict_2(
+                                only=only, only_place=only_place
+                            )
                         )
                     except:
                         pass
                 instance_dict[k] = instances
 
             # File
-            elif k == 'file':
-                instance_dict['file'] = list()
-                file_fields = ['id']
+            elif k == "file":
+                instance_dict["file"] = list()
+                file_fields = ["id"]
                 for id in v:
                     try:
                         instance = File[id]
                         doc_instance_dict = instance.to_dict(only=file_fields)
 
                         # append file dict to list
-                        instance_dict['file'].append(
-                            doc_instance_dict['id']
-                        )
+                        instance_dict["file"].append(doc_instance_dict["id"])
                     except:
                         pass
-        if no_challenges and 'court_challenges' in instance_dict:
-            del instance_dict['court_challenges']
+        if no_challenges and "court_challenges" in instance_dict:
+            del instance_dict["court_challenges"]
         return instance_dict
 
 
@@ -423,41 +442,43 @@ class Policy_Number(db.Entity):
     sections) together.
 
     """
+
     id = PrimaryKey(int, auto=False)  # the policy number
     names = Optional(StrArray)  # list of names of policy sections
     earliest_date_start_effective = Optional(date)  # of all sections
     search_text = Optional(str)
 
     # relationships
-    policy = Set('Policy')
-    place = Set('Place')
-    auth_entity = Set('Auth_Entity')
+    policy = Set("Policy")
+    place = Set("Place")
+    auth_entity = Set("Auth_Entity")
 
     def to_dict_2(self, **kwargs):
-        """TODO
-
-        """
+        """TODO"""
         # get which fields should be returned by entity name
-        return_fields_by_entity = kwargs['return_fields_by_entity'] if 'return_fields_by_entity' \
-            in kwargs else dict()
+        return_fields_by_entity = (
+            kwargs["return_fields_by_entity"]
+            if "return_fields_by_entity" in kwargs
+            else dict()
+        )
 
         # if `only` was specified, use that as the `policy` entity's return
         # fields, and delete the `return_fields_by_entity` data.
-        if 'only' in kwargs:
-            return_fields_by_entity['policy_number'] = kwargs['only']
-            del kwargs['only']
-        del kwargs['return_fields_by_entity']
+        if "only" in kwargs:
+            return_fields_by_entity["policy_number"] = kwargs["only"]
+            del kwargs["only"]
+        del kwargs["return_fields_by_entity"]
 
         # convert the policy instance to a dictionary, which may contain
         # various other types of entities in it represented only by their
         # unique IDs, rather than having their data provided as a dictionary
         instance_dict = None
-        if 'policy_number' in return_fields_by_entity and \
-                len(return_fields_by_entity['policy_number']) > 0:
+        if (
+            "policy_number" in return_fields_by_entity
+            and len(return_fields_by_entity["policy_number"]) > 0
+        ):
             instance_dict = Policy_Number.to_dict(
-                self,
-                only=return_fields_by_entity['policy_number'],
-                **kwargs
+                self, only=return_fields_by_entity["policy_number"], **kwargs
             )
         else:
             instance_dict = Policy_Number.to_dict(self, **kwargs)
@@ -474,7 +495,7 @@ class Policy_Number(db.Entity):
             # and flexible
 
             # Place
-            if k == 'place':
+            if k == "place":
                 instances = list()
                 for id in v:
                     try:
@@ -484,7 +505,7 @@ class Policy_Number(db.Entity):
                 instance_dict[k] = instances
 
             # Auth_Entity
-            elif k == 'auth_entity':
+            elif k == "auth_entity":
                 instances = list()
                 for instance in v:
                     instances.append(instance)
@@ -520,15 +541,16 @@ class Place(db.Entity):
     ansi_fips = Optional(str)
 
     # relationships
-    policies = Set('Policy')
-    plans = Set('Plan')
-    auth_entities = Set('Auth_Entity')
-    observations = Set('Observation')
-    policy_numbers = Set('Policy_Number')
+    policies = Set("Policy")
+    plans = Set("Plan")
+    auth_entities = Set("Auth_Entity")
+    observations = Set("Observation")
+    policy_numbers = Set("Policy_Number")
 
 
 class Observation(db.Entity):
     """Observations made on places at dates."""
+
     _table_ = "observation"
     id = PrimaryKey(int, auto=True)
     date = Required(date)
@@ -537,11 +559,12 @@ class Observation(db.Entity):
     source_id = Required(str)
 
     # relationships
-    place = Required('Place')
+    place = Required("Place")
 
 
 class Auth_Entity(db.Entity):
     """Authorizing entities."""
+
     _table_ = "auth_entity"
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
@@ -549,10 +572,10 @@ class Auth_Entity(db.Entity):
     official = Optional(str)
 
     # relationships
-    policies = Set('Policy')
-    policy_numbers = Set('Policy_Number')
-    plans = Set('Plan')
-    place = Optional('Place')
+    policies = Set("Policy")
+    policy_numbers = Set("Policy_Number")
+    plans = Set("Plan")
+    place = Optional("Place")
 
     def to_dict_2(self, only=None, **kwargs):
         # get basic dict
@@ -563,15 +586,16 @@ class Auth_Entity(db.Entity):
         )
 
         # process place
-        if 'place' in d:
-            only_place = kwargs.get('only_place', ())
-            d['place'] = d['place'].to_dict(only=only_place)
+        if "place" in d:
+            only_place = kwargs.get("only_place", ())
+            d["place"] = d["place"].to_dict(only=only_place)
 
         return d
 
 
 class File(db.Entity):
     """Supporting documentation."""
+
     _table_ = "file"
     id = PrimaryKey(int, auto=True)
     name = Optional(str)
@@ -582,12 +606,13 @@ class File(db.Entity):
     airtable_attachment = Required(bool, default=False)
 
     # relationships
-    policies = Set('Policy')
-    plans = Set('Plan')
+    policies = Set("Policy")
+    plans = Set("Plan")
 
 
 class Court_Challenge(db.Entity):
     """Court challenges for policies."""
+
     _table_ = "court_challenge"
 
     # Standard fields
@@ -628,20 +653,20 @@ class Court_Challenge(db.Entity):
     complaint_subcategory_new = Optional(StrArray, nullable=True)
 
     # Relationships
-    policies = Set('Policy', table="policies_to_court_challenges")
+    policies = Set("Policy", table="policies_to_court_challenges")
     matter_numbers = Optional(IntArray, nullable=True)
 
     def to_dict_2(self, **kwargs):
 
         # get fields to return
-        only = kwargs['return_fields_by_entity']['court_challenge'] \
-            if 'return_fields_by_entity' in kwargs else None
+        only = (
+            kwargs["return_fields_by_entity"]["court_challenge"]
+            if "return_fields_by_entity" in kwargs
+            else None
+        )
 
         i_dict = Court_Challenge.to_dict(
-            self,
-            with_collections=True,
-            related_objects=True,
-            only=only
+            self, with_collections=True, related_objects=True, only=only
         )
         return json.loads(json.dumps(i_dict, default=jsonify_custom))
 
@@ -667,12 +692,10 @@ class Court_Challenge(db.Entity):
 #         'Court_Challenge', table="court_challenges_to_matter_numbers")
 
 only = {
-    'Policy': [
-        'id',
-        'policy_name',
+    "Policy": [
+        "id",
+        "policy_name",
     ]
-
-
 }
 
 
