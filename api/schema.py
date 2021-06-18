@@ -166,14 +166,14 @@ def export(filters: dict = None, class_name: str = "Policy"):
 def get_version():
     data_tmp = db.Version.select_by_sql(
         f"""
-        SELECT distinct on ("type") * FROM "version"
-        ORDER BY "type", "date" desc
+        SELECT distinct on ("name") * FROM "version"
+        ORDER BY "name", "date" desc
                                     """
     )
     data = [
-        i.to_dict(only=["type", "date", "last_datum_date"]) for i in data_tmp
+        i.to_dict(only=["name", "date", "last_datum_date"]) for i in data_tmp
     ]
-    data.sort(key=lambda x: x["type"], reverse=True)
+    data.sort(key=lambda x: x["name"], reverse=True)
     data.sort(key=lambda x: x["date"], reverse=True)
     return {"success": True, "data": data, "message": "Success"}
 
