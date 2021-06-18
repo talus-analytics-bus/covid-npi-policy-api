@@ -564,6 +564,8 @@ class Place(db.Entity):
     auth_entities = Set("Auth_Entity")
     observations = Set("Observation")
     policy_numbers = Set("Policy_Number")
+    max_value = Optional("MaxMinPolicyCount", reverse="max_place")
+    min_value = Optional("MaxMinPolicyCount", reverse="min_place")
 
 
 class Observation(db.Entity):
@@ -756,8 +758,13 @@ class Policy_Day_Dates(db.Entity):
     day_date = Required(date)
 
 
-class MaxPolicyCount(db.Entity):
-    _table_ = "max_policy_count"
+class MaxMinPolicyCount(db.Entity):
+    _table_ = "max_min_policy_count"
     max_policy_count_id = PrimaryKey(int)
     map_type = Required(str)
     max_value = Required(int)
+    max_date = Required(date)
+    max_place = Optional("Place", column="fk_place_id_max")
+    min_value = Required(int)
+    min_date = Required(date)
+    min_place = Optional("Place", column="fk_place_id_min")

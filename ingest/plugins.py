@@ -895,7 +895,7 @@ class CovidPolicyPlugin(IngestPlugin):
         action, version = upsert(
             db.Version,
             {
-                "type": "Policy data",
+                "name": "Policy data",
             },
             {
                 "date": date.today(),

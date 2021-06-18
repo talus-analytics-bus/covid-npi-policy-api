@@ -10,11 +10,11 @@ from api.models import PlaceObs, PlaceObsList
 from api.util import cached
 from db import db
 from db.models import (
-    MaxPolicyCount,
+    MaxMinPolicyCount,
     Place,
     Policy_By_Group_Number,
 )
-from typing import Any, List, Tuple, Set
+from typing import Any, List, Tuple, Set, Union
 
 # from datetime import date
 from pony.orm.core import (
@@ -301,8 +301,8 @@ class PolicyStatusCounter(QueryResolver):
             # get min/max for all time
             min_max_counts: Tuple[
                 PlaceObs, PlaceObs
-            ] = self.__get_max_min_counts(
-                levels=levels,
+            ] = self.__fetch_static_max_min_counts(
+                level=levels[0],
                 loc_field=loc_field,
             )
 
@@ -398,13 +398,32 @@ class PolicyStatusCounter(QueryResolver):
             return q[:][:]
 
     @cached
-    def __get_max_min_counts(
+    def __fetch_static_max_min_counts(
         self,
-        levels: List[str],
+        level: str,
         loc_field: str,
     ) -> Tuple[PlaceObs, PlaceObs]:
-        map_type: str = get_map_type_from_level(levels[0])
-        res: Query = get(i for i in MaxPolicyCount if i.map_type == map_type)
+        """Given a place level and location field, returns the corresponding
+        highest number of policies in effect on any date in any location at
+        that level.
+
+        Args:
+            level (str): The level of place being considered.
+            loc_field (str): The field of the Place entity that identifies the
+            place at `level`.
+
+        Returns:
+            Tuple[PlaceObs, PlaceObs]: The maximum and minimum observed counts
+            of policies on any date in any location at that level.
+        """
+
+        # get map type from place level
+        map_type: str = get_map_type_from_level(level)
+
+        # retrieve counts
+        res: Query = get(
+            i for i in MaxMinPolicyCount if i.map_type == map_type
+        )
         min_obs: Query = PlaceObs(place_name="n/a", value=1)
         max_obs = self.__get_obs_from_q_result(res, loc_field)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
@@ -413,97 +432,9 @@ class PolicyStatusCounter(QueryResolver):
         )
         return max_min_counts
 
-    # @cached
-    # def __get_max_min_counts_old(
-    #     self,
-    #     filters_no_dates: dict,
-    #     levels: List[str],
-    #     loc_field: str,
-    # ) -> Tuple[PlaceObs, PlaceObs]:
-    #     # try to recapture SQL in PonyORM
-    #     res: tuple = None
-    #     with open(
-    #         getcwd() + "/api/sql_templates/template_get_max_policies_pg.sql",
-    #         "r",
-    #     ) as file:
-    #         sql: str = file.read()
-    #         with db.get_connection().cursor() as curs:
-    #             place_filters_sql: str = self.__get_place_filters_sql(levels)
-    #             policy_filters_sql: str = (
-    #                 self.__get_cat_and_subcat_filters_sql(filters_no_dates)
-    #             )
-    #             curs.execute(
-    #                 sql
-    #                 % {
-    #                     "place_filters_sql": place_filters_sql,
-    #                     "policy_filters_sql": policy_filters_sql,
-    #                 }
-    #             )
-    #             res = curs.fetchone()
-    #     min_obs: Query = PlaceObs(place_name="n/a", value=1)
-    #     max_obs = self.__get_obs_from_q_result(res, loc_field)
-    #     max_min_counts: Tuple[PlaceObs, PlaceObs] = (
-    #         min_obs,
-    #         max_obs,
-    #     )
-    #     return max_min_counts
-
-    def __get_place_filters_sql(self, levels: List[str]) -> str:
-        """Given the levels for which max policy status counts are needed,
-        return the correct filtering code.
-
-        Args:
-            levels (List[str]): The levels for which max policy status counts
-            are needed.
-
-        Raises:
-            NotImplementedError: Only one level can be requested.
-
-        Returns:
-            str: The correct filtering SQL statement(s).
-        """
-
-        # Apply level filters
-        if len(levels) > 1:
-            raise NotImplementedError(
-                "Expected only one level but found: " + levels
-            )
-        level: str = levels[0]
-        place_filters_sql: str = f"""pl.level = '{level}' """
-
-        if level != "Country":
-            place_filters_sql = place_filters_sql + "and pl.iso3 = 'USA'"
-
-        return place_filters_sql
-
-    def __get_cat_and_subcat_filters_sql(self, filters: dict) -> str:
-        """Given the filters dictionary, return SQL "where" clause capturing
-        category and subcategory filters, or true if no such filters
-
-        Args:
-            filters (dict): The filters
-
-        Returns:
-            str: The where clause
-        """
-        cat_and_subcat_filters_sql = ""
-        fields: Set[str] = {"primary_ph_measure", "ph_measure_details"}
-        field: str = None
-        for field in fields:
-            if field in filters:
-                vals: List[str] = filters[field]
-                if len(vals) > 0:
-                    cat_and_subcat_filters_sql += " and "
-                    vals_str: str = ", ".join(["'" + x + "'" for x in vals])
-                    cat_and_subcat_filters_sql += (
-                        f"""pol.{field} in ({vals_str})"""
-                    )
-        if cat_and_subcat_filters_sql != "":
-            return cat_and_subcat_filters_sql
-        else:
-            return "and true"
-
-    def __get_obs_from_q_result(self, res: tuple, loc_field: str) -> PlaceObs:
+    def __get_obs_from_q_result(
+        self, res: MaxMinPolicyCount, loc_field: str
+    ) -> Union[PlaceObs, None]:
         """Returns a place observation corresponding to the result of the query
         that selects a single record with the data fields required by a place
         observation: the datestamp, place name, and value.
@@ -520,7 +451,7 @@ class PolicyStatusCounter(QueryResolver):
             ValueError: Query result row has other than 3 column values.
 
         Returns:
-            PlaceObs: The place observation.
+            Union[PlaceObs, None]: The place observation, or None if no data.
         """
         if res is None:
             return None
@@ -530,6 +461,11 @@ class PolicyStatusCounter(QueryResolver):
                 place_name=None,
                 value=res.max_value,
             )
+
+            # The code below is necessary if the PlaceObs is being determined
+            # from a tuple from a SQL query result rather than from a simple
+            # instance value, as is currently done.
+
             # place_obs: PlaceObs = None
             # datestamp: date = None
             # place_id: int = None
@@ -558,3 +494,36 @@ class PolicyStatusCounter(QueryResolver):
             raise NotImplementedError(
                 "Cannot count sub-geography policies for counties."
             )
+
+    # The method below returns SQL WHERE clauses that filter max policy counts
+    # by category and/or subcategory.
+    #
+    # It is not currently used because the global max policy counts is used in
+    # the COVID AMP map page, rather than the cat./subcat.-specific one.
+
+    # def __get_cat_and_subcat_filters_sql(self, filters: dict) -> str:
+    #     """Given the filters dictionary, return SQL "where" clause capturing
+    #     category and subcategory filters, or true if no such filters
+
+    #     Args:
+    #         filters (dict): The filters
+
+    #     Returns:
+    #         str: The where clause
+    #     """
+    #     cat_and_subcat_filters_sql = ""
+    #     fields: Set[str] = {"primary_ph_measure", "ph_measure_details"}
+    #     field: str = None
+    #     for field in fields:
+    #         if field in filters:
+    #             vals: List[str] = filters[field]
+    #             if len(vals) > 0:
+    #                 cat_and_subcat_filters_sql += " and "
+    #                 vals_str: str = ", ".join(["'" + x + "'" for x in vals])
+    #                 cat_and_subcat_filters_sql += (
+    #                     f"""pol.{field} in ({vals_str})"""
+    #                 )
+    #     if cat_and_subcat_filters_sql != "":
+    #         return cat_and_subcat_filters_sql
+    #     else:
+    #         return "and true"

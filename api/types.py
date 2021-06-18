@@ -73,6 +73,33 @@ class GeoRes(str, Enum):
                 "method `get_level`: " + self
             )
 
+    def get_map_type(self):
+        """Returns the map type corresponding to the geographic resolution
+        in the COVID AMP data system.
+
+        Raises:
+            NotImplementedError: If geographic resolution's map type value has
+            not been defined.
+
+        Returns:
+            str: The value corresponding to the geographic resolution's
+            map type in the COVID AMP data system.
+        """
+        name: str = self.name
+        if name == "country":
+            return "global"
+        elif name == "state":
+            return "us"
+        elif name == "county":
+            return "us-county"
+        elif name == "county_plus_state":
+            return "us-county-plus-state"
+        else:
+            raise NotImplementedError(
+                "No level defined for this GeoRes, please update "
+                "method `get_map_type`: " + self
+            )
+
     # TESTS # --------------------------------------------------------------- #
     def test_is_child_of():
         assert GeoRes.state.is_child_of(GeoRes.country)
