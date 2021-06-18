@@ -1,3 +1,6 @@
+from api.types import GeoRes
+from api.ampresolvers.policystatuscounter.helpers import StaticMaxMinCounter
+from typing import Dict, Tuple
 from api.ampresolvers import PolicyStatusCounter
 import datetime
 from pony.orm.core import db_session
@@ -11,40 +14,58 @@ db.generate_mapping(create_tables=False)
 def test_countries():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_countries.sql",
-        geo_res="country",
+        geo_res=GeoRes.country,
         by_group_number=True,
-    )
-    compare_max(
-        sql_fn="test_get_policy_counts_by_date_countries_no_merge.sql",
-        geo_res="country",
-        by_group_number=False,
     )
 
 
 def test_states():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_states.sql",
-        geo_res="state",
+        geo_res=GeoRes.state,
         by_group_number=True,
-    )
-    compare_max(
-        sql_fn="test_get_policy_counts_by_date_states_no_merge.sql",
-        geo_res="state",
-        by_group_number=False,
     )
 
 
 def test_counties():
     compare_max(
         sql_fn="test_get_policy_counts_by_date_counties.sql",
-        geo_res="county",
+        geo_res=GeoRes.county,
         by_group_number=True,
     )
+
+
+def test_counties_plus_states():
     compare_max(
-        sql_fn="test_get_policy_counts_by_date_counties_no_merge.sql",
-        geo_res="county",
-        by_group_number=False,
+        sql_fn="test_get_policy_counts_by_date_counties_plus_states.sql",
+        geo_res=GeoRes.county_plus_state,
+        by_group_number=True,
     )
+
+
+def test_min_max_counter():
+    """
+    Perform rationality checks on max/min number of policies in effect in
+    any given location on any given date.
+
+    """
+    counter: StaticMaxMinCounter = StaticMaxMinCounter()
+    max_min_counts: Dict[
+        GeoRes, Tuple[PlaceObs, PlaceObs]
+    ] = counter.get_max_min_counts()
+
+    county_max: int = max_min_counts[GeoRes.county][0].value
+    county_plus_state_max: int = max_min_counts[GeoRes.county_plus_state][
+        0
+    ].value
+    state_max: int = max_min_counts[GeoRes.state][0].value
+    global_max: int = max_min_counts[GeoRes.country][0].value
+    assert county_max <= county_plus_state_max
+    assert state_max <= county_plus_state_max
+    assert county_max > 0
+    assert state_max > 0
+    assert county_plus_state_max > 0
+    assert global_max > 0
 
 
 @db_session
@@ -58,23 +79,26 @@ def compare_max(sql_fn: str, geo_res: str, by_group_number: bool) -> None:
         counter: PolicyStatusCounter = PolicyStatusCounter()
         res: PlaceObsList = counter.get_policy_status_counts(
             geo_res=geo_res,
-            filters={
-                "primary_ph_measure": [
-                    "Vaccinations",
-                    "Military mobilization",
-                    "Social distancing",
-                ]
-            },
+            filters={},
             by_group_number=by_group_number,
         )
         max: PlaceObs = res.max_all_time
-        day_date, iso3, value = get_fields_from_placeobs(max)
-        assert len(rows) == 2
-        assert rows[0] == (day_date, iso3, value)
+        day_date, place_id, value = get_fields_from_placeobs(max)
+
+        assert len(rows) == 1
+        assert rows[0] == (day_date, place_id, value)
 
 
-def get_fields_from_placeobs(obs):
+def get_fields_from_placeobs(obs: PlaceObs) -> Tuple[datetime.date, int, int]:
+    """Given a place observation return its values.
+
+    Args:
+        obs (PlaceObs): The place observation
+
+    Returns:
+        Tuple[datetime.date, int, int]: Its date, ID, and value.
+    """
     day_date: datetime.date = obs.datestamp
-    iso3: str = obs.place_name
+    id: int = obs.place_id
     value: int = obs.value
-    return day_date, iso3, value
+    return day_date, id, value

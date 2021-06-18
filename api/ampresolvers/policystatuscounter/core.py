@@ -1,4 +1,4 @@
-from .helpers import get_map_type_from_level
+from .helpers import PolicyCountType, get_map_type_from_level
 
 # from os import getcwd
 
@@ -421,16 +421,64 @@ class PolicyStatusCounter(QueryResolver):
         map_type: str = get_map_type_from_level(level)
 
         # retrieve counts
-        res: Query = get(
+        instance: Query = get(
             i for i in MaxMinPolicyCount if i.map_type == map_type
         )
-        min_obs: Query = PlaceObs(place_name="n/a", value=1)
-        max_obs = self.__get_obs_from_q_result(res, loc_field)
+        min_obs: PlaceObs = self.__get_policy_count_obs_from_inst(
+            instance, PolicyCountType.MIN
+        )
+        max_obs: PlaceObs = self.__get_policy_count_obs_from_inst(
+            instance, PolicyCountType.MAX
+        )
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
             min_obs,
             max_obs,
         )
         return max_min_counts
+
+    def __get_policy_count_obs_from_inst(
+        self, instance: MaxMinPolicyCount, type: PolicyCountType
+    ) -> PlaceObs:
+        """Given the instance of the MaxMinPolicyCount entity and the policy
+        count type (min or max), returns the PlaceObs that corresponds to it.
+
+        Args:
+            instance (MaxMinPolicyCount): The instance of the MaxMinPolicyCount
+            entity containing the max/min policy count for the map of interest.
+
+            type (PolicyCountType): Max or min
+
+        Raises:
+            ValueError: For unexpected values of `type`
+
+        Returns:
+            PlaceObs: The place observation corresponding to the max/min count
+        """
+        key_suffixes: List[str] = ["_place", "_value", "_date"]
+        keys: List[str] = None
+        if type == PolicyCountType.MIN:
+            keys = ["min" + suffix for suffix in key_suffixes]
+
+        elif type == PolicyCountType.MAX:
+            keys = ["max" + suffix for suffix in key_suffixes]
+        else:
+            raise ValueError(
+                "Unexpected policy count type: " + str(PolicyCountType)
+            )
+
+        place_field: str = keys[0]
+        value_field: str = keys[1]
+        date_field: str = keys[2]
+        place_id: str = (
+            getattr(instance, place_field).id
+            if getattr(instance, place_field) is not None
+            else None
+        )
+        return PlaceObs(
+            place_id=place_id,
+            value=getattr(instance, value_field),
+            datestamp=getattr(instance, date_field),
+        )
 
     def __get_obs_from_q_result(
         self, res: MaxMinPolicyCount, loc_field: str

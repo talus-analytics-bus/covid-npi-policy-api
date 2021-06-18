@@ -290,6 +290,7 @@ class PolicyStatus(BaseModel):
 
 
 class PlaceObs(BaseModel):
+    place_id: int = None
     place_name: str = None
     value: int
     datestamp: date = None

@@ -1,4 +1,5 @@
 from datetime import date
+from enum import Enum
 from pony.orm.core import commit, db_session
 from ingest.util import upsert
 from db.models import MaxMinPolicyCount, Place
@@ -20,6 +21,11 @@ def get_map_type_from_level(level: str) -> str:
         return "global"
     else:
         raise ValueError("Unexpected level: " + str(level))
+
+
+class PolicyCountType(Enum):
+    MIN = 1
+    MAX = 2
 
 
 class StaticMaxMinCounter:
