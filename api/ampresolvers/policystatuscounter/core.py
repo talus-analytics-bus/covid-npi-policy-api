@@ -1,4 +1,4 @@
-from ingest.places.core import get_map_type_from_level
+from .helpers import get_map_type_from_level
 
 # from os import getcwd
 
