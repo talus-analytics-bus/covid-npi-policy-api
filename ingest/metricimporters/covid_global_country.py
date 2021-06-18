@@ -69,8 +69,7 @@ def upsert_jhu_country_covid_data(
     if do_global:
         data = jhu_caseload_csv_to_dict(download_url, db)
         data_deaths = jhu_caseload_csv_to_dict(download_url_deaths, db)
-    print("data")
-    print(data)
+
     # concatenate data from daily reports, if ingesting
     if do_global_daily:
         data_daily: list = list()
