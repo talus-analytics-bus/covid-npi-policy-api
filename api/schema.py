@@ -133,6 +133,11 @@ def get_version():
         i.to_dict(only=["name", "date", "last_datum_date", "map_types"])
         for i in data_tmp
     ]
+    d: dict = None
+    for d in data:
+        d["map_types"] = (
+            d["map_types"].replace("{", "").replace("}", "").split(",")
+        )
     data.sort(key=lambda x: x["name"], reverse=True)
     data.sort(key=lambda x: x["date"], reverse=True)
     return {"success": True, "data": data, "message": "Success"}

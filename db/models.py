@@ -256,7 +256,7 @@ class Version(db.Entity):
     name = Required(str)
     date = Required(date)
     last_datum_date = Optional(datetime.date)
-    map_types = Required(StrArray)
+    map_types = Required(str)
 
 
 class Metadata(db.Entity):
