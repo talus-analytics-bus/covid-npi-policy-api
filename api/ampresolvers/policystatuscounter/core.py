@@ -1,4 +1,6 @@
-from os import getcwd
+from ingest.places.core import get_map_type_from_level
+
+# from os import getcwd
 
 # from ingest.util import get_fips_with_zeros
 from api.types import GeoRes
@@ -8,16 +10,19 @@ from api.models import PlaceObs, PlaceObsList
 from api.util import cached
 from db import db
 from db.models import (
+    MaxPolicyCount,
     Place,
     Policy_By_Group_Number,
 )
 from typing import Any, List, Tuple, Set
-from datetime import date
+
+# from datetime import date
 from pony.orm.core import (
     JOIN,
     Query,
     count,
     db_session,
+    get,
     left_join,
     select,
 )
@@ -297,7 +302,6 @@ class PolicyStatusCounter(QueryResolver):
             min_max_counts: Tuple[
                 PlaceObs, PlaceObs
             ] = self.__get_max_min_counts(
-                filters_no_dates=filters_no_dates,
                 levels=levels,
                 loc_field=loc_field,
             )
@@ -396,30 +400,11 @@ class PolicyStatusCounter(QueryResolver):
     @cached
     def __get_max_min_counts(
         self,
-        filters_no_dates: dict,
         levels: List[str],
         loc_field: str,
     ) -> Tuple[PlaceObs, PlaceObs]:
-        # try to recapture SQL in PonyORM
-        res: tuple = None
-        with open(
-            getcwd() + "/api/sql_templates/template_get_max_policies_pg.sql",
-            "r",
-        ) as file:
-            sql: str = file.read()
-            with db.get_connection().cursor() as curs:
-                place_filters_sql: str = self.__get_place_filters_sql(levels)
-                policy_filters_sql: str = (
-                    self.__get_cat_and_subcat_filters_sql(filters_no_dates)
-                )
-                curs.execute(
-                    sql
-                    % {
-                        "place_filters_sql": place_filters_sql,
-                        "policy_filters_sql": policy_filters_sql,
-                    }
-                )
-                res = curs.fetchone()
+        map_type: str = get_map_type_from_level(levels[0])
+        res: Query = get(i for i in MaxPolicyCount if i.map_type == map_type)
         min_obs: Query = PlaceObs(place_name="n/a", value=1)
         max_obs = self.__get_obs_from_q_result(res, loc_field)
         max_min_counts: Tuple[PlaceObs, PlaceObs] = (
@@ -427,6 +412,41 @@ class PolicyStatusCounter(QueryResolver):
             max_obs,
         )
         return max_min_counts
+
+    # @cached
+    # def __get_max_min_counts_old(
+    #     self,
+    #     filters_no_dates: dict,
+    #     levels: List[str],
+    #     loc_field: str,
+    # ) -> Tuple[PlaceObs, PlaceObs]:
+    #     # try to recapture SQL in PonyORM
+    #     res: tuple = None
+    #     with open(
+    #         getcwd() + "/api/sql_templates/template_get_max_policies_pg.sql",
+    #         "r",
+    #     ) as file:
+    #         sql: str = file.read()
+    #         with db.get_connection().cursor() as curs:
+    #             place_filters_sql: str = self.__get_place_filters_sql(levels)
+    #             policy_filters_sql: str = (
+    #                 self.__get_cat_and_subcat_filters_sql(filters_no_dates)
+    #             )
+    #             curs.execute(
+    #                 sql
+    #                 % {
+    #                     "place_filters_sql": place_filters_sql,
+    #                     "policy_filters_sql": policy_filters_sql,
+    #                 }
+    #             )
+    #             res = curs.fetchone()
+    #     min_obs: Query = PlaceObs(place_name="n/a", value=1)
+    #     max_obs = self.__get_obs_from_q_result(res, loc_field)
+    #     max_min_counts: Tuple[PlaceObs, PlaceObs] = (
+    #         min_obs,
+    #         max_obs,
+    #     )
+    #     return max_min_counts
 
     def __get_place_filters_sql(self, levels: List[str]) -> str:
         """Given the levels for which max policy status counts are needed,
@@ -505,23 +525,28 @@ class PolicyStatusCounter(QueryResolver):
         if res is None:
             return None
         else:
-            place_obs: PlaceObs = None
-            datestamp: date = None
-            place_id: int = None
-            value: int = None
-            q_vals: Tuple[date, int, int] = res
-            if len(q_vals) != 3:
-                raise ValueError(
-                    "Expected query result row to have 3 column values,"
-                    " but found " + str(len(q_vals))
-                )
-            datestamp, place_id, value = q_vals
-            place_obs: PlaceObs = PlaceObs(
-                datestamp=datestamp,
-                place_name=getattr(Place[place_id], loc_field),
-                value=value,
+            return PlaceObs(
+                datestamp=None,
+                place_name=None,
+                value=res.max_value,
             )
-            return place_obs
+            # place_obs: PlaceObs = None
+            # datestamp: date = None
+            # place_id: int = None
+            # value: int = None
+            # q_vals: Tuple[date, int, int] = res
+            # if len(q_vals) != 3:
+            #     raise ValueError(
+            #         "Expected query result row to have 3 column values,"
+            #         " but found " + str(len(q_vals))
+            #     )
+            # datestamp, place_id, value = q_vals
+            # place_obs: PlaceObs = PlaceObs(
+            #     datestamp=datestamp,
+            #     place_name=getattr(Place[place_id], loc_field),
+            #     value=value,
+            # )
+            # return place_obs
 
     def _QueryResolver__validate_args(
         self,

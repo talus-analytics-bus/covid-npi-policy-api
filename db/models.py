@@ -754,3 +754,10 @@ class Policy_Day_Dates(db.Entity):
     _view_ = "policy_day_dates"
     fk_policy_id = PrimaryKey("Policy")
     day_date = Required(date)
+
+
+class MaxPolicyCount(db.Entity):
+    _table_ = "max_policy_count"
+    max_policy_count_id = PrimaryKey(int)
+    map_type = Required(str)
+    max_value = Required(int)
