@@ -34,15 +34,8 @@ jobs:
             pip install awsebcli --upgrade
 
       - run:
-          name: Running tests
-          command: |
-            pip install pytest;
-            pytest;
-            pip uninstall pytest;
-
-      # - run:
-      #     name: Deploying
-      #     command: eb deploy covid-npi-policy-api-dev
+          name: Deploying
+          command: eb deploy covid-npi-policy-api-dev
 
 workflows:
   version: 2
