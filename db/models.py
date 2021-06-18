@@ -41,10 +41,10 @@ def custom_delete(entity_class, records):
 class Version(db.Entity):
     _table_ = "version"
     id = PrimaryKey(int, auto=True)
-    name = Optional(str, nullable=True)
+    name = Required(str, nullable=True)
     date = Required(date)
     last_datum_date = Optional(datetime.date)
-    type = Required(str)
+    map_type = Required(StrArray)
 
 
 class Metadata(db.Entity):
