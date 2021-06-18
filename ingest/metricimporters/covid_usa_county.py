@@ -43,7 +43,7 @@ def upsert_nyt_county_covid_data(
     # newer dates
     for_dates: Set[str] = None
     data_version: Version = get(
-        i for i in db_amp.Version if i.type == "COVID-19 county case data"
+        i for i in db_amp.Version if i.name == "COVID-19 county case data"
     )
     for_dates = set()
 
@@ -283,9 +283,10 @@ def upsert_nyt_county_covid_data(
     upsert(
         db_amp.Version,
         {
-            "type": "COVID-19 county case data",
+            "name": "COVID-19 county case data",
         },
         {
+            "map_types": "{us-county,us-county-plus-state}",
             "date": date.today(),
             "last_datum_date": last_datum_date,
         },

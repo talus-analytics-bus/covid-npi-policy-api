@@ -246,9 +246,10 @@ def upsert_jhu_country_covid_data(
     upsert(
         db_amp.Version,
         {
-            "type": "COVID-19 case data (countries)",
+            "name": "COVID-19 case data (countries)",
         },
         {
+            "map_types": "{global}",
             "date": date.today(),
             "last_datum_date": last_datum_date,
         },

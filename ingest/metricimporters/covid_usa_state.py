@@ -235,13 +235,28 @@ def upsert_nyt_state_covid_data(
                         },
                     )
 
-    # update version
+    # update version for state data
     upsert(
         db_amp.Version,
         {
-            "type": "COVID-19 case data",
+            "name": "COVID-19 state case data",
         },
         {
+            "map_types": "{us,us-county,us-county-plus-state}",
+            "date": date.today(),
+            "last_datum_date": last_datum_date,
+        },
+    )
+
+    # update version for overall COVID-19 case data, used when a general
+    # "last updated date" for COVID-19 data is needed
+    upsert(
+        db_amp.Version,
+        {
+            "name": "COVID-19 case data",
+        },
+        {
+            "map_types": "{}",
             "date": date.today(),
             "last_datum_date": last_datum_date,
         },
