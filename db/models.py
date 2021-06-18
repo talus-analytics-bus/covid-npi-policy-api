@@ -250,19 +250,13 @@ class Policy(db.Entity):
         return instance_dict
 
 
-# class Policy_Group(db.Entity):
-#     id = PrimaryKey(int, auto=True)
-#     primary_ph_measure = Optional(str)
-#     ph_measure_details = Optional(str)
-
-
 class Version(db.Entity):
     _table_ = "version"
     id = PrimaryKey(int, auto=True)
-    name = Optional(str, nullable=True)
+    name = Required(str)
     date = Required(date)
     last_datum_date = Optional(datetime.date)
-    type = Required(str)
+    map_types = Required(StrArray)
 
 
 class Metadata(db.Entity):
