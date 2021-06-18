@@ -1,6 +1,7 @@
 """Define API data processing methods"""
 # standard modules
 import functools
+from .util import set_level_filters_from_geo_filters
 import math
 import itertools
 import logging
@@ -165,14 +166,14 @@ def export(filters: dict = None, class_name: str = "Policy"):
 def get_version():
     data_tmp = db.Version.select_by_sql(
         f"""
-        SELECT distinct on ("type") * FROM "version"
-        ORDER BY "type", "date" desc
+        SELECT distinct on ("name") * FROM "version"
+        ORDER BY "name", "date" desc
                                     """
     )
     data = [
-        i.to_dict(only=["type", "date", "last_datum_date"]) for i in data_tmp
+        i.to_dict(only=["name", "date", "last_datum_date"]) for i in data_tmp
     ]
-    data.sort(key=lambda x: x["type"], reverse=True)
+    data.sort(key=lambda x: x["name"], reverse=True)
     data.sort(key=lambda x: x["date"], reverse=True)
     return {"success": True, "data": data, "message": "Success"}
 
@@ -531,6 +532,9 @@ def get_policy(
     if use_pagination and (page is None or page == 0):
         page = 1
     q = select(i for i in db.Policy)
+
+    # define level filters based on geographic filters provided, if any
+    set_level_filters_from_geo_filters(filters)
 
     # apply filters if any
     if filters is not None:
