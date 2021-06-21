@@ -6,6 +6,7 @@ db/config-local.ini
 
 # temp files
 tmp/
+tmp_*.py
 
 # mypy config
 mypy.ini
@@ -80,7 +81,7 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
+# *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -159,3 +160,9 @@ dmypy.json
 # .elasticbeanstalk/*
 # !.elasticbeanstalk/*.cfg.yml
 # !.elasticbeanstalk/*.global.yml
+
+# debug Python files
+debug.py
+
+# Pipfile
+Pipfile

@@ -1,11 +1,14 @@
 """API utility functions"""
 # standard modules
 from datetime import datetime
+import functools
 import pathlib
+from typing import Any, Union
 import urllib3
 import certifi
-import functools
-from typing import Union, Any
+import os
+
+USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
 
 
 def find(filter_func, i):
@@ -84,9 +87,6 @@ def download_file(
 def use_relpath(relpath: str, abspath: str) -> str:
     path = pathlib.Path(abspath).parent / relpath
     return path.absolute()
-
-
-USE_CACHING: bool = True  # TODO get from env
 
 
 def cached(func):

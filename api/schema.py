@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
-import functools
-from .util import set_level_filters_from_geo_filters
+from typing import Any
+from .util import cached, set_level_filters_from_geo_filters
 import math
 import itertools
 import logging
@@ -28,7 +28,6 @@ from fuzzywuzzy import fuzz
 from pony.orm.core import Query
 
 # local modules
-from . import test
 from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
 from .models import (
@@ -41,8 +40,6 @@ from .models import (
     ChallengeList,
     PolicyNumber,
     PolicyNumberList,
-    PolicyStatusCount,
-    PolicyStatusCountList,
     ListResponse,
 )
 from .util import str_to_date, download_file
@@ -57,44 +54,6 @@ pp = pprint.PrettyPrinter(indent=4)
 IS_DEV: bool = os.environ.get("env", None) == "dev"
 
 # IMPLEMENTED_NO_RESTRICTIONS = False
-USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
-
-
-def cached(func):
-    """Caching"""
-    cache = {}
-
-    @functools.wraps(func)
-    def wrapper(*func_args, **kwargs):
-        if USE_CACHING:
-            random = kwargs.get("random", False)
-            key = str(kwargs)
-            if key in cache and not random:
-                return cache[key]
-
-            results = func(*func_args, **kwargs)
-            if not random:
-                cache[key] = results
-            return results
-        else:
-            return func(*func_args, **kwargs)
-
-        # # Code for JWT-friendly caching below.
-        # # get jwt
-        # jwt_client = func_args[1].context.args.get('jwt_client')
-        #
-        # # if not debug mode and JWT is missing, return nothing
-        # if not args.debug and jwt_client is None:
-        #     return []
-        #
-        # # form key using user type
-        # type = 'unspecified'
-        # if jwt_client is not None:
-        #     jwt_decoded_json = jwt.decode(jwt_client, args.jwt_secret_key)
-        #     type = jwt_decoded_json['type']
-        # key = str(kwargs) + ':' + type
-
-    return wrapper
 
 
 @db_session
@@ -148,7 +107,8 @@ def export(filters: dict = None, class_name: str = "Policy"):
     if class_name == "all_static":
         today = date.today()
         file = download_file(
-            "https://ghssidea.org/downloads/COVID AMP - Policy and Plan Data Export.xlsx",
+            "https://ghssidea.org/downloads/"
+            "COVID AMP - Policy and Plan Data Export.xlsx",
             "COVID AMP - Full Data Export - " + str(today).replace("-", ""),
             None,
             as_object=True,
@@ -165,14 +125,19 @@ def export(filters: dict = None, class_name: str = "Policy"):
 @db_session
 def get_version():
     data_tmp = db.Version.select_by_sql(
-        f"""
+        """
         SELECT distinct on ("name") * FROM "version"
-        ORDER BY "name", "date" desc
-                                    """
+        """
     )
     data = [
-        i.to_dict(only=["name", "date", "last_datum_date"]) for i in data_tmp
+        i.to_dict(only=["name", "date", "last_datum_date", "map_types"])
+        for i in data_tmp
     ]
+    d: dict = None
+    for d in data:
+        d["map_types"] = (
+            d["map_types"].replace("{", "").replace("}", "").split(",")
+        )
     data.sort(key=lambda x: x["name"], reverse=True)
     data.sort(key=lambda x: x["date"], reverse=True)
     return {"success": True, "data": data, "message": "Success"}
@@ -206,7 +171,6 @@ def get_count(class_names):
 
 
 @db_session
-# @cached
 def get_metadata(fields: list, entity_class_name: str):
     """Returns Metadata instance fields for the fields specified.
 
@@ -232,10 +196,11 @@ def get_metadata(fields: list, entity_class_name: str):
         # get entity class name and field
         try:
             entity_name, field = d.split(".")
-        except:
+        except Exception:
             return {
                 "success": False,
-                "message": 'Prefix all field names with entity name, e.g., "Policy.policy_name"',
+                "message": "Prefix all field names with entity name, e.g.,"
+                ' "Policy.policy_name"',
                 "data": [],
             }
 
@@ -451,7 +416,8 @@ def get_policy_number(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/policy_number?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/policy_number?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -656,7 +622,8 @@ def get_policy(
             data = []
             # for each policy
             for d in q:
-                # convert it to a dictionary returning only the specified fields
+                # convert it to a dictionary returning only the
+                # specified fields
                 d_dict = d.to_dict_2(
                     return_fields_by_entity=return_fields_by_entity
                 )
@@ -669,7 +636,8 @@ def get_policy(
             next_page_url = (
                 None
                 if not more_pages
-                else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+                else f"""/get/policy?page={str(page + 1)}"""
+                f"""&pagesize={str(pagesize)}"""
             )
 
             # if by category: transform data to organize by category
@@ -814,7 +782,8 @@ def get_challenge(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/challenge?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/challenge?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -845,11 +814,12 @@ def get_challenge(
 
 
 @db_session
-@cached
+# @cached
 def get_place(
-    iso3=None,
-    level=None,
-    fields=list(),
+    iso3="",
+    level="",
+    ansi_fips="",
+    fields=None,
     include_policy_count=False,
 ):
     """Returns Place instance data that match the provided filters."""
@@ -858,6 +828,7 @@ def get_place(
         for i in db.Place
         if (iso3 == "" or i.iso3.lower() == iso3)
         and (level == "" or i.level.lower() == level)
+        and (ansi_fips == "" or i.ansi_fips == ansi_fips)
     )[:][:]
 
     data = None
@@ -988,7 +959,8 @@ def get_plan(
         next_page_url = (
             None
             if not more_pages
-            else f"""/get/policy?page={str(page + 1)}&pagesize={str(pagesize)}"""
+            else f"""/get/policy?page={str(page + 1)}"""
+            f"""&pagesize={str(pagesize)}"""
         )
 
         # if by category: transform data to organize by category
@@ -1062,7 +1034,7 @@ def get_policy_status(
             return PolicyStatusList(
                 data=list(),
                 success=False,
-                message=f"""Start and end dates must be identical.""",
+                message="Start and end dates must be identical.",
             )
         else:
             # if date is not provided, return it in the response
@@ -1094,8 +1066,8 @@ def get_policy_status(
                 ]
             else:
 
-                # get all observations for the current date and convert them into
-                # policy statuses
+                # get all observations for the current date and convert them
+                # into policy statuses
                 observations = select(
                     i
                     for i in db.Observation
@@ -1123,9 +1095,13 @@ def get_policy_status(
         if filters is not None:
             q = apply_entity_filters(q, db.Policy, filters)
 
-        loc_field = "area1"
+        loc_field: str = GeoRes(geo_res).get_loc_field()
+
+        level: str = None
         if geo_res == "country":
-            loc_field = "iso3"
+            level = "Country"
+        elif geo_res == "state":
+            level = "State / Province"
 
         q_loc = select(getattr(i.place, loc_field) for i in q)
 
@@ -1139,168 +1115,10 @@ def get_policy_status(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f"""Found {str(len(data))} status(es){'' if name is None else ' for ' + name}""",
+        message=f"""Found {str(len(data))} status(es)"""
+        f"""{'' if name is None else ' for ' + name}""",
     )
     return res
-
-
-@cached
-@db_session
-def get_policy_status_counts(
-    geo_res: str = None,
-    name: str = None,
-    filters: dict = dict(),
-    by_group_number: bool = True,
-    count_sub: bool = True,
-    run_tests: bool = False,
-    include_zeros: bool = True,
-):
-    """Return number of policies that match the filters for each geography
-    on the date defined in the filters."""
-
-    # DEBUG filter by USA only
-    if geo_res == "state":
-        filters["iso3"] = ["USA"]
-
-    # run tests
-    if run_tests or IS_DEV:
-        test.get_policy_status_counts()
-
-    # get ordered policies from database
-    # if not counting sub-[geo] only, then filter by level = [sub_geo]
-    # otherwise, below filter by level != [geo or higher]
-    if not count_sub:
-        level: str = "State / Province"
-        if geo_res == "country":
-            level = "Country"
-        filters["level"] = [level]
-
-    # get policies
-    q = select(i for i in db.Policy)
-
-    # get all locations with any data (before filters)
-    q_any_data = select(i for i in db.Policy)
-
-    # TODO
-    # apply level filters
-    # apply special filters if counting sub-[geo] only
-    def apply_level_filters(q: Query, geo_res: GeoRes) -> Query:
-        """Filters policies in query to keep only those that are below the defined geographic resolution.
-
-        Args:
-            q (Query): The query selecting policies to be filtered
-            geo_res (GeoRes): The geographic resolution of the area related to those policies
-
-        Raises:
-            NotImplementedError: Only country and state geographic resolutions are implemented.
-
-        Returns:
-            Query: Filtered policies
-        """
-        if geo_res == GeoRes.state:
-            q = q.filter(
-                lambda i: not exists(
-                    t
-                    for t in i.place
-                    if t.level in ("State / Province", "Country")
-                )
-            )
-        elif geo_res == GeoRes.country:
-            q = q.filter(
-                lambda i: not exists(
-                    t for t in i.place if t.level in ("Country",)
-                )
-            )
-        else:
-            raise NotImplementedError(
-                "Unimplemented geographic resolution: " + geo_res
-            )
-        return q
-
-    # filter policies by correct levels if counting only sub-[geo] policies
-    if count_sub:
-        q = apply_level_filters(q, geo_res)
-        q_any_data = apply_level_filters(q_any_data, geo_res)
-
-    # initialize output data
-    data: list = None
-
-    # apply filters if any
-    # TODO resume here by adding "zeros" to response based on which keys are in `q_any_data` but
-    # not in the `q` filtered data.
-    if filters is not None:
-        q = apply_entity_filters(q, db.Policy, filters)
-        if "level" in filters:
-            q_any_data = apply_entity_filters(
-                q_any_data, db.Policy, dict(level=filters["level"])
-            )
-    q_any_data = select(
-        (i.place.iso3, i.place.area1, i.place.level) for i in q_any_data
-    )
-
-    # get correct location field
-    loc_field: str = "area1" if geo_res != "country" else "iso3"
-
-    # get locations
-    q_loc: Query = None
-    if not by_group_number:
-        q_loc = select((getattr(i.place, loc_field), count(i)) for i in q)
-    else:
-        q_loc = select(
-            (getattr(i.place, loc_field), count(i.group_number)) for i in q
-        )
-
-    data_tmp = dict()
-    for name, num in q_loc:
-        if name not in data_tmp:
-            data_tmp[name] = PolicyStatusCount(place_name=name, value=num)
-    data = list(data_tmp.values())
-
-    # create response from output list
-    res_counted: str = geo_res if not count_sub else "sub-" + geo_res
-
-    # add "zeros" to the data if requested
-    # TODO validate and test
-    if include_zeros:
-        for iso3, area1, level in q_any_data:
-            if geo_res == GeoRes.country:
-                if iso3 not in data_tmp:
-                    data.append(PolicyStatusCount(place_name=iso3, value=0))
-            elif geo_res == GeoRes.state:
-                if iso3 == "USA" and area1 not in data_tmp:
-                    data.append(PolicyStatusCount(place_name=area1, value=0))
-
-    # order by value
-    data.sort(key=lambda x: -x.value)
-    res = PolicyStatusCountList(
-        data=data,
-        success=True,
-        message=f"""Found {str(len(data))} values counting {res_counted} policies, grouped by {geo_res}""",
-    )
-
-    return res
-
-
-# def parse_lockdown_level(value_tmp):
-#     """If "No restrictions" has not yet been implemented on the frontend, then
-#     return "new normal" instead of "no restrictions". Otherwise return the val.
-#
-#     Parameters
-#     ----------
-#     value_tmp : type
-#         Description of parameter `value_tmp`.
-#
-#     Returns
-#     -------
-#     type
-#         Description of returned object.
-#
-#     """
-#     if not IMPLEMENTED_NO_RESTRICTIONS:
-#         if value_tmp == 'No restrictions':
-#             return 'New normal'
-#         else:
-#             return value_tmp
 
 
 @cached
@@ -1314,9 +1132,6 @@ def get_lockdown_level(
     deltas_only: bool = False,
 ):
     """TODO"""
-
-    # if date is not provided, return it in the response
-    specify_date = date is None
 
     # collate list of lockdown level statuses based on state / province
     data = list()
@@ -1414,7 +1229,8 @@ def get_lockdown_level(
     res = PolicyStatusList(
         data=data,
         success=True,
-        message=f"""Found {str(len(data))} {message_noun}{'' if message_name is None else ' for ' + message_name}""",
+        message=f"""Found {str(len(data))} {message_noun}"""
+        f"""{'' if message_name is None else ' for ' + message_name}""",
     )
     return res
 
@@ -1450,26 +1266,35 @@ def get_label_from_value(field, value):
 
 
 @db_session
-def apply_entity_filters(q, entity_class, filters: dict = dict()):
+def apply_entity_filters(
+    q: Query,
+    entity_class: db.Entity,
+    filters: dict = dict(),
+) -> Query:
     """Given the PonyORM query for policies and relevant filters, applies
-    filters with AND logic.
+    filters with AND logic within each field and OR logic across each field.
 
-    TODO ensure this works for arbitrary large numbers of filtered fields.
+    Args:
+        q (Query): The query to be filtered, consisting of one unjoined entity
 
-    Parameters
-    ----------
-    q : pony.orm.Query
-        A Query instance, e.g., created by a call to `select`, for policies
-    filters : dict[str, list]
-        Dictionary with keys of field names and values of lists of
-        allowed values (AND logic).
+        entity_class (db.Entity): The class representing the entity
 
-    Returns
-    -------
-    pony.orm.Query
-        The query with filters applied.
+        filters (dict, optional): The set of filters to apply. Defaults
+        to dict().
 
+        geo_res (GeoRes, optional): The geographic resolution of the place
+        being filtered on. Defaults to None if not applicable.
+
+        counted_parent_geos (List[GeoRes], optional): The geographic
+        resolutions of parent geographies which should be filtered on. Defaults
+        to list() if not applicable. This is currently only used when counting
+        the number of policies by area, in cases when the policies affecting
+        parent areas are desired to be added to the count.
+
+    Returns:
+        Query: The query with filter statement applied
     """
+
     # for each filter set provided
     for field, allowed_values in filters.items():
         # if no values were specified, assume no filter is applied
@@ -1489,7 +1314,8 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
                     if search_text is None:
                         continue
                     else:
-                        # return exact match - if no exact match return partial match
+                        # return exact match - if no exact match return
+                        # partial match
                         exact_match = text in search_text
                         if exact_match:
                             new_q_ids.append(id)
@@ -1538,97 +1364,123 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             # set allowed values to be start and end date instances
             allowed_values = list(map(str_to_date, allowed_values))
 
+            # Way using db.Policy_Date (new)
             # if it's the special "dates_in_effect" filter, handle it
             # and continue
             if field == "dates_in_effect":
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left: str = allowed_values[0]
+                win_right: str = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
-                    # starts before or during `start` when end date unknown
-                    if (
-                        i.date_end_actual is None
-                        and i.date_end_anticipated is None
-                        and i.date_start_effective <= start
-                    )
-                    # starts before AND ends after
-                    or (
-                        i.date_start_effective < start
-                        and (
-                            i.date_end_actual > end
-                            or (
-                                i.date_end_actual is None
-                                and i.date_end_anticipated > end
-                            )
-                        )
-                    )
-                    # starts during OR ends during
-                    or (
+                    for pd in db.Policy_Date
+                    if i.id == pd.fk_policy_id
+                    and (
+                        # left is during window (inclusive)
+                        (pd.start_date <= win_left and win_left <= pd.end_date)
+                        or
+                        # right is during window (inclusive)
                         (
-                            i.date_start_effective >= start
-                            and i.date_start_effective <= end
+                            pd.start_date <= win_right
+                            and win_right <= pd.end_date
                         )
-                        or (
-                            (
-                                i.date_end_actual >= start
-                                and i.date_end_actual <= end
-                            )
-                            or (
-                                i.date_end_actual is None
-                                and (
-                                    i.date_end_anticipated >= start
-                                    and i.date_end_anticipated <= end
-                                )
-                            )
+                        or
+                        # left is before start AND right is after or
+                        # during start
+                        (
+                            win_left < pd.start_date
+                            and pd.start_date <= win_right
                         )
                     )
                 )
+
+                # # Original way
+                # q = select(
+                #     i
+                #     for i in q
+                #     # starts before or on `start` when end date unknown
+                #     if (
+                #         i.date_end_actual is None
+                #         and i.date_end_anticipated is None
+                #         and i.date_start_effective <= start
+                #     )
+                #     # starts before AND ends after
+                #     or (
+                #         i.date_start_effective < start
+                #         and (
+                #             i.date_end_actual > end
+                #             or (
+                #                 i.date_end_actual is None
+                #                 and i.date_end_anticipated > end
+                #             )
+                #         )
+                #     )
+                #     # starts during OR ends during
+                #     or (
+                #         (
+                #             i.date_start_effective >= start
+                #             and i.date_start_effective <= end
+                #         )
+                #         or (
+                #             (
+                #                 i.date_end_actual >= start
+                #                 and i.date_end_actual <= end
+                #             )
+                #             or (
+                #                 i.date_end_actual is None
+                #                 and (
+                #                     i.date_end_anticipated >= start
+                #                     and i.date_end_anticipated <= end
+                #                 )
+                #             )
+                #         )
+                #     )
+                # )
                 continue
 
             if field == "date_of_decision":
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_of_decision is not None
-                    and i.date_of_decision <= end
-                    and i.date_of_decision >= start
+                    and i.date_of_decision <= win_right
+                    and i.date_of_decision >= win_left
                 )
                 continue
 
             if field == "date_of_complaint":
                 # return instances where `date_of_complaint` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_of_complaint is not None
-                    and i.date_of_complaint <= end
-                    and i.date_of_complaint >= start
+                    and i.date_of_complaint <= win_right
+                    and i.date_of_complaint >= win_left
                 )
                 continue
 
             elif field == "date_issued":
                 # return instances where `date_issued` falls within the
                 # specified range, inclusive
-                start = allowed_values[0]
-                end = allowed_values[1]
+                win_left = allowed_values[0]
+                win_right = allowed_values[1]
 
                 q = select(
                     i
                     for i in q
                     if i.date_issued is not None
-                    and i.date_issued <= end
-                    and i.date_issued >= start
+                    and i.date_issued <= win_right
+                    and i.date_issued >= win_left
                 )
                 continue
 
@@ -1642,6 +1494,7 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             "iso3",
             "country_name",
             "area2",
+            "ansi_fips",
         )
 
         join_policy_number = not join_place and field == "policy.policy_number"
@@ -1659,14 +1512,55 @@ def apply_entity_filters(q, entity_class, filters: dict = dict()):
             "subtarget",
         )
 
-        # if filter is a join, apply the filter to the linked entity
-        # joined to place entity
+        # # if filter is a join, apply the filter to the linked entity
+        # # joined to place entity
+        # allow_parents: bool = False
+        # counting_parent_geos: bool = (
+        #     counted_parent_geos is not None and len(counted_parent_geos) > 0
+        # )
+        # if geo_res is not None and counting_parent_geos:
+        #     geo_res_loc_field: str = geo_res.get_loc_field()
+        #     is_geo_res_loc: bool = geo_res_loc_field == field
+        #     allow_parents = is_geo_res_loc and len(counted_parent_geos) > 0
         if join_place:
-            q = q.filter(
-                lambda i: exists(
-                    t for t in i.place if getattr(t, field) in allowed_values
+            if len(allowed_values) > 1:
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.place
+                        if getattr(t, field) in allowed_values
+                    )
                 )
-            )
+            elif len(allowed_values) > 0:
+                allowed_value: Any = allowed_values[0]
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.place
+                        if getattr(t, field) == allowed_value
+                    )
+                )
+
+            # if not allow_parents:
+            #     q = q.filter(
+            #         lambda i: exists(
+            #             t
+            #             for t in i.place
+            #             if getattr(t, field) in allowed_values
+            #         )
+            #     )
+            # else:
+            #     parent_levels: List[str] = [
+            #         x.get_level() for x in counted_parent_geos
+            #     ]
+            #     q = q.filter(
+            #         lambda i: exists(
+            #             t
+            #             for t in i.place
+            #             if getattr(t, field) in allowed_values
+            #             or t.level in parent_levels
+            #         )
+            #     )
         # joined to policy entity: policy number field
         elif join_policy_number:
             q = q.filter(
@@ -1948,3 +1842,39 @@ def add_search_text():
         i.search_text = get_plan_search_text(i)
     for i in db.Court_Challenge.select():
         i.search_text = get_challenge_search_text(i)
+
+
+def apply_subgeo_filter(q: Query, geo_res: GeoRes) -> Query:
+    """Filters policies in query to keep only those that are below the
+    defined geographic resolution.
+
+    Args:
+        q (Query): The query selecting policies to be filtered
+
+        geo_res (GeoRes): The geographic resolution of the area related to
+        those policies
+
+    Raises:
+        NotImplementedError: Only country and state geographic resolutions
+        are implemented.
+
+    Returns:
+        Query: Filtered policies
+    """
+    if geo_res == GeoRes.state:
+        q = q.filter(
+            lambda i: not exists(
+                t
+                for t in i.place
+                if t.level in ("State / Province", "Country")
+            )
+        )
+    elif geo_res == GeoRes.country:
+        q = q.filter(
+            lambda i: not exists(t for t in i.place if t.level in ("Country",))
+        )
+    else:
+        raise NotImplementedError(
+            "Unimplemented geographic resolution: " + geo_res
+        )
+    return q

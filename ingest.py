@@ -1,12 +1,16 @@
 """Run data ingest application"""
 # standard modules and packages
 import argparse
+from ingest.places.core import (
+    add_local_plus_state_places,
+    add_missing_usa_local_areas,
+)
 from os import sys
 
 # local modules
 from api import schema
 from db import db
-from ingest.plugins import CovidPolicyPlugin
+from ingest.plugins import CovidPolicyPlugin, assign_policy_group_numbers
 
 # setup arguments
 parser = argparse.ArgumentParser(
@@ -62,6 +66,7 @@ parser.add_argument(
 )
 
 if __name__ == "__main__":
+
     # constants
     # command line arguments
     args = parser.parse_args()
@@ -80,7 +85,7 @@ if __name__ == "__main__":
     ingest_lockdown_levels = args.distancing_levels or args.all
 
     # generate db mapping
-    db.generate_mapping(create_tables=True)
+    db.generate_mapping(create_tables=False)
 
     # update core policy data, if appropriate
     plugin = CovidPolicyPlugin()
@@ -99,6 +104,12 @@ if __name__ == "__main__":
             plugin.post_process_policies(db, include_court_challenges=True)
 
     if ingest_policies:
+
+        # add missing local area places if needed
+        add_missing_usa_local_areas()
+        add_local_plus_state_places()
+
+        # ingest main data
         client.load_data().process_data(db)
 
         # post-process places
@@ -108,7 +119,7 @@ if __name__ == "__main__":
         schema.add_search_text()
 
     if args.group_numbers or ingest_policies:
-        plugin.assign_policy_group_numbers(db)
+        assign_policy_group_numbers(db)
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:

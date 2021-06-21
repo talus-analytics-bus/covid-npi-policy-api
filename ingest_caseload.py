@@ -5,7 +5,6 @@ import time
 from typing import List, Optional
 
 # local modules
-from api import schema
 from db_metric import db
 from db import db as db_amp
 from ingest.plugins import CovidCaseloadPlugin
@@ -21,7 +20,15 @@ parser.add_argument(
     default=False,
     action="store_const",
     const=True,
-    help="ingest state data",
+    help="ingest USA state data",
+)
+parser.add_argument(
+    "-c",
+    "--county",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest USA county data",
 )
 parser.add_argument(
     "-g",
@@ -30,6 +37,14 @@ parser.add_argument(
     action="store_const",
     const=True,
     help="ingest global data",
+)
+parser.add_argument(
+    "-gd",
+    "--globe-daily",
+    default=False,
+    action="store_const",
+    const=True,
+    help="ingest global data from daily reports",
 )
 parser.add_argument(
     "-a",
@@ -58,8 +73,7 @@ def refresh_materialized_views():
     cur = conn.cursor()
 
     # single statement to refresh all materialized views relevant
-    to_refresh: List[str] = ["74", "77", "94"]
-    # to_refresh = ['74', '77', '94', '97']  # 97 is 7d aggregate deaths, unused
+    to_refresh: List[str] = ["74", "77", "94", "104"]
     stmt_list: List[str] = list()
     id: Optional[str]
     for id in to_refresh:
@@ -78,18 +92,32 @@ def refresh_materialized_views():
 if __name__ == "__main__":
     # get args
     args = parser.parse_args()
+    do_county = args.county or args.all
     do_state = args.state or args.all
     do_global = args.globe or args.all
+    do_global_daily = args.globe_daily or args.all
     do_refresh_materialized_views = (
-        args.globe or args.state or args.materialized_views or args.all
+        args.globe
+        or args.globe_daily
+        or args.state
+        or args.county
+        or args.materialized_views
+        or args.all
     )
 
     # generate database mapping and ingest data for the COVID-AMP project
     db.generate_mapping(create_tables=False)
     db_amp.generate_mapping(create_tables=False)
-    if do_state or do_global:
+    if do_state or do_global or do_global_daily or do_county:
         plugin = CovidCaseloadPlugin()
-        plugin.upsert_data(db, db_amp, do_state=do_state, do_global=do_global)
+        plugin.upsert_covid_data(
+            db,
+            db_amp,
+            do_state=do_state,
+            do_global=do_global,
+            do_global_daily=do_global_daily,
+            do_county=do_county,
+        )
 
     # refresh materialized views that depend on case/deaths data
     if do_refresh_materialized_views:

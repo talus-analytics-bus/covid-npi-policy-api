@@ -1,43 +1,41 @@
 """Define API endpoints"""
 # standard modules
 from api.ampresolvers.optionsetgetter.core import OptionSetGetter
-
-# from api.types import GeoRes
-# from api.ampresolvers import PolicyStatusCounter
+from api.types import GeoRes
+from api.ampresolvers import PolicyStatusCounter
 from datetime import date
 from enum import Enum
 
 # 3rd party modules
-from fastapi import Query
+from fastapi import Query, Path
 from starlette.responses import RedirectResponse
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List
 
 # local modules
 from . import schema
 from .models import (
-    PolicyList,
+    PlaceObsList,
     PolicyFilters,
     PlanFilters,
-    ChallengeFilters,
     OptionSetList,
     MetadataList,
     ListResponse,
     PolicyStatusList,
-    PolicyStatusCountList,
-    PolicyFiltersNoOrdering,
     PolicyFields,
     PlanFields,
-    CourtChallengeFields,
     PlaceFields,
     Iso3Codes,
     StateNames,
     ExportFiltersNoOrdering,
 )
 from . import app
-from db import db
+from db import db  # noqa F401
 
-DOWNLOAD_DESCRIPTION = "**Note:** This endpoint results in a file download and may only work if you make the API request either (1) in your address bar or (2) using cURL."
+DOWNLOAD_DESCRIPTION = (
+    "**Note:** This endpoint results in a file download "
+    "and may only work if you make the API request either (1) in your address"
+    " bar or (2) using cURL."
+)
 
 ClassNameExport = Enum(
     value="ClassNameExport",
@@ -66,16 +64,22 @@ ClassName = Enum(
 @app.post(
     "/post/export",
     tags=["Downloads"],
-    summary='Return Excel (.xlsx) file containing formatted data for all records belonging to the provided class, e.g., "Policy" or "Plan" that match filters.',
+    summary="Return Excel (.xlsx) file containing formatted data for all "
+    'records belonging to the provided class, e.g., "Policy" or "Plan"'
+    " that match filters.",
     description=DOWNLOAD_DESCRIPTION
     + """ <br/><br/>**Example:** to download all face mask policies:<br/><br/>
-    ```curl -X POST "https://api.covidamp.org/post/export?class_name=Policy" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```""",
+    ```curl -X POST "https://api.covidamp.org/"""
+    """post/export?class_name=Policy" -H  "accept: application/json" -H"""
+    """  "Content-Type: application/json" -d """
+    """"{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```""",
 )
 async def post_export(
     body: ExportFiltersNoOrdering,
     class_name: ClassNameExport = Query(
         ClassNameExport.all_static,
-        description="The name of the data type for which an Excel export is requested",
+        description="The name of the data type for which an Excel export "
+        "is requested",
     ),
 ):
     """Return XLSX data export for policies with the given filters applied.
@@ -97,14 +101,15 @@ async def post_export(
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"
         )
-    filters = body.filters if bool(body.filters) == True else None
+    filters = body.filters if bool(body.filters) is True else None
     return schema.export(filters=filters, class_name=class_name.name)
 
 
 @app.get(
     "/get/version",
     tags=["Metadata"],
-    summary="Return dates different data types were last updated, and the most recent date appearing in the data",
+    summary="Return dates different data types were last updated, and the "
+    "most recent date appearing in the data",
 )
 async def get_version():
     return schema.get_version()
@@ -113,31 +118,24 @@ async def get_version():
 @app.get(
     "/get/countries_with_lockdown_levels",
     tags=["Metadata"],
-    summary="Return ISO 3166-1 alpha-3 codes of countries for which national-level policy data are currently available in AMP",
+    summary="Return ISO 3166-1 alpha-3 codes of countries for which "
+    "national-level policy data are currently available in AMP",
 )
 async def get_countries_with_lockdown_levels():
     return schema.get_countries_with_lockdown_levels()
 
 
-#
-# class Item(BaseModel):
-#     name: str
-#     description: Optional[str] = Field(
-#         None, title="The description of the item", max_length=300
-#     )
-#     price: float = Field(..., gt=0, description="The price must be greater than zero")
-#     tax: Optional[float] = None
-
-
 @app.get(
     "/get/count",
     tags=["Metadata"],
-    summary='Return the total number of records currently in AMP of the provided class(es), e.g., "Policy" or "Plan".',
+    summary="Return the total number of records currently in AMP of the "
+    'provided class(es), e.g., "Policy" or "Plan".',
 )
 async def get_count(
     class_names: List[ClassName] = Query(
         [ClassName.Policy],
-        description="The name(s) of the data type(s) for which record counts are requested",
+        description="The name(s) of the data type(s) for which record counts "
+        "are requested",
     )
 ):
     class_names = [v.name for v in class_names if v != ClassNameExport.none]
@@ -151,12 +149,15 @@ async def get_count(
     response_model=MetadataList,
     response_model_exclude_unset=True,
     tags=["Metadata"],
-    summary='Return metadata describing the provided field(s), e.g, "Policy.policy_name" belonging to the provided class, e.g., "Policy" or "Plan".',
+    summary="Return metadata describing the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
 )
 async def get_metadata(
     entity_class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which metadata are requested",
+        description="The name of the data type for which metadata"
+        " are requested",
     ),
     fields: List[str] = Query(
         [
@@ -164,7 +165,8 @@ async def get_metadata(
             "Policy.primary_ph_measure",
             "Policy.ph_measure_details",
         ],
-        description="A list of fields for which metadata are requested, prefixed by the data type name and a period",
+        description="A list of fields for which metadata are requested,"
+        " prefixed by the data type name and a period",
     ),
 ):
     entity_class_name = (
@@ -203,13 +205,15 @@ async def get_file_redirect(id: int):
 @app.get(
     "/get/file/{title}",
     tags=["Downloads"],
-    summary="Download PDF with the given id, using the provided title as the filename",
+    summary="Download PDF with the given id, using the provided title as "
+    "the filename",
     include_in_schema=False,
 )
 async def get_file_title_required(
     id: int = Query(
         None,
-        description="Unique ID of file, as listed in `file` attribute of Policy records",
+        description="Unique ID of file, as listed in `file` attribute of "
+        "Policy records",
     ),
     title: str = Query("Filename", description="Any filename"),
 ):
@@ -219,13 +223,15 @@ async def get_file_title_required(
 @app.get(
     "/get/file/{id}/{title}",
     tags=["Downloads"],
-    summary="Download PDF with the given id, using the provided title as the filename",
+    summary="Download PDF with the given id, using the provided title as"
+    " the filename",
     description=DOWNLOAD_DESCRIPTION,
 )
 async def get_file(
     id: int = Query(
         None,
-        description="Unique ID of file, as listed in `file` attribute of Policy records",
+        description="Unique ID of file, as listed in `file` attribute of "
+        "Policy records",
     ),
     title: str = Query("Filename", description="Any filename"),
 ):
@@ -274,21 +280,28 @@ async def post_policy(
     body: PolicyFilters,
     fields: List[PolicyFields] = Query(
         [PolicyFields.id],
-        description="List of data fields that should be returned for each policy",
+        description="List of data fields that should be returned for"
+        " each policy",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
     count: bool = Query(
         False,
-        description="If true, return number of records only, otherwise return data for records",
+        description="If true, return number of records only, otherwise return"
+        " data for records",
     ),
     merge_like_policies: bool = Query(
         True,
-        description="Applies only if `count` is true. If true, more accurately weights policy counts by merging like policies, e.g., counting policies that affected multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging.",
+        description="Applies only if `count` is true. If true, more"
+        " accurately weights policy counts by merging like policies, e.g.,"
+        " counting policies that affected multiple types of commercial"
+        " locations only once, etc. If false, counts each row in the Policy"
+        " database without merging.",
     ),
     random: bool = Query(
         False,
-        description="If true, return a random sampling of `pagesize` records, otherwise return according to `ordering` in body",
+        description="If true, return a random sampling of `pagesize` records,"
+        " otherwise return according to `ordering` in body",
     ),
 ):
     fields = [
@@ -349,13 +362,18 @@ async def get_place(
     fields: List[PlaceFields] = Query(None),
     iso3: str = "",
     level: str = "",
+    ansi_fips: str = Query(
+        "",
+        description="The ANSI or FIPS code of the local area to be returned.",
+    ),
     include_policy_count: bool = False,
 ):
     """Return Place data."""
     return schema.get_place(
-        fields=[d.name for d in fields],
+        fields=[d.name for d in fields] if fields is not None else None,
         iso3=iso3.lower(),
         level=level.lower(),
+        ansi_fips=ansi_fips.strip(),
         include_policy_count=include_policy_count,
     )
 
@@ -466,18 +484,13 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
-# define allowed geo_res values
-class GeoRes(str, Enum):
-    state = "state"
-    country = "country"
-
-
 @app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
     tags=["Policies"],
-    summary="Return whether or not ('t' or 'f') policies were in effect by location which match the filters and the provided geographic resolution",
+    summary="Return whether or not ('t' or 'f') policies were in effect by"
+    " location which match the filters and the provided geographic resolution",
 )
 async def post_policy_status(
     body: PolicyFilters,
@@ -489,43 +502,76 @@ async def post_policy_status(
     return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
 
 
+policy_status_counter: PolicyStatusCounter = PolicyStatusCounter()
+
+
 @app.post(
     "/post/policy_status_counts/{geo_res}",
-    response_model=PolicyStatusCountList,
+    response_model=PlaceObsList,
     response_model_exclude_unset=True,
     tags=["Policies"],
-    summary="Return number of policies in effect by location matching filters and the provided geographic resolution",
+    summary="Return number of policies in effect by location matching filters"
+    " and the provided geographic resolution",
 )
 async def post_policy_status_counts(
     body: PolicyFilters,
-    geo_res: GeoRes = Query(
+    geo_res: GeoRes = Path(
         GeoRes.state,
         description="The geographic resolution for which to return data",
     ),
     include_zeros: bool = Query(
         False,
-        description="If true, include zeros if a place has policies but not for the currently selected filters. If false, these places will not be included in results.",
+        description="If true, include zeros if a place has policies but not"
+        " for the currently selected filters. If false, these places will not"
+        " be included in results.",
+    ),
+    include_min_max: bool = Query(
+        False,
+        description="If true, include which observations represent the minimum"
+        " and maximum values of the policy status counts that have ever"
+        " occurred over all dates. If false, do not include.",
+    ),
+    count_min_max_by_cat: bool = Query(
+        False,
+        description="If true, computes min/max policy counts taking into "
+        "account and category (`primary_ph_measure`) or subcategory "
+        "(`ph_measure_details`) filters provided in the request body. If false"
+        ", only computes min/max policy counts across all categories.",
     ),
     count_sub: bool = Query(
         False,
-        description="If true, counts all policies *beneath* the selected `geo_res` (geographic resolution). If false, only counts policies *at* it.",
+        description="If true, counts all policies *beneath* the selected"
+        " `geo_res` (geographic resolution). If false, only counts policies"
+        " *at* it.",
+    ),
+    counted_parent_geos: List[GeoRes] = Query(
+        list(),
+        description="If defined, adds counts for the defined parent "
+        "geographies to the count of the geography defined in `geo_res`. "
+        "Otherwise, only counts for `geo_res` are returned.",
     ),
     merge_like_policies: bool = Query(
         True,
-        description="If true, more accurately weights policy counts by merging like policies, e.g., counting policies that affected multiple types of commercial locations only once, etc. If false, counts each row in the Policy database without merging.",
+        description="If true, more accurately weights policy counts by"
+        " merging like policies, e.g., counting policies that affected"
+        " multiple types of commercial locations only once, etc. If false, "
+        "counts each row in the Policy database without merging.",
     ),
-    run_tests: bool = Query(
+    one: bool = Query(
         False,
-        description="[DEV] If true, takes time to run some tests on the endpoint.",
+        description="If true, return first observation only.",
     ),
 ):
-    res = schema.get_policy_status_counts(
+    res = policy_status_counter.get_policy_status_counts(
         geo_res=geo_res,
         filters=body.filters,
         by_group_number=merge_like_policies,
-        count_sub=count_sub,
-        run_tests=run_tests,
+        filter_by_subgeo=count_sub,
         include_zeros=include_zeros,
+        include_min_max=include_min_max,
+        count_min_max_by_cat=count_min_max_by_cat,
+        one=one,
+        counted_parent_geos=counted_parent_geos,
     )
     return res
 
@@ -559,13 +605,15 @@ async def post_policy_number(
 #     response_model=ListResponse,
 #     response_model_exclude_unset=True,
 #     tags=["Court challenges"],
-#     summary="Return data for court challenges (to policies) matching filters",
+#     summary="Return data for court challenges "
+#       "(to policies) matching filters",
 # )
 # async def post_challenge(
 #     body: ChallengeFilters,
 #     fields: List[CourtChallengeFields] = Query(
 #         [CourtChallengeFields.id],
-#         description="List of data fields that should be returned for each court challenge",
+#         description="List of data fields that should be returned for "
+#           "each court challenge",
 #     ),
 #     page: int = Query(1, description="Page to return"),
 #     pagesize: int = Query(100, description="Number of records per page"),
@@ -592,7 +640,8 @@ async def post_plan(
     body: PlanFilters,
     fields: List[PlanFields] = Query(
         [PlanFields.id],
-        description="List of data fields that should be returned for each plan",
+        description="List of data fields that should be returned for "
+        "each plan",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
@@ -620,7 +669,8 @@ def geo_res_def(default_val):
 
 state_name_def = Query(
     getattr(StateNames, "All states and territories"),
-    description='For "state" resolution: Which state(s) or territory(ies) to return',
+    description='For "state" resolution: Which state(s) or territory(ies) '
+    "to return",
 )
 
 iso3_def = Query(
@@ -633,16 +683,20 @@ iso3_def = Query(
     "/get/optionset",
     response_model=OptionSetList,
     tags=["Metadata"],
-    summary='Return all possible values for the provided field(s), e.g, "Policy.policy_name" belonging to the provided class, e.g., "Policy" or "Plan".',
+    summary="Return all possible values for the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
 )
 async def get_optionset(
     class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which optionsets are requested",
+        description="The name of the data type for which optionsets "
+        "are requested",
     ),
     fields: List[str] = Query(
         ["Policy.primary_ph_measure", "Policy.ph_measure_details"],
-        description="A list of fields for which optionsets are requested, prefixed by the data type name and a period",
+        description="A list of fields for which optionsets are requested,"
+        " prefixed by the data type name and a period",
     ),
     geo_res: GeoRes = geo_res_def(None),
     state_name: StateNames = state_name_def,
@@ -699,15 +753,20 @@ async def get_distancing_levels(
     state_name: StateNames = state_name_def,
     date: date = Query(
         date.today(),
-        description="The date for which data are requested, YYYY-MM-DD, defaults to today. If no data available, data for most recent date before this date are returned.",
+        description="The date for which data are requested, YYYY-MM-DD,"
+        " defaults to today. If no data available, data for most recent date"
+        " before this date are returned.",
     ),
     all_dates: bool = Query(
         False,
-        description="If true, all dates up to and including `date` are returned, if false, only data for `date` are returned",
+        description="If true, all dates up to and including `date` are"
+        " returned, if false, only data for `date` are returned",
     ),
     deltas_only: bool = Query(
         False,
-        description="If true, only dates on which the distancing level changed are returned, if false, dates returned are determined by `all_dates`",
+        description="If true, only dates on which the distancing level"
+        " changed are returned, if false, dates returned are determined by"
+        " `all_dates`",
     ),
 ):
     state_name = (
@@ -731,28 +790,3 @@ async def get_distancing_levels(
         end_date=end_date,
         deltas_only=deltas_only,
     )
-
-
-# ##
-# # Debug endpoints
-# ##
-#
-#
-# @app.get("/add_search_text")
-# async def add_search_text(test_param: str = 'GET successful'):
-#     """Test GET endpoint.
-#
-#     Parameters
-#     ----------
-#     test_param : str
-#         A message to be returned in the response if GET was successful.
-#
-#     Returns
-#     -------
-#     list[dict]
-#         A message containing the value of `test_param` indicating the GET was
-#         successful.
-#
-#     """
-#     schema.add_search_text()
-#     return 'Done'

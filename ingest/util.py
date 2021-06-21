@@ -1,6 +1,6 @@
 """Ingest utility methods"""
 # standard packages
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set, Union
 import urllib3
 import certifi
 import requests
@@ -164,11 +164,103 @@ def download_file(
                 with open(write_path + fn, "wb") as out:
                     out.write(response.data)
                 return True
-    except Exception as e:
+    except Exception:
         return None
     else:
         print("Error when downloading PDF (404)")
         return False
+
+
+def nyt_county_caseload_csv_to_dict(
+    download_url: str, for_dates: Set[str] = None
+) -> Dict[str, List[dict]]:
+    """
+    Download county-level COVID-19 case and death data from the New York Times
+    GitHub and convert it from CSV format into a dictionary of lists, indexed
+    by county FIPS code.
+
+    TODO Add feature where only observations whose datetimes aren't already
+    in the dataset are added. Perhaps by skipping them in the
+
+    Args:
+        download_url (str): The URL at which the county data CSV file is found
+
+    Returns:
+        List[dict]: A dictionary of lists of COVID-19 data observations,
+        indexed by county FIPS code.
+    """
+
+    output = defaultdict(list)
+
+    r = requests.get(download_url, allow_redirects=True)
+    file_dict = defaultdict(list)
+    rows = r.iter_lines(decode_unicode=True)
+
+    # define index of unique ID element
+    UNIQUE_ID_IDX: int = 3
+
+    # remove the header row from the generator
+    next(rows)
+
+    for row in rows:
+        row_list = row.split(",")
+
+        file_dict[row_list[UNIQUE_ID_IDX]].append(row_list)
+
+    for _county_name, data in file_dict.items():
+        for day in data:
+            # skip unless matches date if provided
+            if for_dates is not None and day[0] not in for_dates:
+                continue
+            else:
+                fips_no_zeros: str = get_fips_no_zeros(day[UNIQUE_ID_IDX])
+                output[fips_no_zeros].append(
+                    {
+                        "date": day[0],
+                        "county": day[1],
+                        "fips": fips_no_zeros,
+                        "cases": day[4],
+                        "deaths": day[5],
+                    }
+                )
+    return output
+
+
+def get_fips_no_zeros(raw_fips: str) -> str:
+    """Given a raw numeric FIPS code in string format, remove any leading zeros
+    and return the string representation of that integer.
+
+    Args:
+        raw_fips (str): A numeric FIPS code as a string, e.g., `01001`.
+
+    Returns:
+        str: That FIPS code without leading zeros, e.g., `1001`.
+    """
+    if raw_fips == "":
+        return ""
+    else:
+        return str(int(raw_fips))
+
+
+def get_fips_with_zeros(raw_fips: Union[str, int]) -> str:
+    """Returns value of raw FIPS code with zero prepended if it is not already
+
+    Args:
+        raw_fips Union[str, int]: Raw county FIPS code, possibly missing
+        leading zero
+
+    Returns:
+        str: County FIPS code with leading zero if applicable
+    """
+    raw_fips_type: Any = type(raw_fips)
+    if raw_fips_type not in (str, int):
+        raise ValueError("Expected str or int, got " + str(raw_fips_type))
+    else:
+        fips_tmp: str = raw_fips if type(raw_fips) == str else str(raw_fips)
+        if len(fips_tmp) == 4:
+            return "0" + fips_tmp
+        else:
+            return fips_tmp
 
 
 def nyt_caseload_csv_to_dict(download_url: str):
@@ -199,116 +291,6 @@ def nyt_caseload_csv_to_dict(download_url: str):
                 }
             )
     return output
-
-
-@db_session
-def jhu_caseload_csv_to_dict(download_url: str, db):
-
-    output = defaultdict(list)
-
-    r = requests.get(download_url, allow_redirects=True)
-    file_dict = defaultdict(list)
-    rows = r.iter_lines(decode_unicode=True)
-
-    # remove the header row from the generator
-    headers_raw = next(rows).split(",")
-    dates_raw = headers_raw[4:]
-    dates = list()
-    for d in dates_raw:
-        date_parts = d.split("/")
-        mm = date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
-        dd = date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
-        yyyy = (
-            date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
-        )
-        date_str = yyyy + "-" + mm + "-" + dd
-        dates.append(date_str)
-
-    headers = headers_raw[0:4] + dates
-    skip = ("Lat", "Long", "Province/State")
-
-    # keep dictionary of special row lists that need to be summed
-    special_country_rows = defaultdict(list)
-    row_lists = list()
-    for row in rows:
-        row_list = row.split(",")
-        if row_list[1] in (
-            "Australia",
-            "China",
-            "Canada",
-        ):
-            special_country_rows[row_list[1]].append(row_list)
-        else:
-            row_lists.append(row_list)
-
-    # condense special country rows into single rows
-    new_row_lists = list()
-    for place_name in special_country_rows:
-        row_list = ["", place_name, "lat", "lon"]
-        L = special_country_rows[place_name]
-
-        # Using naive method to sum list of lists
-        # Source: https://www.geeksforgeeks.org/python-ways-to-sum-list-of-lists-and-return-sum-list/
-        res = list()
-        for j in range(0, len(L[0][4:])):
-            tmp = 0
-            for i in range(0, len(L)):
-                tmp = tmp + int(L[i][4:][j])
-            res.append(tmp)
-        row_list += res
-        new_row_lists.append(row_list)
-
-    row_lists += new_row_lists
-
-    missing_names = set()
-    data = list()
-    for row_list in row_lists:
-        if row_list[0] != "":
-            continue
-
-        datum = dict()
-        idx = 0
-        for header in headers:
-            if header in skip:
-                idx += 1
-                continue
-            else:
-                if header == "Country/Region":
-                    datum["name"] = (
-                        row_list[idx].replace('"', "").replace("*", "")
-                    )
-
-                else:
-                    datum[header] = int(float(row_list[idx]))
-                idx += 1
-
-        # get place ISO, ID from name
-        p = select(
-            i
-            for i in db.Place
-            if i.name == datum["name"] or datum["name"] in i.other_names
-        ).first()
-        if p is None:
-            missing_names.add(datum["name"])
-            continue
-        else:
-            datum["place"] = p
-
-        # reshape again
-        for date in dates:
-            datum_final = dict()
-            datum_final["date"] = date
-            datum_final["value"] = datum[date]
-            datum_final["place"] = datum["place"]
-            data.append(datum_final)
-
-    print(
-        "These places in the JHU dataset were missing from the COVID AMP places database:"
-    )
-    pp.pprint(missing_names)
-
-    # return output
-    return data
 
 
 def get_inst_by_col(e: Entity, c: str) -> Dict[Any, Entity]:

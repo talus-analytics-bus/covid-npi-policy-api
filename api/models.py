@@ -1,19 +1,15 @@
-"""Define API entity models."""
+"""
+Define API entity models.
+TODO reorganize into packages
+
+"""
 # standard modules
 from datetime import date
 from enum import Enum
 
 # 3rd party modules
 from pydantic import BaseModel, Field
-from typing import Dict, List, Set, Optional
-from enum import Enum
-
-
-# # Define enum type support
-# class State(Enum):
-#     mv = 'mv'
-#     jk = 'jk'
-#     ac = 'ac'
+from typing import Dict, List, Optional
 
 
 class FilterFieldsPolicy(str, Enum):
@@ -156,6 +152,7 @@ class Place(BaseModel):
     loc: str = None
     home_rule: str = None
     dillons_rule: str = None
+    ansi_fips: str = None
 
 
 class Auth_Entity(BaseModel):
@@ -292,13 +289,25 @@ class PolicyStatus(BaseModel):
     datestamp: date = None
 
 
-class PolicyStatusCount(BaseModel):
+class PlaceObs(BaseModel):
+    place_id: int = None
     place_name: str = None
     value: int
     datestamp: date = None
 
 
-examplePolicyFilter = {
+class PlaceObsList(Response):
+    """Return observations for places as list, along with optional min and max
+    data for all time.
+
+    """
+
+    data: List[PlaceObs]
+    min_all_time: PlaceObs = None
+    max_all_time: PlaceObs = None
+
+
+examplePolicyFilter: Dict[str, List[str]] = {
     "dates_in_effect": [
         "2019-12-31",
         "2022-12-31",
@@ -310,7 +319,8 @@ class ExportFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         {},
         title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
+        description="Key: Name of data field on which to filter. Values: List"
+        " of strings of values the data field may have.",
     )
 
 
@@ -318,7 +328,8 @@ class PolicyFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         examplePolicyFilter,
         title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
+        description="Key: Name of data field on which to filter. Values: List"
+        " of strings of values the data field may have.",
     )
 
 
@@ -326,7 +337,8 @@ class PlanFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         {"date_issued": ["2019-12-31", "2022-12-31"]},
         title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
+        description="Key: Name of data field on which to filter. Values: List"
+        " of strings of values the data field may have.",
     )
 
 
@@ -334,7 +346,8 @@ class ChallengeFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         {"date_of_complaint": ["2019-12-31", "2022-12-31"]},
         title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List of strings of values the data field may have.",
+        description="Key: Name of data field on which to filter. Values: List"
+        " of strings of values the data field may have.",
     )
 
 
@@ -375,7 +388,7 @@ class PolicyStatusList(Response):
 
 
 class PolicyStatusCountList(Response):
-    data: List[PolicyStatusCount]
+    data: List[PlaceObs]
 
 
 class OptionSetList(Response):
