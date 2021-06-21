@@ -259,7 +259,7 @@ class IngestPlugin:
         self.name = name
 
 
-def reject(x):
+def reject_policy(x) -> bool:
     """Reject instance if this function returns False, or accept it to
     the database otherwise.
 
@@ -292,8 +292,8 @@ def reject(x):
                 or (area2Key in x and x[area2Key] != "")
             ):
                 country_level_with_prov = True
-    reject = no_desc or country_level_with_prov
-    return reject
+    reject_instance: bool = no_desc or country_level_with_prov
+    return reject_instance
 
 
 class CovidCaseloadPlugin(IngestPlugin):
@@ -1162,7 +1162,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # for each row of the data
 
-        for i, d in self.data.iterrows():
+        for _i, d in self.data.iterrows():
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest
@@ -1171,7 +1171,7 @@ class CovidPolicyPlugin(IngestPlugin):
             except Exception:
                 continue
 
-            if reject(d):
+            if reject_policy(d):
                 continue
 
             # Add places ######################################################
@@ -1396,8 +1396,8 @@ class CovidPolicyPlugin(IngestPlugin):
             except Exception:
                 continue
 
-            if reject(d):
-                continue
+            # if reject(d):
+            #     continue
 
             # Add places ######################################################
             # determine whether the specified instance has been defined yet,
@@ -1626,7 +1626,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 except Exception:
                     continue
 
-                if reject(d):
+                if reject_policy(d):
                     continue
 
                 # upsert policies
@@ -1666,7 +1666,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 except Exception:
                     continue
 
-                if reject(d):
+                if reject_policy(d):
                     continue
 
                 # upsert policies
@@ -1785,8 +1785,8 @@ class CovidPolicyPlugin(IngestPlugin):
             except Exception:
                 continue
 
-            if reject(d):
-                continue
+            # if reject(d):
+            #     continue
 
             # upsert policies
             action, instance = upsert(
@@ -1921,8 +1921,8 @@ class CovidPolicyPlugin(IngestPlugin):
             except Exception:
                 continue
 
-            if reject(d):
-                continue
+            # if reject(d):
+            #     continue
 
             # upsert instances: court challenges
             action, instance = upsert(
@@ -2274,7 +2274,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 "policy_data_source"
             ].startswith("http")
 
-            if url_invalid or reject(d) or attachment_available:
+            if url_invalid or reject_policy(d) or attachment_available:
                 continue
 
             instance_data = {
@@ -2389,19 +2389,17 @@ class CovidPolicyPlugin(IngestPlugin):
         n_deleted = 0
 
         # get data to use
-        data = self.data if entity_class == db.Policy else self.data_plans
+        is_policy_data: bool = entity_class == db.Policy
+        data = self.data if is_policy_data else self.data_plans
 
         # get set of keys to use
-        doc_keys = (
-            policy_doc_keys if entity_class == db.Policy else plan_doc_keys
-        )
+        doc_keys = policy_doc_keys if is_policy_data else plan_doc_keys
 
         # track types added to assist deletion
         types = set()
 
         # for each record in the raw data, potentially create file(s)
-        # TODO replace `self.data` with an argument-specified dataset
-        for i, d in data.iterrows():
+        for _i, d in data.iterrows():
 
             # if unique ID is not an integer, skip
             # TODO handle on ingest
@@ -2410,7 +2408,7 @@ class CovidPolicyPlugin(IngestPlugin):
             except Exception:
                 continue
 
-            if reject(d):
+            if is_policy_data and reject_policy(d):
                 continue
 
             for key in doc_keys:
