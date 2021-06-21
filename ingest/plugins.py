@@ -63,29 +63,36 @@ show_in_progress = (
 )
 
 
-def format_date(key, d, unspec_val, skipped_dates):
+def format_date(key, d, unspec_val):
     if d[key] == "" or d[key] is None or d[key] == "N/A" or d[key] == "NA":
         return None
     elif len(d[key].split("/")) == 2:
         print(f"""Unexpected format for `{key}`: {d[key]}\n""")
         return unspec_val
     else:
-        # ignore dates before Dec 1, 2019
-        date_arr = d[key].split("-")
-        date_arr_int = list(map(lambda x: int(x), date_arr))
-        yyyy, mm, dd = date_arr_int
-        if yyyy < 2019:
-            skipped_dates.add(
-                d.get("policy_name", d.get("source_id", "Unknown"))
-            )
-            return None
-        elif yyyy == 2019 and mm < 12:
-            skipped_dates.add(
-                d.get("policy_name", d.get("source_id", "Unknown"))
-            )
-            return None
-        else:
-            return d[key]
+        return d[key]
+
+        # Note: As of a decision on Jun 18, 2021, we are no longer "null"ifying
+        # dates before Dec 1, 2019 (N is approx. 7 policies).
+        # To re-enable this behavior, uncomment the code below, and add back
+        # `skipped_dates` as an argument to this `format_date` method.
+
+        # # ignore dates before Dec 1, 2019
+        # date_arr = d[key].split("-")
+        # date_arr_int = list(map(lambda x: int(x), date_arr))
+        # yyyy, mm, dd = date_arr_int
+        # if yyyy < 2019:
+        #     skipped_dates.add(
+        #         d.get("policy_name", d.get("source_id", "Unknown"))
+        #     )
+        #     return None
+        # elif yyyy == 2019 and mm < 12:
+        #     skipped_dates.add(
+        #         d.get("policy_name", d.get("source_id", "Unknown"))
+        #     )
+        #     return None
+        # else:
+        #     return d[key]
 
 
 def iterable(obj):
@@ -1576,7 +1583,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 "In progress" if key in show_in_progress else "Unspecified"
             )
             if key.startswith("date_"):
-                return format_date(key, d, None, self.skipped_dates)
+                return format_date(key, d, None)
             elif key == "policy_number":
                 if d[key] != "":
                     return int(d[key])
@@ -1738,7 +1745,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 "In progress" if key in show_in_progress else "Unspecified"
             )
             if key.startswith("date_"):
-                return format_date(key, d, None, self.skipped_dates)
+                return format_date(key, d, None)
             elif key == "policy_number" or key == "n_phases":
                 if d[key] != "":
                     return int(d[key])
@@ -1842,7 +1849,7 @@ class CovidPolicyPlugin(IngestPlugin):
             set_to_bool = ("legal_challenge",)
             # correct errors in date entry
             if key.startswith("date_"):
-                return format_date(key, d, None, self.skipped_dates)
+                return format_date(key, d, None)
             # parse IDs as integers
             elif key == "id":
                 return int(d[key])
