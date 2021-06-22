@@ -125,7 +125,6 @@ if __name__ == "__main__":
         # TODO remove this when court challenge complaint categories and
         # subcategories are updated circa Nov/Dec 2020
         plugin.debug_add_test_complaint_cats(db)
-        sys.exit(0)
 
     if ingest_policies:
         # add missing local area places if needed
