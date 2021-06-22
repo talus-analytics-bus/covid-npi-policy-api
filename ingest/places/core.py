@@ -34,7 +34,9 @@ def add_missing_usa_local_areas():
 
     # Get all local places from AMP database
     amp_counties: List[AmpPlace] = select(
-        i for i in AmpPlace if i.level == "Local" and i.iso3 == "USA"
+        i
+        for i in AmpPlace
+        if i.level == "Local" and i.iso3 == "USA" and i.ansi_fips != ""
     )[:][:]
 
     # For each county place from metrics database
