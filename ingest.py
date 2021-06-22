@@ -5,7 +5,6 @@ from ingest.places.core import (
     add_local_plus_state_places,
     add_missing_usa_local_areas,
 )
-from os import sys
 
 # local modules
 from api import schema
