@@ -105,10 +105,6 @@ if __name__ == "__main__":
 
     if ingest_policies:
 
-        # add missing local area places if needed
-        add_missing_usa_local_areas()
-        add_local_plus_state_places()
-
         # ingest main data
         client.load_data().process_data(db)
 
@@ -130,3 +126,8 @@ if __name__ == "__main__":
         # subcategories are updated circa Nov/Dec 2020
         plugin.debug_add_test_complaint_cats(db)
         sys.exit(0)
+
+    if ingest_policies:
+        # add missing local area places if needed
+        add_missing_usa_local_areas()
+        add_local_plus_state_places()
