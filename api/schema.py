@@ -523,22 +523,24 @@ def get_policy(
             # apply ordering
             ordering.reverse()
             for field_tmp, direction in ordering:
+
+                # if ordering by place field, handle specially
                 if "place." in field_tmp:
                     field = field_tmp.split(".")[1]
+                    # sort policies by place attribute using largest or
+                    # smallest value of the attribute among policy's places
                     if direction == "desc":
-                        q = q.order_by(
-                            lambda i: desc(
-                                group_concat(
-                                    getattr(p, field) for p in i.place
-                                )
-                            )
-                        )
+                        q = select(
+                            (i, max(getattr(pl, field)))
+                            for i in q
+                            for pl in i.place
+                        ).order_by(desc(2))
                     else:
-                        q = q.order_by(
-                            lambda i: group_concat(
-                                getattr(p, field) for p in i.place
-                            )
-                        )
+                        q = select(
+                            (i, min(getattr(pl, field)))
+                            for i in q
+                            for pl in i.place
+                        ).order_by(2)
                 else:
                     field = field_tmp
                     if direction == "desc":
@@ -618,10 +620,16 @@ def get_policy(
             #         'id',
             #     ]
 
+            # format response to consist of tuples if it does not already
+            q_res: list = q[:][:]
+            if len(q_res) > 0 and type(q_res[0]) != tuple:
+                q_res = zip(q_res)
+
             # define list of instances to return
             data = []
+
             # for each policy
-            for d in q:
+            for d, *_ in q_res:
                 # convert it to a dictionary returning only the
                 # specified fields
                 d_dict = d.to_dict_2(
