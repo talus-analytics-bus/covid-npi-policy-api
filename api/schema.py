@@ -525,7 +525,24 @@ def get_policy(
             for field_tmp, direction in ordering:
 
                 # if ordering by place field, handle specially
-                if "place." in field_tmp:
+                if "auth_entity.place." in field_tmp:
+                    field = field_tmp.split(".")[-1]
+                    # sort policies by auth_entity place attribute using
+                    # largest or smallest value of the attribute among
+                    # policy's places
+                    if direction == "desc":
+                        q = select(
+                            (i, max(getattr(ae.place, field)))
+                            for i in q
+                            for ae in i.auth_entity
+                        ).order_by(desc(2))
+                    else:
+                        q = select(
+                            (i, min(getattr(ae.place, field)))
+                            for i in q
+                            for ae in i.auth_entity
+                        ).order_by(2)
+                elif "place." in field_tmp:
                     field = field_tmp.split(".")[1]
                     # sort policies by place attribute using largest or
                     # smallest value of the attribute among policy's places
