@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
-from typing import Any, List
-from .util import cached, set_level_filters_from_geo_filters
+from typing import Any, List, Set
+from .util import cached
 import math
 import itertools
 import logging
@@ -1320,6 +1320,14 @@ def apply_entity_filters(
         Query: The query with filter statement applied
     """
 
+    # has a level of "Local plus state/province" been defined?
+    hybrid_levels: Set[str] = {"Local plus state/province"}
+    allow_hybrid_levels: bool = (
+        "level" in filters
+        and len(filters["level"]) > 0
+        and any(l in filters["level"] for l in hybrid_levels)
+    )
+
     # for each filter set provided
     for field, allowed_values in filters.items():
         # if no values were specified, assume no filter is applied
@@ -1523,6 +1531,10 @@ def apply_entity_filters(
                         t
                         for t in i.auth_entity
                         if getattr(t.place, place_field) in allowed_values
+                        and (
+                            allow_hybrid_levels
+                            or t.place.level != "Local plus state/province"
+                        )
                     )
                 )
             elif len(allowed_values) > 0:
@@ -1532,6 +1544,10 @@ def apply_entity_filters(
                         t
                         for t in i.auth_entity
                         if getattr(t.place, place_field) == allowed_value
+                        and (
+                            allow_hybrid_levels
+                            or t.place.level != "Local plus state/province"
+                        )
                     )
                 )
 
@@ -1542,6 +1558,10 @@ def apply_entity_filters(
                         t
                         for t in i.place
                         if getattr(t, field) in allowed_values
+                        and (
+                            allow_hybrid_levels
+                            or t.level != "Local plus state/province"
+                        )
                     )
                 )
             elif len(allowed_values) > 0:
@@ -1551,6 +1571,10 @@ def apply_entity_filters(
                         t
                         for t in i.place
                         if getattr(t, field) == allowed_value
+                        and (
+                            allow_hybrid_levels
+                            or t.level != "Local plus state/province"
+                        )
                     )
                 )
 
@@ -1608,6 +1632,19 @@ def apply_entity_filters(
         else:
             # if the filter is not a join, i.e., is on policy native fields
             q = select(i for i in q if getattr(i, field) in allowed_values)
+
+    # # if a level of "Local plus state/province" was not provided in the
+    # # filters, do not return any places with that level.
+    # if (
+    #     "level" not in filters
+    #     or len(filters["level"]) == 0
+    #     or "Local plus state/province" not in filters
+    # ):
+    #     q = q.filter(
+    #         lambda i: exists(
+    #             t for t in i.place if t.level != "Local plus state/province"
+    #         )
+    #     )
 
     # return the filtered query instance
     return q
