@@ -1,6 +1,6 @@
 """Define API data processing methods"""
 # standard modules
-from typing import Any
+from typing import Any, List
 from .util import cached, set_level_filters_from_geo_filters
 import math
 import itertools
@@ -1522,6 +1522,9 @@ def apply_entity_filters(
             "ansi_fips",
         )
 
+        # filter applies to auth_entity place?
+        join_auth_entity_place: bool = "auth_entity.place." in field
+
         join_policy_number = not join_place and field == "policy.policy_number"
 
         # determine whether this field is obtained by joining to policies
@@ -1547,7 +1550,35 @@ def apply_entity_filters(
         #     geo_res_loc_field: str = geo_res.get_loc_field()
         #     is_geo_res_loc: bool = geo_res_loc_field == field
         #     allow_parents = is_geo_res_loc and len(counted_parent_geos) > 0
-        if join_place:
+        if join_auth_entity_place:
+            # get field to query
+            field_parts: List[str] = field.split(".")
+
+            # raise error if field parts has other than 3 elements
+            if len(field_parts) != 3:
+                raise ValueError("Unexpected field format: " + field)
+            place_field: str = field_parts[-1]
+
+            # filter by place field on auth_entity
+            if len(allowed_values) > 1:
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.auth_entity
+                        if getattr(t.place, place_field) in allowed_values
+                    )
+                )
+            elif len(allowed_values) > 0:
+                allowed_value: Any = allowed_values[0]
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.auth_entity
+                        if getattr(t.place, place_field) == allowed_value
+                    )
+                )
+
+        elif join_place:
             if len(allowed_values) > 1:
                 q = q.filter(
                     lambda i: exists(
