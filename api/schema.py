@@ -1419,49 +1419,6 @@ def apply_entity_filters(
                         )
                     )
                 )
-
-                # # Original way
-                # q = select(
-                #     i
-                #     for i in q
-                #     # starts before or on `start` when end date unknown
-                #     if (
-                #         i.date_end_actual is None
-                #         and i.date_end_anticipated is None
-                #         and i.date_start_effective <= start
-                #     )
-                #     # starts before AND ends after
-                #     or (
-                #         i.date_start_effective < start
-                #         and (
-                #             i.date_end_actual > end
-                #             or (
-                #                 i.date_end_actual is None
-                #                 and i.date_end_anticipated > end
-                #             )
-                #         )
-                #     )
-                #     # starts during OR ends during
-                #     or (
-                #         (
-                #             i.date_start_effective >= start
-                #             and i.date_start_effective <= end
-                #         )
-                #         or (
-                #             (
-                #                 i.date_end_actual >= start
-                #                 and i.date_end_actual <= end
-                #             )
-                #             or (
-                #                 i.date_end_actual is None
-                #                 and (
-                #                     i.date_end_anticipated >= start
-                #                     and i.date_end_anticipated <= end
-                #                 )
-                #             )
-                #         )
-                #     )
-                # )
                 continue
 
             if field == "date_of_decision":
