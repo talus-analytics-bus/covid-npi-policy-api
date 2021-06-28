@@ -842,7 +842,7 @@ def get_challenge(
 # @cached
 def get_place(
     iso3="",
-    level="",
+    levels=None,
     ansi_fips="",
     fields=None,
     include_policy_count=False,
@@ -852,7 +852,7 @@ def get_place(
         i
         for i in db.Place
         if (iso3 == "" or i.iso3.lower() == iso3)
-        and (level == "" or i.level.lower() == level)
+        and (levels == None or i.level.lower() in levels)
         and (ansi_fips == "" or i.ansi_fips == ansi_fips)
     )[:][:]
 
@@ -1325,7 +1325,7 @@ def apply_entity_filters(
     allow_hybrid_levels: bool = (
         "level" in filters
         and len(filters["level"]) > 0
-        and any(l in filters["level"] for l in hybrid_levels)
+        and any(level in filters["level"] for level in hybrid_levels)
     )
 
     # for each filter set provided

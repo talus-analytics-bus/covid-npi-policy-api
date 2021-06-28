@@ -361,18 +361,24 @@ async def post_policy(
 async def get_place(
     fields: List[PlaceFields] = Query(None),
     iso3: str = "",
-    level: str = "",
+    level: str = "",  # DEPRECATED
+    levels: List[str] = Query(None),
     ansi_fips: str = Query(
         "",
         description="The ANSI or FIPS code of the local area to be returned.",
     ),
     include_policy_count: bool = False,
 ):
+    if levels is None:
+        if level != "" and level is not None:
+            levels = [level]
+    levels = [s.lower() for s in levels]
+
     """Return Place data."""
     return schema.get_place(
         fields=[d.name for d in fields] if fields is not None else None,
         iso3=iso3.lower(),
-        level=level.lower(),
+        levels=levels,
         ansi_fips=ansi_fips.strip(),
         include_policy_count=include_policy_count,
     )
