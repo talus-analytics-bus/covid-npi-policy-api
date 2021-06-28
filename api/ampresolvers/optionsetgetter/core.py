@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import DefaultDict, List
+from itertools import groupby
+from typing import Any, DefaultDict, Dict, List
 from db.models import Glossary
 from pony.orm.core import count, db_session, select
 
@@ -94,7 +95,24 @@ class OptionSetGetter:
             # them such that "Unspecified" is last
             # TODO handle other special values like "Unspecified" as needed
             options = None
-            if field == "country_name" or field == "level":
+            if field == "level":
+                if (
+                    iso3 is not None or state_name is not None
+                ) and geo_res is not None:
+                    raise NotImplementedError(
+                        f"""Cannot request optionset for `{field}` """
+                        f"""when filtering by `{geo_res}`"""
+                    )
+                options = (
+                    select(
+                        getattr(i, field)
+                        for i in entity_class
+                        if count(getattr(i, class_name_field)) > 0
+                    )
+                    .filter(lambda x: x is not None)
+                    .filter(lambda x: x != "Local plus state/province")
+                )
+            elif field == "country_name":
                 if (
                     iso3 is not None or state_name is not None
                 ) and geo_res is not None:
@@ -103,14 +121,13 @@ class OptionSetGetter:
                         f"""when filtering by `{geo_res}`"""
                     )
                 options = select(
-                    getattr(i, field)
+                    (getattr(i, field), i.level)
                     for i in entity_class
                     if count(getattr(i, class_name_field)) > 0
-                ).filter(lambda x: x is not None)
-                if field == "level":
-                    options = options.filter(
-                        lambda x: x != "Local plus state/province"
-                    )
+                ).filter(
+                    lambda field_val, level: field_val is not None
+                    and (level == "Country" or level == "Tribal nation")
+                )
             else:
                 if entity_name not in ("Policy", "Plan"):
                     options = select(
@@ -134,11 +151,34 @@ class OptionSetGetter:
                     ).filter(lambda x: x is not None)
 
             # get objects
-            options = options[:][:]
-            if len(options) > 0 and isinstance(options[0], list):
-                options = list(
-                    set([item for sublist in options for item in sublist])
-                )
+            options_tmp: List[Any] = options[:][:]
+
+            # if list of tuples, store tuples indexed by first element
+            options: List[str] = None
+            groups_by_option: Dict[str, str] = None
+            if len(options_tmp) > 0:
+                first: Any = options_tmp[0]
+                if type(first) == tuple:
+                    groups_by_option = dict()
+                    options = list()
+                    cur_option_tuple: tuple = None
+                    for cur_option_tuple in options_tmp:
+                        groups_by_option[
+                            cur_option_tuple[0]
+                        ] = cur_option_tuple[1]
+                        options.append(cur_option_tuple[0])
+                elif isinstance(first, list):
+                    options = list(
+                        set(
+                            [
+                                item
+                                for sublist in options_tmp
+                                for item in sublist
+                            ]
+                        )
+                    )
+                else:
+                    options = options_tmp
 
             options.sort()
             options.sort(key=lambda x: x != "Face mask")
@@ -150,10 +190,17 @@ class OptionSetGetter:
             options = list(filter(lambda x: x.strip() != "", options))
 
             # assign groups, if applicable
+            uses_custom_groups: bool = (
+                entity_name_and_field == "Place.country_name"
+            )
             uses_nongeo_groups = entity_name_and_field in fields_using_groups
             uses_geo_groups = entity_name_and_field in fields_using_geo_groups
-            uses_groups = uses_nongeo_groups or uses_geo_groups
-            if uses_nongeo_groups:
+            uses_groups = (
+                uses_nongeo_groups or uses_geo_groups or uses_custom_groups
+            )
+            if uses_custom_groups:
+                options = options_tmp
+            elif uses_nongeo_groups:
                 options_with_groups = list()
 
                 # index glossary terms by info needed to identify parent terms
@@ -166,6 +213,7 @@ class OptionSetGetter:
                         term.subterm
                     ] = term
 
+                option: Any = None
                 for option in options:
                     # get group from glossary data
                     parent = glossary_terms_grouped[entity_name][field].get(
@@ -177,7 +225,7 @@ class OptionSetGetter:
                     if parent:
                         options_with_groups.append([option, parent.term])
                     else:
-                        # TODO fioptiogure out best way to handle "Other" cases
+                        # TODO decide best way to handle "Other" cases
                         options_with_groups.append([option, "Other"])
                 options = options_with_groups
             elif uses_geo_groups:
@@ -209,6 +257,7 @@ class OptionSetGetter:
                             continue
                         else:
                             places_by_area1[p[1]] = p
+                    option: Any = None
                     for option in options:
                         # get group from glossary data
                         parent = places_by_area1.get(option, None)
