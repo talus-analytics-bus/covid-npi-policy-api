@@ -1,3 +1,4 @@
+from api.models import Place
 from ingest.util import get_fips_with_zeros, upsert
 from ingest.plugins import get_place_loc
 from typing import List
@@ -131,3 +132,21 @@ def add_local_plus_state_places():
 
         commit()
     print(f"""Added {n_added} missing local + state places to AMP database""")
+
+
+@db_session
+def update_tribal_nation_fields() -> None:
+    """Sets all tribal nation `country name` values to be equal to their `area`
+    value (the name of the tribal nation).
+
+    This is necessary so that tribal nations can be regarded as country-level
+    for the purposes of populating country menu options, etc., given that
+    tribal nations in AMP are currently tagged at the data level of "states /
+    provinces'.
+
+    """
+    pl: Place = None
+    for pl in select(pl for pl in Place if pl.level == "Tribal nation"):
+        pl.country_name = pl.area1
+        pl.iso3 = "Unspecified"
+        commit()

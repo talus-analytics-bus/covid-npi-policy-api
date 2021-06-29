@@ -4,6 +4,7 @@ import argparse
 from ingest.places.core import (
     add_local_plus_state_places,
     add_missing_usa_local_areas,
+    update_tribal_nation_fields,
 )
 
 # local modules
@@ -129,3 +130,6 @@ if __name__ == "__main__":
         # add missing local area places if needed
         add_missing_usa_local_areas()
         add_local_plus_state_places()
+
+    # update tribal nation place tagging
+    update_tribal_nation_fields()
