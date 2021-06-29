@@ -2,7 +2,12 @@
 bin/
 sh/
 ingest/sh
+
+# database configurations
 db/config-local.ini
+
+# database backups
+backups/
 
 # temp files
 tmp/
