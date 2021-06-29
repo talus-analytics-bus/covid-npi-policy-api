@@ -302,7 +302,6 @@ class OptionSetGetter:
                 datum = {
                     "id": id,
                     "value": value,
-                    "label": value,
                 }
                 if uses_groups:
                     datum["group"] = group
