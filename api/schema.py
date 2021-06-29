@@ -1260,36 +1260,6 @@ def get_lockdown_level(
     return res
 
 
-def get_label_from_value(field, value):
-    """Given the data field and value, return the label that should be used
-    to refer to the value in front-ends.
-
-    TODO more dynamically
-
-    Parameters
-    ----------
-    field : type
-        Description of parameter `field`.
-    value : type
-        Description of parameter `value`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    if field == "level":
-        if value == "Intermediate area":
-            return "State / province"
-        elif value == "Local area":
-            return "Local"
-        else:
-            return value
-    else:
-        return value
-
-
 @db_session
 def apply_entity_filters(
     q: Query,
