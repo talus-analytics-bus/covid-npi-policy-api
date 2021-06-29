@@ -76,8 +76,9 @@ class OptionSetGetter:
         place_tuples: List[tuple] = (
             select(
                 (i.area1, i.area2, i.country_name)
-                for i in db.Place
-                if len(getattr(i, class_name_field)) > 0
+                for i in Place
+                if count(getattr(i, class_name_field)) > 0
+                and i.level != "Local plus state/province"
             )[:][:]
             if need_places
             else list()
