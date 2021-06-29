@@ -308,13 +308,14 @@ class OptionSetGetter:
                 data[field].append(datum)
                 id = id + 1
 
-            if (
-                entity_name_and_field
-                == "Court_Challenge.government_order_upheld_or_enjoined"
-            ):
-                data["government_order_upheld_or_enjoined"].append(
-                    {"id": -1, "value": "Pending", "label": "Pending"},
-                )
+            # Commented out below code because court challenges disabled
+            # if (
+            #     entity_name_and_field
+            #     == "Court_Challenge.government_order_upheld_or_enjoined"
+            # ):
+            #     data["government_order_upheld_or_enjoined"].append(
+            #         {"id": -1, "value": "Pending", "label": "Pending"},
+            #     )
 
         # apply special ordering
         if "ph_measure_details" in data:
