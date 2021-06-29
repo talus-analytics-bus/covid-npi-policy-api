@@ -137,7 +137,7 @@ class OptionSetGetter:
                         options = select(
                             getattr(i, field)
                             for i in Place
-                            if len(i.policies) > 0
+                            if len(getattr(i, class_name_field)) > 0
                             and i.level != "Local plus state/province"
                         ).filter(lambda x: x is not None)
                     else:
