@@ -145,8 +145,13 @@ def update_tribal_nation_fields() -> None:
     provinces'.
 
     """
-    pl: Place = None
-    for pl in select(pl for pl in Place if pl.level == "Tribal nation"):
+    pl: AmpPlace = None
+    pls: List[AmpPlace] = select(
+        pl for pl in AmpPlace if pl.level == "Tribal nation"
+    )[:][:]
+    print("\nUpdating tribal nation data fields...")
+    for pl in pls:
         pl.country_name = pl.area1
         pl.iso3 = "Unspecified"
         commit()
+    print("Updated.\n")
