@@ -1,7 +1,7 @@
 from collections import defaultdict
 from itertools import groupby
 from typing import Any, DefaultDict, Dict, List
-from db.models import Glossary
+from db.models import Glossary, Place
 from pony.orm.core import count, db_session, select
 
 from db import db
@@ -130,9 +130,20 @@ class OptionSetGetter:
                 )
             else:
                 if entity_name not in ("Policy", "Plan"):
-                    options = select(
-                        getattr(i, field) for i in entity_class
-                    ).filter(lambda x: x is not None)
+                    if entity_name == "Place":
+
+                        # select values only from places that have policies
+                        # and do not have hybrid levels
+                        options = select(
+                            getattr(i, field)
+                            for i in Place
+                            if len(i.policies) > 0
+                            and i.level != "Local plus state/province"
+                        ).filter(lambda x: x is not None)
+                    else:
+                        options = select(
+                            getattr(i, field) for i in entity_class
+                        ).filter(lambda x: x is not None)
                 else:
 
                     options = select(
