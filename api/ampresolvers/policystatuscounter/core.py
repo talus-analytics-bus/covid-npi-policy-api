@@ -1,3 +1,4 @@
+from datetime import datetime
 from .helpers import PolicyCountType, get_map_type_from_level
 
 # from os import getcwd
@@ -13,6 +14,8 @@ from db.models import (
     MaxMinPolicyCount,
     Place,
     Policy_By_Group_Number,
+    Policy_Day_Dates,
+    Policy,
 )
 from typing import Any, List, Tuple, Set, Union
 
@@ -32,6 +35,72 @@ class PolicyStatusCounter(QueryResolver):
     # TODO update all docs
     def __init__(self):
         return None
+
+    # @cached
+    @db_session
+    def get_policy_status_counts_for_map(
+        self,
+        geo_res: GeoRes,
+        cats: List[str],
+        subcats: List[str],
+        date: datetime.date,
+        sort: bool = False,
+    ) -> PlaceObsList:
+
+        # get data fields specific to this geographic resolution for query
+        level: str = geo_res.get_level()
+        loc_field: str = geo_res.get_loc_field()
+        usa_only: bool = geo_res != GeoRes.country
+
+        # define query and get results
+        q: Query = select(
+            (getattr(pl, loc_field), count(pbgn))
+            for p in Policy
+            for pbgn in p._policy_by_group_number
+            for pl in p.place
+            for pdd in p._policy_day_dates
+            if pdd.day_date == date
+            and pl.level == level
+            and (len(cats) == 0 or p.primary_ph_measure in cats)
+            and (len(subcats) == 0 or p.ph_measure_details in subcats)
+            and (not usa_only or pl.iso3 == "USA")
+        )
+        q_result: List[Tuple[str, int]] = q[:][:]
+
+        # define response's place observation list
+        response: PlaceObsList = PlaceObsList(
+            data=[
+                PlaceObs(place_name=r[0], value=r[1])
+                for r in q_result
+                if r[0] != ""
+            ],
+            success=True,
+            message="Message",
+        )
+
+        # add missing zero values
+        zero_val_loc_names: List[str] = self.__get_zero_count_data_for_map(
+            loc_field, level, usa_only
+        )
+        nonzero_loc_vals: List[str] = set([t[0] for t in q_result])
+        loc_val: str = None
+        for loc_val in zero_val_loc_names:
+            if loc_val not in nonzero_loc_vals:
+                response.data.append(PlaceObs(place_name=loc_val, value=0))
+
+        # sort if requested
+        if sort:
+            response.data.sort(key=lambda x: x.value, reverse=True)
+
+        # define min/max observation values
+        min_max: Tuple[
+            PlaceObs, PlaceObs
+        ] = self.__fetch_static_max_min_counts(level)
+        response.min_all_time = min_max[0]
+        response.max_all_time = min_max[1]
+
+        # return response
+        return response
 
     @cached
     @db_session
@@ -303,7 +372,6 @@ class PolicyStatusCounter(QueryResolver):
                 PlaceObs, PlaceObs
             ] = self.__fetch_static_max_min_counts(
                 level=levels[0],
-                loc_field=loc_field,
             )
 
             # define min/max for all time
@@ -401,7 +469,6 @@ class PolicyStatusCounter(QueryResolver):
     def __fetch_static_max_min_counts(
         self,
         level: str,
-        loc_field: str,
     ) -> Tuple[PlaceObs, PlaceObs]:
         """Given a place level and location field, returns the corresponding
         highest number of policies in effect on any date in any location at
@@ -575,3 +642,16 @@ class PolicyStatusCounter(QueryResolver):
     #         return cat_and_subcat_filters_sql
     #     else:
     #         return "and true"
+
+    @cached
+    @db_session
+    def __get_zero_count_data_for_map(
+        self, loc_field: str, level: str, usa_only: bool
+    ):
+        q: Query = select(
+            getattr(pl, loc_field)
+            for pl in Place
+            if (not usa_only or pl.iso3 == "USA") and pl.level == level
+        )
+        q_result: List[str] = q[:][:]
+        return q_result

@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse
 from typing import List
 
 # local modules
+from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
     PlaceObsList,
