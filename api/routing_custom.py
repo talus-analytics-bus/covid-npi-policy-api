@@ -29,6 +29,7 @@ async def get_policy_status_counts_for_map(
     categories: List[str] = Query(list()),
     subcategories: List[str] = Query(list()),
     date: datetime.date = Query(None),
+    sort: bool = False,
 ) -> PlaceObsList:
     """Return number of policies in effect by location matching filters and the
     provided geographic resolution
@@ -45,7 +46,7 @@ async def get_policy_status_counts_for_map(
             cats=categories,
             subcats=subcategories,
             date=date,
-            sort=False,
+            sort=sort,
         )
     except AssertionError:
         response = {"message": "Parameter error", "data": [], "success": False}
