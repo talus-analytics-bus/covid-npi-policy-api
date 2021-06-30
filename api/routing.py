@@ -678,6 +678,7 @@ iso3_def = Query(
 @app.get(
     "/get/optionset",
     response_model=OptionSetList,
+    response_model_exclude_unset=True,
     tags=["Metadata"],
     summary="Return all possible values for the provided field(s), e.g, "
     '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
