@@ -1,7 +1,63 @@
+from db.models import Plan, Policy
 from enum import Enum
+from db import db
 
 
-# define allowed geo_res values
+# ClassName = Enum(
+#     value="ClassName",
+#     names=[
+#         ("Policy", "Policy"),
+#         ("Plan", "Plan"),
+#         ("Court_Challenge", "Court_Challenge"),
+#         ("none", ""),
+#     ],
+# )
+
+
+class ClassName(str, Enum):
+    Policy = "Policy"
+    Plan = "Plan"
+    Court_Challenge = "Court_Challenge"
+    none = ""
+
+    def get_place_field_name(self) -> str:
+        """Returns the field corresponding to this entity ClassName on the
+        Place entity.
+
+        Raises:
+            ValueError: If no such field exists.
+
+        Returns:
+            str: The field corresponding to this entity ClassName on the
+            Place entity
+        """
+        if self.name == "Policy":
+            return "policies"
+        elif self.name == "Plan":
+            return "plans"
+        else:
+            raise ValueError(
+                "No place field name exists for this ClassName: " + self.name
+            )
+
+    def get_db_model(self) -> db.Entity:
+        """Returns the database model for this entity.
+
+        Raises:
+            ValueError: If no model exists.
+        Returns:
+            db.Entity: The database model.
+        """
+        if self.name == "Policy":
+            return Policy
+        elif self.name == "Plan":
+            return Plan
+        else:
+            raise ValueError(
+                "No database model exists for this ClassName: " + self.name
+            )
+
+
 class GeoRes(str, Enum):
     country = "country"
     state = "state"

@@ -1,15 +1,253 @@
+from fastapi.param_functions import Query
+from api.util import cached
+from api.types import ClassName
+from api.models import OptionSetList, OptionSetRecord, OptionSetRecords
 from collections import defaultdict
-from itertools import groupby
-from typing import Any, DefaultDict, Dict, List
-from db.models import Glossary, Place
+from typing import Any, DefaultDict, Dict, List, Set, Tuple
+from db.models import Glossary, Place, Policy
 from pony.orm.core import count, db_session, select
 
 from db import db
 
 
 class OptionSetGetter:
-    def __init__(self):
+    def __init__(self) -> None:
+        """Define new OptionSetGetter"""
         return None
+
+    @db_session
+    def get_optionset_for_data(self, entity_name: ClassName) -> OptionSetList:
+        """Return optionsets for use in Data page of COVID AMP website.
+
+        This function is optimized for the Data page.
+
+        Returns:
+            OptionSetList: List of optionset values for the Data page.
+        """
+        # prepare and send optionset lists based on class needed
+        # location optionsets (used for both classes)
+        data: OptionSetRecords = dict()
+        area2_vals: Set[str] = None
+        if entity_name == ClassName.Policy:
+            area2_vals = {"Local"}
+            # cat and subcat optionsets
+            cat_and_subcat_optionsets: dict = (
+                self.__get_cat_and_subcat_optionsets(entity_name=entity_name)
+            )
+
+            data.update(cat_and_subcat_optionsets)
+
+            # get other optionsets
+            list_field_name: str = None
+            for list_field_name in ("subtarget",):
+                data[list_field_name] = self.__get_field_optionset(
+                    entity_name=entity_name,
+                    field=list_field_name,
+                    is_list_field=True,
+                )
+        elif entity_name == ClassName.Plan:
+            area2_vals = {"Local", "University", "For-profit", "Non-profit"}
+            # get other optionsets
+            field_name: str = None
+            for field_name in ("org_type",):
+                data[field_name] = self.__get_field_optionset(
+                    entity_name=entity_name, field=field_name
+                )
+
+        # add location optionsets
+        location_optionsets: OptionSetRecords = self.__get_location_optionsets(
+            entity_name, area2_vals
+        )
+        data.update(location_optionsets)
+
+        # return all optionsets
+        return OptionSetList(success=True, message="Message", data=data)
+
+    @cached
+    @db_session
+    def __get_field_optionset(
+        self, entity_name: ClassName, field: str, is_list_field: bool = False
+    ) -> List[OptionSetRecord]:
+        q: Query = select(
+            (getattr(p, field)) for p in entity_name.get_db_model()
+        )
+
+        q_result: List[Tuple[Any]] = q[:][:]
+        value: str = None
+        id: int = 0
+        optionset: OptionSetRecords = list()
+        checked_vals: Set[str] = set()
+
+        # add each possible value of the field to the optionset
+        # if it's a list field, add each subvalue
+        if is_list_field:
+            for value in q_result:
+                sub_value: str = None
+                for sub_value in value:
+                    if sub_value in checked_vals:
+                        continue
+                    else:
+                        checked_vals.add(sub_value)
+                        optionset.append(
+                            OptionSetRecord(id=id, value=sub_value)
+                        )
+                        id = id + 1
+
+        # if field is not a list of values, take them directly
+        else:
+            for value in q_result:
+                if value in checked_vals:
+                    continue
+                else:
+                    optionset.append(OptionSetRecord(id=id, value=value))
+                    id = id + 1
+
+        return optionset
+
+    @cached
+    @db_session
+    def __get_location_optionsets(
+        self, entity_name: ClassName, area2_vals: Set[str] = {"Local"}
+    ) -> OptionSetRecords:
+        """Returns the optionsets for location fields that apply to the given
+        entity name.
+
+        Args:
+            entity_name (ClassName): The entity name of interest.
+
+            area2_vals (Set[str], optional): The levels of place that should be
+            considered `area2` for this entity. Defaults to {"Local"}.
+
+        Returns:
+            OptionSetRecords: [description]
+        """
+
+        # get the field on the place model that corresponds to this entity
+        place_field: str = entity_name.get_place_field_name()
+
+        # retrieve location information for the entity based on its places,
+        # keeping only those places that are linked to instances of the entity
+        q: Query = select(
+            (pl.country_name, pl.area1, pl.area2, pl.level)
+            for pl in Place
+            if pl.level != "Local plus state/province"
+            and count(getattr(pl, place_field)) > 0
+        )
+        q_result: List[Tuple[str, str, str]] = q[:][:]
+
+        # define fields to unpack from query result
+        country_name: str = None
+        area1: str = None
+        area2: str = None
+        level: str = None
+
+        # define unique ID seequences for each type of optionset
+        id_country_name: int = 0
+        id_area1: int = 0
+        id_area2: int = 0
+
+        # define variable to hold optionsets and to state whether or not they
+        # have been defined yet
+        optionsets: OptionSetRecords = dict(
+            country_name=list(), area1=list(), area2=list()
+        )
+        checked: dict = dict(country_name=dict(), area1=dict(), area2=dict())
+
+        # Add optionset entries for each level of place
+        for country_name, area1, area2, level in q_result:
+            if (
+                level == "Country"
+                and country_name not in checked["country_name"]
+            ):
+                checked["country_name"][country_name] = True
+                optionsets["country_name"].append(
+                    OptionSetRecord(
+                        id=id_country_name, value=country_name, group=level
+                    )
+                )
+                id_country_name += 1
+
+            # NOTE Tribal nations are tagged as "intermediate areas" (`area1`)
+            # but are rendered in optionsets as countries
+            elif (
+                level == "Tribal nation"
+                and area1 not in checked["country_name"]
+            ):
+                checked["country_name"][area1] = True
+                optionsets["country_name"].append(
+                    OptionSetRecord(
+                        id=id_country_name, value=area1, group=level
+                    )
+                )
+                id_country_name += 1
+            elif level == "State / Province" and area1 not in checked["area1"]:
+                checked["area1"][area1] = True
+                optionsets["area1"].append(
+                    OptionSetRecord(
+                        id=id_area1, value=area1, group=country_name
+                    )
+                )
+                id_area1 += 1
+            elif level in area2_vals and area2 not in checked["area2"]:
+                checked["area2"][area2] = True
+                optionsets["area2"].append(
+                    OptionSetRecord(id=id_area2, value=area2, group=area1)
+                )
+                id_area2 += 1
+
+        # sort optionset records A-Z
+        field: str = None
+        for field in optionsets:
+            optionsets[field].sort(key=lambda x: x.value)
+
+        # return optionsets
+        return optionsets
+
+    @cached
+    @db_session
+    def __get_cat_and_subcat_optionsets(
+        self, entity_name: ClassName
+    ) -> OptionSetRecords:
+        """Return optionsets for categories and subcategories of policies that
+        are in the COVID AMP database.
+
+        Returns:
+            [type]: [description]
+        """
+
+        # validation
+        if entity_name != ClassName.Policy:
+            raise ValueError("Unexpected class name: " + entity_name.name)
+
+        # get field data
+        q: Query = select(
+            (i.primary_ph_measure, i.ph_measure_details) for i in Policy
+        )
+        cat_subcat_optionsets: dict = dict(
+            primary_ph_measure=list(), ph_measure_details=list()
+        )
+        checked: dict = dict(
+            primary_ph_measure=dict(), ph_measure_details=dict()
+        )
+        cat_id: int = 0
+        subcat_id: int = 0
+        cat: str = None
+        subcat: str = None
+        for cat, subcat in q:
+            if cat not in checked["primary_ph_measure"]:
+                checked["primary_ph_measure"][cat] = True
+                cat_subcat_optionsets["primary_ph_measure"].append(
+                    OptionSetRecord(id=cat_id, value=cat)
+                )
+                cat_id = cat_id + 1
+            if subcat not in checked["ph_measure_details"]:
+                checked["ph_measure_details"][subcat] = True
+                cat_subcat_optionsets["ph_measure_details"].append(
+                    OptionSetRecord(id=subcat_id, value=subcat, group=cat)
+                )
+                subcat_id = subcat_id + 1
+
+        return cat_subcat_optionsets
 
     @db_session
     # @cached

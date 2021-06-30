@@ -1,10 +1,11 @@
 # Custom optimized routes for certain pages in the AMP website.
 
+from api.ampresolvers.optionsetgetter.core import OptionSetGetter
 import datetime
 from typing import List
 from api.ampresolvers.policystatuscounter.core import PolicyStatusCounter
-from api.types import GeoRes
-from api.models import PlaceObsList
+from api.types import ClassName, GeoRes
+from api.models import OptionSetList, PlaceObsList
 from . import app
 from fastapi import Query, Path
 
@@ -50,4 +51,35 @@ async def get_policy_status_counts_for_map(
         )
     except AssertionError:
         response = {"message": "Parameter error", "data": [], "success": False}
+    return response
+
+
+getter: OptionSetGetter = OptionSetGetter()
+
+
+@app.get(
+    "/get/optionset_for_data",
+    response_model=OptionSetList,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+    tags=["Metadata -- Custom"],
+    summary="Return all possible values for the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
+)
+async def get_optionset_for_data(
+    class_name: ClassName = Query(
+        ClassName.Policy,
+        description="The name of the data type for which optionsets "
+        "are requested",
+    )
+):
+    response: OptionSetList = None
+    try:
+        assert class_name is not None
+        response = getter.get_optionset_for_data(entity_name=class_name)
+    except AssertionError:
+        response = OptionSetList(
+            success=False, message="Parameter error", data=None
+        )
     return response

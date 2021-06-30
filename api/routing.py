@@ -1,7 +1,7 @@
 """Define API endpoints"""
 # standard modules
 from api.ampresolvers.optionsetgetter.core import OptionSetGetter
-from api.types import GeoRes
+from api.types import ClassName, GeoRes
 from api.ampresolvers import PolicyStatusCounter
 from datetime import date
 from enum import Enum
@@ -46,17 +46,6 @@ ClassNameExport = Enum(
         ("Plan", "Plan"),
         ("Court_Challenge", "Court_Challenge"),
         ("All_data_recreate", "All_data_recreate"),
-        ("none", ""),
-    ],
-)
-
-
-ClassName = Enum(
-    value="ClassName",
-    names=[
-        ("Policy", "Policy"),
-        ("Plan", "Plan"),
-        ("Court_Challenge", "Court_Challenge"),
         ("none", ""),
     ],
 )
