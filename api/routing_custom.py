@@ -1,3 +1,5 @@
+# Custom optimized routes for certain pages in the AMP website.
+
 import datetime
 from typing import List
 from api.ampresolvers.policystatuscounter.core import PolicyStatusCounter
@@ -6,7 +8,7 @@ from api.models import PlaceObsList
 from . import app
 from fastapi import Query, Path
 
-
+# policy status counter
 counter: PolicyStatusCounter = PolicyStatusCounter()
 
 
@@ -43,7 +45,7 @@ async def get_policy_status_counts_for_map(
             cats=categories,
             subcats=subcategories,
             date=date,
-            sort=True,
+            sort=False,
         )
     except AssertionError:
         response = {"message": "Parameter error", "data": [], "success": False}

@@ -35,7 +35,7 @@ class PolicyStatusCounter(QueryResolver):
     def __init__(self):
         return None
 
-    # @cached
+    @cached
     @db_session
     def get_policy_status_counts_for_map(
         self,
@@ -45,7 +45,27 @@ class PolicyStatusCounter(QueryResolver):
         date: datetime.date,
         sort: bool = False,
     ) -> PlaceObsList:
+        """Returns a list of place observations defining the number of policies
+        in effect in locations on a given date, at a given geographic
+        resolution, and optionally with certain categories and/or
+        subcategories. The min and max observation for all time are
+        also returned.
 
+        Args:
+            geo_res (GeoRes): The geographic resolution of interest.
+
+            cats (List[str]): Optional list of categories to filter by.
+
+            subcats (List[str]): Optional list of subcategories to filter by.
+
+            date (datetime.date): The date of interest.
+
+            sort (bool, optional): Whether to sort the observation list by
+            descending value. Defaults to False.
+
+        Returns:
+            PlaceObsList: A list of place observations.
+        """
         # get data fields specific to this geographic resolution for query
         level: str = geo_res.get_level()
         loc_field: str = geo_res.get_loc_field()
@@ -78,7 +98,7 @@ class PolicyStatusCounter(QueryResolver):
         )
 
         # add missing zero values
-        zero_val_loc_names: List[str] = self.__get_zero_count_data_for_map(
+        zero_val_loc_names: List[str] = self.__get_place_loc_vals_of_level(
             loc_field, level, usa_only
         )
         nonzero_loc_vals: List[str] = set([t[0] for t in q_result])
@@ -644,9 +664,20 @@ class PolicyStatusCounter(QueryResolver):
 
     @cached
     @db_session
-    def __get_zero_count_data_for_map(
+    def __get_place_loc_vals_of_level(
         self, loc_field: str, level: str, usa_only: bool
-    ):
+    ) -> List[str]:
+        """Returns location values for locations contained in the COVID AMP
+        place relation with the specified level and possibly for USA only.
+
+        Args:
+            loc_field (str): The Place field to use for the location value.
+            level (str): The level of Place of interest.
+            usa_only (bool): True if only USA places of interest.
+
+        Returns:
+            List[str]: List of place location values.
+        """
         q: Query = select(
             getattr(pl, loc_field)
             for pl in Place
