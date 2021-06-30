@@ -105,7 +105,7 @@ class PolicyStatusCounter(QueryResolver):
 
         # add missing zero values
         zero_val_loc_names: List[str] = self.__get_place_loc_vals_of_level(
-            loc_field, level, usa_only
+            loc_field=loc_field, level=level, usa_only=usa_only
         )
         nonzero_loc_vals: List[str] = set([t[0] for t in q_result])
         loc_val: str = None
