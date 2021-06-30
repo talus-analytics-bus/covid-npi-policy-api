@@ -46,7 +46,12 @@ class OptionSetGetter:
                     is_list_field=True,
                 )
         elif entity_name == ClassName.Plan:
-            area2_vals = {"Local", "University", "For-profit", "Non-profit"}
+            area2_vals = {
+                "Government",
+                "University",
+                "For-profit",
+                "Non-profit",
+            }
             # get other optionsets
             field_name: str = None
             for field_name in ("org_type",):
