@@ -65,6 +65,11 @@ class OptionSetGetter:
         )
         data.update(location_optionsets)
 
+        # sort optionset records A-Z
+        field: str = None
+        for field in data:
+            data[field].sort(key=self.__sort_optionset_by_value)
+
         # return all optionsets
         return OptionSetList(success=True, message="Message", data=data)
 
@@ -199,11 +204,6 @@ class OptionSetGetter:
                     OptionSetRecord(id=id_area2, value=area2, group=area1)
                 )
                 id_area2 += 1
-
-        # sort optionset records A-Z
-        field: str = None
-        for field in optionsets:
-            optionsets[field].sort(key=lambda x: x.value)
 
         # return optionsets
         return optionsets
@@ -572,3 +572,23 @@ class OptionSetGetter:
             "success": True,
             "message": f"""Returned {len(fields)} optionset lists""",
         }
+
+    def __sort_optionset_by_value(self, o: OptionSetRecord) -> str:
+        """Return string with which the optionset record should be sorted,
+        accounting for desired custom ordering behavior.
+
+        Args:
+            o (OptionSetRecord): The optionset record.
+
+        Returns:
+            str: The string determining its sort order. Note that "AAA"
+            represents the top-sorted option and "ZZZ" the lowest.
+        """
+        if o.value == "Social distancing":
+            return "AAA"
+        elif o.value == "Face mask":
+            return "AAB"
+        elif o.value in ("Other", "Unspecified", "Local"):
+            return "ZZZ"
+        else:
+            return o.value
