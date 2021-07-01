@@ -686,7 +686,8 @@ class PolicyStatusCounter(QueryResolver):
         self, loc_field: str, level: str, usa_only: bool
     ) -> List[str]:
         """Returns location values for locations contained in the COVID AMP
-        place relation with the specified level and possibly for USA only.
+        place relation with the specified level and possibly for USA only. Only
+        returns places that have at least one policy affecting them.
 
         Args:
             loc_field (str): The Place field to use for the location value.
@@ -699,7 +700,9 @@ class PolicyStatusCounter(QueryResolver):
         q: Query = select(
             getattr(pl, loc_field)
             for pl in Place
-            if (not usa_only or pl.iso3 == "USA") and pl.level == level
+            if (not usa_only or pl.iso3 == "USA")
+            and pl.level == level
+            and count(pl.policies) > 0
         )
         q_result: List[str] = q[:][:]
         return q_result
