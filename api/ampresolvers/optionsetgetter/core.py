@@ -156,25 +156,31 @@ class OptionSetGetter:
         id_country_name: int = 0
         id_area1: int = 0
         id_area2: int = 0
-        id_level: int = 0
+        # id_level: int = 0
 
         # define variable to hold optionsets and to state whether or not they
         # have been defined yet
         optionsets: OptionSetRecords = dict(
-            country_name=list(), area1=list(), area2=list(), level=list()
+            country_name=list(),
+            area1=list(),
+            area2=list()
+            # country_name=list(), area1=list(), area2=list(), level=list()
         )
         checked: dict = dict(
-            country_name=dict(), area1=dict(), area2=dict(), level=dict()
+            country_name=dict(),
+            area1=dict(),
+            area2=dict()
+            # country_name=dict(), area1=dict(), area2=dict(), level=dict()
         )
 
         # Add optionset entries for each level of place
         for country_name, area1, area2, level in q_result:
-            if level not in checked["level"]:
-                checked["level"][level] = True
-                optionsets["level"].append(
-                    OptionSetRecord(id=id_level, value=level)
-                )
-                id_level += 1
+            # if level not in checked["level"]:
+            #     checked["level"][level] = True
+            #     optionsets["level"].append(
+            #         OptionSetRecord(id=id_level, value=level)
+            #     )
+            #     id_level += 1
 
             if (
                 level == "Country"
