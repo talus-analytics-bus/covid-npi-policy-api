@@ -1,3 +1,6 @@
+# data backups
+ingest/backups
+
 # Shell scripts
 bin/
 sh/
