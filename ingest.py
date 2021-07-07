@@ -119,7 +119,13 @@ if __name__ == "__main__":
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
-        plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
+        try:
+            plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
+        except Exception:
+            print(
+                "\nERROR: Observations not loaded successfully, check for "
+                "Airtable exceptions."
+            )
 
     if ingest_court:
         # TODO remove this when court challenge complaint categories and
