@@ -20,11 +20,13 @@ username=${1?Provide your local pgsql server username in first argument};
 dblocal=${2?Provide the name of the database on your local server with which you are updating in second argument};
 
 # ingest latest NYT caseload data
-python ingest_caseload.py -g -s -gd -c && \
+python ingest_caseload.py -g -s -gd -c;
 
-# increment version table caseload dates
-psql \
---host "localhost" \
---port "5432" \
---username $username \
---dbname $dblocal < "sh/version-increment-caseload-dates.sql";
+# NOTE: The code below is commented out because updates to relation `version`
+# are now totally handled in Python scripts.
+# # increment version table caseload dates
+# psql \
+# --host "localhost" \
+# --port "5432" \
+# --username $username \
+# --dbname $dblocal < "sh/version-increment-caseload-dates.sql";
