@@ -7,9 +7,9 @@ sh/
 db/config-local.ini
 
 # database backups
-backups/dev/
-backups/local/
-backups/prod/
+ingest/backups/dev/
+ingest/backups/local/
+ingest/backups/prod/
 
 # temp files
 tmp/
