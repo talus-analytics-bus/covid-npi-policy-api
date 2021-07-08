@@ -30,20 +30,12 @@ else
 fi
 
 # Post-process data # ------------------------------------------------------- #
-# NOTE Code below commented out Jun 29, 2021 because Python now handles it
-# # update tribal nation data fields
-# psql \
-# --host "localhost" \
-# --port "5432" \
-# --username $username \
-# --dbname $dblocal < "sh/update-tribal-tagging.sql" && \
-
 # Remove future policies
 psql \
 --host "localhost" \
 --port "5432" \
 --username $username \
---dbname $dblocal < "sh/delete_future_policies.sql";
+--dbname $dblocal < "ingest/sql/delete_future_policies.sql";
 
 # Remove policies without places
 psql \
@@ -58,15 +50,6 @@ psql \
 --port "5432" \
 --username $username \
 --dbname $dblocal < "sh/update_name_and_desc.sql";
-
-# # remove local areas without data
-# echo "\nRemoving local areas without data...";
-# psql \
-# --host "localhost" \
-# --port "5432" \
-# --username $username \
-# --dbname $dblocal < "ingest/sql/remove_local_areas_without_data_pg.sql.sql";
-# echo "Removed.\n";
 
 # refresh materialized views
 echo "\nRefreshing materialized views...";
