@@ -25,8 +25,6 @@ airtablekey=${5?Provide your Airtable API key in fifth argument};
 echo Ingesting data and updating test site...;
 export AIRTABLE_API_KEY=$airtablekey;
 bash ingest/sql/ingest-caseload.sh $username $dblocal && \
-bash sh/update-metric-prod-from-local.sh $username $dbmetriclocal $dbprodhost && \  
-bash ingest/sql/ingest.sh $username $dblocal && \
-bash sh/update-test-from-local.sh $username $dblocal $dbprodhost && \
-bash sh/start.sh && \
-echo Started API server, please update IDEA Landing site and production COVID AMP database next.;
+bash ingest/shell/update-metric-prod-from-local.sh $username $dbmetriclocal $dbprodhost && \  
+bash ingest/shell/ingest.sh $username $dblocal && \
+bash ingest/shell/update-test-from-local.sh $username $dblocal $dbprodhost;
