@@ -1370,6 +1370,14 @@ def apply_entity_filters(
             # Way using db.Policy_Date (new)
             # if it's the special "dates_in_effect" filter, handle it
             # and continue
+            date_fields: Set[str] = {
+                "date_start_effective",
+                "date_end_anticipated",
+                "date_end_actual",
+                "date_issued",
+                "date_of_decision",
+                "date_of_complaint",
+            }
             if field == "dates_in_effect":
                 win_left: str = allowed_values[0]
                 win_right: str = allowed_values[1]
@@ -1399,7 +1407,7 @@ def apply_entity_filters(
                 )
                 continue
 
-            if field == "date_of_decision":
+            elif field in date_fields:
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
                 win_left = allowed_values[0]
@@ -1408,39 +1416,9 @@ def apply_entity_filters(
                 q = select(
                     i
                     for i in q
-                    if i.date_of_decision is not None
-                    and i.date_of_decision <= win_right
-                    and i.date_of_decision >= win_left
-                )
-                continue
-
-            if field == "date_of_complaint":
-                # return instances where `date_of_complaint` falls within the
-                # specified range, inclusive
-                win_left = allowed_values[0]
-                win_right = allowed_values[1]
-
-                q = select(
-                    i
-                    for i in q
-                    if i.date_of_complaint is not None
-                    and i.date_of_complaint <= win_right
-                    and i.date_of_complaint >= win_left
-                )
-                continue
-
-            elif field == "date_issued":
-                # return instances where `date_issued` falls within the
-                # specified range, inclusive
-                win_left = allowed_values[0]
-                win_right = allowed_values[1]
-
-                q = select(
-                    i
-                    for i in q
-                    if i.date_issued is not None
-                    and i.date_issued <= win_right
-                    and i.date_issued >= win_left
+                    if getattr(i, field) is not None
+                    and getattr(i, field) <= win_right
+                    and getattr(i, field) >= win_left
                 )
                 continue
 
