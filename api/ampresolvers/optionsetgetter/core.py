@@ -62,7 +62,7 @@ class OptionSetGetter:
 
         # add location optionsets
         location_optionsets: OptionSetRecords = self.__get_location_optionsets(
-            entity_name, area2_vals
+            entity_name=entity_name, area2_vals=area2_vals
         )
         data.update(location_optionsets)
 
