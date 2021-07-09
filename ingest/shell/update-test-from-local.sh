@@ -16,7 +16,7 @@ function usage {
 now=$(date);
 username=${1?Provide your local pgsql server username in first argument};
 dblocal=${2?Provide the name of the database on your local server with which you are updating in second argument};
-dbprodhost=${3?Provide the name of the database on your local server with which you are updating in third argument};
+dbprodhost=${3?Provide the name of the host on AWS RDS to which you are updating in third argument};
 
 # dump local
 echo "Current date: $now";
