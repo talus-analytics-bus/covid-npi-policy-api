@@ -601,7 +601,7 @@ class OptionSetGetter:
             str: The string determining its sort order. Note that "AAA"
             represents the top-sorted option and "ZZZ" the lowest.
         """
-        if o.value == "Social distancing":
+        if o.value in ("Social distancing", "United States of America (USA)"):
             return "AAA"
         elif o.value == "Face mask":
             return "AAB"
