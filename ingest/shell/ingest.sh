@@ -42,14 +42,14 @@ psql \
 --host "localhost" \
 --port "5432" \
 --username $username \
---dbname $dblocal < "sh/delete_policies_without_places_pg.sql";
+--dbname $dblocal < "ingest/sql/delete_policies_without_places_pg.sql";
 
 # Update `name_and_desc` field based on name and desc of policy/plan
 psql \
 --host "localhost" \
 --port "5432" \
 --username $username \
---dbname $dblocal < "sh/update_name_and_desc.sql";
+--dbname $dblocal < "ingest/sql/update_name_and_desc.sql";
 
 # refresh materialized views
 echo "\nRefreshing materialized views...";
