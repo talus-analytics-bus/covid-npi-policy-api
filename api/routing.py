@@ -1,7 +1,7 @@
 """Define API endpoints"""
 # standard modules
 from api.ampresolvers.optionsetgetter.core import OptionSetGetter
-from api.types import GeoRes
+from api.types import ClassName, GeoRes
 from api.ampresolvers import PolicyStatusCounter
 from datetime import date
 from enum import Enum
@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse
 from typing import List
 
 # local modules
+from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
     PlaceObsList,
@@ -45,17 +46,6 @@ ClassNameExport = Enum(
         ("Plan", "Plan"),
         ("Court_Challenge", "Court_Challenge"),
         ("All_data_recreate", "All_data_recreate"),
-        ("none", ""),
-    ],
-)
-
-
-ClassName = Enum(
-    value="ClassName",
-    names=[
-        ("Policy", "Policy"),
-        ("Plan", "Plan"),
-        ("Court_Challenge", "Court_Challenge"),
         ("none", ""),
     ],
 )
@@ -361,18 +351,24 @@ async def post_policy(
 async def get_place(
     fields: List[PlaceFields] = Query(None),
     iso3: str = "",
-    level: str = "",
+    level: str = "",  # DEPRECATED
+    levels: List[str] = Query(None),
     ansi_fips: str = Query(
         "",
         description="The ANSI or FIPS code of the local area to be returned.",
     ),
     include_policy_count: bool = False,
 ):
+    if levels is None:
+        if level != "" and level is not None:
+            levels = [level]
+    levels = [s.lower() for s in levels]
+
     """Return Place data."""
     return schema.get_place(
         fields=[d.name for d in fields] if fields is not None else None,
         iso3=iso3.lower(),
-        level=level.lower(),
+        levels=levels,
         ansi_fips=ansi_fips.strip(),
         include_policy_count=include_policy_count,
     )
@@ -682,6 +678,7 @@ iso3_def = Query(
 @app.get(
     "/get/optionset",
     response_model=OptionSetList,
+    response_model_exclude_unset=True,
     tags=["Metadata"],
     summary="Return all possible values for the provided field(s), e.g, "
     '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'

@@ -2716,7 +2716,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area1_tmp != "" and len(area1_tmp) > 0:
                     area1: str = area1_tmp[0]
                 if area1 is None or area1 == "":
-                    raise ValueError(
+                    logging.error(
                         "No intermediate area for "
                         + area2_info.get("Local Area Name")
                     )

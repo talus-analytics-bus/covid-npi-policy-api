@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
-from typing import Any
-from .util import cached, set_level_filters_from_geo_filters
+from typing import Any, List, Set
+from .util import cached
 import math
 import itertools
 import logging
@@ -499,8 +499,8 @@ def get_policy(
         page = 1
     q = select(i for i in db.Policy)
 
-    # define level filters based on geographic filters provided, if any
-    set_level_filters_from_geo_filters(filters)
+    # # define level filters based on geographic filters provided, if any
+    # set_level_filters_from_geo_filters(filters)
 
     # apply filters if any
     if filters is not None:
@@ -525,7 +525,24 @@ def get_policy(
             for field_tmp, direction in ordering:
 
                 # if ordering by place field, handle specially
-                if "place." in field_tmp:
+                if "auth_entity.place." in field_tmp:
+                    field = field_tmp.split(".")[-1]
+                    # sort policies by auth_entity place attribute using
+                    # largest or smallest value of the attribute among
+                    # policy's places
+                    if direction == "desc":
+                        q = select(
+                            (i, max(getattr(ae.place, field)))
+                            for i in q
+                            for ae in i.auth_entity
+                        ).order_by(desc(2))
+                    else:
+                        q = select(
+                            (i, min(getattr(ae.place, field)))
+                            for i in q
+                            for ae in i.auth_entity
+                        ).order_by(2)
+                elif "place." in field_tmp:
                     field = field_tmp.split(".")[1]
                     # sort policies by place attribute using largest or
                     # smallest value of the attribute among policy's places
@@ -825,7 +842,7 @@ def get_challenge(
 # @cached
 def get_place(
     iso3="",
-    level="",
+    levels=None,
     ansi_fips="",
     fields=None,
     include_policy_count=False,
@@ -835,7 +852,7 @@ def get_place(
         i
         for i in db.Place
         if (iso3 == "" or i.iso3.lower() == iso3)
-        and (level == "" or i.level.lower() == level)
+        and (levels == None or i.level.lower() in levels)  # noqa: E711
         and (ansi_fips == "" or i.ansi_fips == ansi_fips)
     )[:][:]
 
@@ -1243,36 +1260,6 @@ def get_lockdown_level(
     return res
 
 
-def get_label_from_value(field, value):
-    """Given the data field and value, return the label that should be used
-    to refer to the value in front-ends.
-
-    TODO more dynamically
-
-    Parameters
-    ----------
-    field : type
-        Description of parameter `field`.
-    value : type
-        Description of parameter `value`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    if field == "level":
-        if value == "Intermediate area":
-            return "State / province"
-        elif value == "Local area":
-            return "Local"
-        else:
-            return value
-    else:
-        return value
-
-
 @db_session
 def apply_entity_filters(
     q: Query,
@@ -1302,6 +1289,14 @@ def apply_entity_filters(
     Returns:
         Query: The query with filter statement applied
     """
+
+    # has a level of "Local plus state/province" been defined?
+    hybrid_levels: Set[str] = {"Local plus state/province"}
+    allow_hybrid_levels: bool = (
+        "level" in filters
+        and len(filters["level"]) > 0
+        and any(level in filters["level"] for level in hybrid_levels)
+    )
 
     # for each filter set provided
     for field, allowed_values in filters.items():
@@ -1375,6 +1370,14 @@ def apply_entity_filters(
             # Way using db.Policy_Date (new)
             # if it's the special "dates_in_effect" filter, handle it
             # and continue
+            date_fields: Set[str] = {
+                "date_start_effective",
+                "date_end_anticipated",
+                "date_end_actual",
+                "date_issued",
+                "date_of_decision",
+                "date_of_complaint",
+            }
             if field == "dates_in_effect":
                 win_left: str = allowed_values[0]
                 win_right: str = allowed_values[1]
@@ -1402,52 +1405,9 @@ def apply_entity_filters(
                         )
                     )
                 )
-
-                # # Original way
-                # q = select(
-                #     i
-                #     for i in q
-                #     # starts before or on `start` when end date unknown
-                #     if (
-                #         i.date_end_actual is None
-                #         and i.date_end_anticipated is None
-                #         and i.date_start_effective <= start
-                #     )
-                #     # starts before AND ends after
-                #     or (
-                #         i.date_start_effective < start
-                #         and (
-                #             i.date_end_actual > end
-                #             or (
-                #                 i.date_end_actual is None
-                #                 and i.date_end_anticipated > end
-                #             )
-                #         )
-                #     )
-                #     # starts during OR ends during
-                #     or (
-                #         (
-                #             i.date_start_effective >= start
-                #             and i.date_start_effective <= end
-                #         )
-                #         or (
-                #             (
-                #                 i.date_end_actual >= start
-                #                 and i.date_end_actual <= end
-                #             )
-                #             or (
-                #                 i.date_end_actual is None
-                #                 and (
-                #                     i.date_end_anticipated >= start
-                #                     and i.date_end_anticipated <= end
-                #                 )
-                #             )
-                #         )
-                #     )
-                # )
                 continue
 
-            if field == "date_of_decision":
+            elif field in date_fields:
                 # return instances where `date_of_decision` falls within the
                 # specified range, inclusive
                 win_left = allowed_values[0]
@@ -1456,39 +1416,9 @@ def apply_entity_filters(
                 q = select(
                     i
                     for i in q
-                    if i.date_of_decision is not None
-                    and i.date_of_decision <= win_right
-                    and i.date_of_decision >= win_left
-                )
-                continue
-
-            if field == "date_of_complaint":
-                # return instances where `date_of_complaint` falls within the
-                # specified range, inclusive
-                win_left = allowed_values[0]
-                win_right = allowed_values[1]
-
-                q = select(
-                    i
-                    for i in q
-                    if i.date_of_complaint is not None
-                    and i.date_of_complaint <= win_right
-                    and i.date_of_complaint >= win_left
-                )
-                continue
-
-            elif field == "date_issued":
-                # return instances where `date_issued` falls within the
-                # specified range, inclusive
-                win_left = allowed_values[0]
-                win_right = allowed_values[1]
-
-                q = select(
-                    i
-                    for i in q
-                    if i.date_issued is not None
-                    and i.date_issued <= win_right
-                    and i.date_issued >= win_left
+                    if getattr(i, field) is not None
+                    and getattr(i, field) <= win_right
+                    and getattr(i, field) >= win_left
                 )
                 continue
 
@@ -1504,6 +1434,9 @@ def apply_entity_filters(
             "area2",
             "ansi_fips",
         )
+
+        # filter applies to auth_entity place?
+        join_auth_entity_place: bool = "auth_entity.place." in field
 
         join_policy_number = not join_place and field == "policy.policy_number"
 
@@ -1530,13 +1463,53 @@ def apply_entity_filters(
         #     geo_res_loc_field: str = geo_res.get_loc_field()
         #     is_geo_res_loc: bool = geo_res_loc_field == field
         #     allow_parents = is_geo_res_loc and len(counted_parent_geos) > 0
-        if join_place:
+        if join_auth_entity_place:
+            # get field to query
+            field_parts: List[str] = field.split(".")
+
+            # raise error if field parts has other than 3 elements
+            if len(field_parts) != 3:
+                raise ValueError("Unexpected field format: " + field)
+            place_field: str = field_parts[-1]
+
+            # filter by place field on auth_entity
+            if len(allowed_values) > 1:
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.auth_entity
+                        if getattr(t.place, place_field) in allowed_values
+                        and (
+                            allow_hybrid_levels
+                            or t.place.level != "Local plus state/province"
+                        )
+                    )
+                )
+            elif len(allowed_values) > 0:
+                allowed_value: Any = allowed_values[0]
+                q = q.filter(
+                    lambda i: exists(
+                        t
+                        for t in i.auth_entity
+                        if getattr(t.place, place_field) == allowed_value
+                        and (
+                            allow_hybrid_levels
+                            or t.place.level != "Local plus state/province"
+                        )
+                    )
+                )
+
+        elif join_place:
             if len(allowed_values) > 1:
                 q = q.filter(
                     lambda i: exists(
                         t
                         for t in i.place
                         if getattr(t, field) in allowed_values
+                        and (
+                            allow_hybrid_levels
+                            or t.level != "Local plus state/province"
+                        )
                     )
                 )
             elif len(allowed_values) > 0:
@@ -1546,6 +1519,10 @@ def apply_entity_filters(
                         t
                         for t in i.place
                         if getattr(t, field) == allowed_value
+                        and (
+                            allow_hybrid_levels
+                            or t.level != "Local plus state/province"
+                        )
                     )
                 )
 
@@ -1603,6 +1580,19 @@ def apply_entity_filters(
         else:
             # if the filter is not a join, i.e., is on policy native fields
             q = select(i for i in q if getattr(i, field) in allowed_values)
+
+    # # if a level of "Local plus state/province" was not provided in the
+    # # filters, do not return any places with that level.
+    # if (
+    #     "level" not in filters
+    #     or len(filters["level"]) == 0
+    #     or "Local plus state/province" not in filters
+    # ):
+    #     q = q.filter(
+    #         lambda i: exists(
+    #             t for t in i.place if t.level != "Local plus state/province"
+    #         )
+    #     )
 
     # return the filtered query instance
     return q

@@ -4,6 +4,7 @@ import argparse
 from ingest.places.core import (
     add_local_plus_state_places,
     add_missing_usa_local_areas,
+    update_tribal_nation_fields,
 )
 
 # local modules
@@ -118,7 +119,13 @@ if __name__ == "__main__":
 
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
-        plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
+        try:
+            plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
+        except Exception:
+            print(
+                "\nERROR: Observations not loaded successfully, check for "
+                "Airtable exceptions."
+            )
 
     if ingest_court:
         # TODO remove this when court challenge complaint categories and
@@ -129,3 +136,6 @@ if __name__ == "__main__":
         # add missing local area places if needed
         add_missing_usa_local_areas()
         add_local_plus_state_places()
+
+    # update tribal nation place tagging
+    update_tribal_nation_fields()

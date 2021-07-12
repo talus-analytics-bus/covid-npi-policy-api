@@ -198,7 +198,9 @@ class Policy(db.Entity):
                 instances = list()
                 for id in v:
                     try:
-                        instances.append(Place[id].to_dict(only=only_place))
+                        inst = Place[id]
+                        if inst.level != "Local plus state/province":
+                            instances.append(inst.to_dict(only=only_place))
                     except Exception:
                         pass
                 instance_dict[k] = instances

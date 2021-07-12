@@ -9,7 +9,7 @@ from enum import Enum
 
 # 3rd party modules
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class FilterFieldsPolicy(str, Enum):
@@ -391,8 +391,18 @@ class PolicyStatusCountList(Response):
     data: List[PlaceObs]
 
 
+class OptionSetRecord(BaseModel):
+    id: int
+    value: Any
+    label: Any = None
+    group: Any = None
+
+
+OptionSetRecords = Dict[str, List[OptionSetRecord]]
+
+
 class OptionSetList(Response):
-    data: Dict[str, List[dict]]
+    data: OptionSetRecords
 
 
 class MetadataList(Response):
