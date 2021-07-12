@@ -1,22 +1,6 @@
-from .helpers import PolicyCountType, get_map_type_from_level
-
-# from os import getcwd
-
-# from ingest.util import get_fips_with_zeros
-from api.types import GeoRes
-from queryresolver.core import QueryResolver
-import api
-from api.models import PlaceObs, PlaceObsList
-from api.util import cached
-from db import db
-from db.models import (
-    MaxMinPolicyCount,
-    Place,
-    Policy_By_Group_Number,
-)
+# standard packages
+from datetime import datetime
 from typing import Any, List, Tuple, Set, Union
-
-# from datetime import date
 from pony.orm.core import (
     JOIN,
     Query,
@@ -27,11 +11,121 @@ from pony.orm.core import (
     select,
 )
 
+# local packages
+import api
+from api.types import GeoRes
+from api.models import PlaceObs, PlaceObsList
+from api.util import cached
+from db import db
+from db.models import (
+    MaxMinPolicyCount,
+    Place,
+    Policy_By_Group_Number,
+    Policy,
+)
+from .helpers import PolicyCountType, get_map_type_from_level
+from queryresolver.core import QueryResolver
+
 
 class PolicyStatusCounter(QueryResolver):
-    # TODO update all docs
-    def __init__(self):
+    """Counts the number of policies in effect in a given location on a given
+    date, and potentially matching certain filters.
+
+    """
+
+    def __init__(self) -> None:
+        """Create new PolicyStatusCounter
+
+        Returns:
+            NoneType: None.
+        """
         return None
+
+    @cached
+    @db_session
+    def get_policy_status_counts_for_map(
+        self,
+        geo_res: GeoRes,
+        cats: List[str],
+        subcats: List[str],
+        date: datetime.date,
+        sort: bool = False,
+    ) -> PlaceObsList:
+        """Returns a list of place observations defining the number of policies
+        in effect in locations on a given date, at a given geographic
+        resolution, and optionally with certain categories and/or
+        subcategories. The min and max observation for all time are
+        also returned.
+
+        Args:
+            geo_res (GeoRes): The geographic resolution of interest.
+
+            cats (List[str]): Optional list of categories to filter by.
+
+            subcats (List[str]): Optional list of subcategories to filter by.
+
+            date (datetime.date): The date of interest.
+
+            sort (bool, optional): Whether to sort the observation list by
+            descending value. Defaults to False.
+
+        Returns:
+            PlaceObsList: A list of place observations.
+        """
+        # get data fields specific to this geographic resolution for query
+        level: str = geo_res.get_level()
+        loc_field: str = geo_res.get_loc_field()
+        usa_only: bool = geo_res != GeoRes.country
+
+        # define query and get results
+        q: Query = select(
+            (getattr(pl, loc_field), count(pbgn))
+            for p in Policy
+            for pbgn in p._policy_by_group_number
+            for pl in p.place
+            for pdd in p._policy_day_dates
+            if pdd.day_date == date
+            and pl.level == level
+            and (len(cats) == 0 or p.primary_ph_measure in cats)
+            and (len(subcats) == 0 or p.ph_measure_details in subcats)
+            and (not usa_only or pl.iso3 == "USA")
+        )
+        q_result: List[Tuple[str, int]] = q[:][:]
+
+        # define response's place observation list
+        response: PlaceObsList = PlaceObsList(
+            data=[
+                PlaceObs(place_name=r[0], value=r[1])
+                for r in q_result
+                if r[0] != ""
+            ],
+            success=True,
+            message="Message",
+        )
+
+        # add missing zero values
+        zero_val_loc_names: List[str] = self.__get_place_loc_vals_of_level(
+            loc_field=loc_field, level=level, usa_only=usa_only
+        )
+        nonzero_loc_vals: List[str] = set([t[0] for t in q_result])
+        loc_val: str = None
+        for loc_val in zero_val_loc_names:
+            if loc_val not in nonzero_loc_vals:
+                response.data.append(PlaceObs(place_name=loc_val, value=0))
+
+        # sort if requested
+        if sort:
+            response.data.sort(key=lambda x: x.value, reverse=True)
+
+        # define min/max observation values
+        min_max: Tuple[
+            PlaceObs, PlaceObs
+        ] = self.__fetch_static_max_min_counts(level)
+        response.min_all_time = min_max[0]
+        response.max_all_time = min_max[1]
+
+        # return response
+        return response
 
     @cached
     @db_session
@@ -80,13 +174,26 @@ class PolicyStatusCounter(QueryResolver):
             location on any date, for comparison and baselining purpose.
             Defaults to True.
 
+            count_min_max_by_cat (bool, optional): If True, a min/max value
+            specific to any categories and/or subcategories defined in
+            `filters` will be returned. Otherwise, the overall min/max value
+            irrespective of cats./subcats. will be returned.
+
             one (bool, optional): If True, return the first observation only.
+
+            counted_parent_geos (List[GeoRes], optional): A list of parent
+            geographic resolutions whose policies should also be counted in
+            addition to policies in effect at the level of the defined
+            `geo_res`. If none provided, only policies at the level of the
+            defined `geo_res` are counted.
 
         Returns:
             PlaceObsList: A list of policy status counts by location.
         """
 
-        # # DEBUG Profile code time
+        # DEBUG Profile code time. Uncomment code below and at end of file
+        # to profile code time.
+
         # import cProfile
         # import pstats
         # import io
@@ -101,11 +208,11 @@ class PolicyStatusCounter(QueryResolver):
             filter_by_subgeo=filter_by_subgeo,
         )
 
-        # get correct location field and level value for filtering
+        # get location field and level value for SQL query filtering
         loc_field: str = geo_res.get_loc_field()
         levels: List[str] = [geo_res.get_level()]
 
-        # if geo res is state or county, filter by USA only
+        # if geo res is state or county, count USA places only
         for_usa_only: bool = geo_res in (
             GeoRes.state,
             GeoRes.county,
@@ -174,7 +281,6 @@ class PolicyStatusCounter(QueryResolver):
         place_area1: str = None
         _place_iso3: str = None
         value: int = None
-        # value_idx: int = 1
         for (
             place_loc_val,
             value,
@@ -236,7 +342,7 @@ class PolicyStatusCounter(QueryResolver):
                 else:
                     raise ValueError("Unknown geo_res: " + geo_res)
 
-        # order by value
+        # order by descending value
         data.sort(key=lambda x: x.value, reverse=True)
 
         # if one record requested, only return one record
@@ -303,7 +409,6 @@ class PolicyStatusCounter(QueryResolver):
                 PlaceObs, PlaceObs
             ] = self.__fetch_static_max_min_counts(
                 level=levels[0],
-                loc_field=loc_field,
             )
 
             # define min/max for all time
@@ -401,7 +506,6 @@ class PolicyStatusCounter(QueryResolver):
     def __fetch_static_max_min_counts(
         self,
         level: str,
-        loc_field: str,
     ) -> Tuple[PlaceObs, PlaceObs]:
         """Given a place level and location field, returns the corresponding
         highest number of policies in effect on any date in any location at
@@ -575,3 +679,30 @@ class PolicyStatusCounter(QueryResolver):
     #         return cat_and_subcat_filters_sql
     #     else:
     #         return "and true"
+
+    @cached
+    @db_session
+    def __get_place_loc_vals_of_level(
+        self, loc_field: str, level: str, usa_only: bool
+    ) -> List[str]:
+        """Returns location values for locations contained in the COVID AMP
+        place relation with the specified level and possibly for USA only. Only
+        returns places that have at least one policy affecting them.
+
+        Args:
+            loc_field (str): The Place field to use for the location value.
+            level (str): The level of Place of interest.
+            usa_only (bool): True if only USA places of interest.
+
+        Returns:
+            List[str]: List of place location values.
+        """
+        q: Query = select(
+            getattr(pl, loc_field)
+            for pl in Place
+            if (not usa_only or pl.iso3 == "USA")
+            and pl.level == level
+            and count(pl.policies) > 0
+        )
+        q_result: List[str] = q[:][:]
+        return q_result

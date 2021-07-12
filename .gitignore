@@ -1,8 +1,18 @@
+# data backups
+ingest/backups
+
 # Shell scripts
 bin/
 sh/
-ingest/sh
+
+
+# database configurations
 db/config-local.ini
+
+# database backups
+ingest/backups/dev/
+ingest/backups/local/
+ingest/backups/prod/
 
 # temp files
 tmp/
