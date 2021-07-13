@@ -1,6 +1,6 @@
 """API utility functions"""
 # standard modules
-from datetime import datetime
+from datetime import datetime, date
 import functools
 import pathlib
 from typing import Any, Union
@@ -34,6 +34,18 @@ def str_to_date(s: str):
 
     """
     return datetime.strptime(s, "%Y-%m-%d").date()
+
+
+def date_to_str(dt: date) -> str:
+    """Returns date as YYYY-MM-DD string.
+
+    Args:
+        dt (date): The date.
+
+    Returns:
+        str: The string representation of the date YYYY-MM-DD.
+    """
+    return dt.strftime("%Y-%m-%d")
 
 
 def download_file(
