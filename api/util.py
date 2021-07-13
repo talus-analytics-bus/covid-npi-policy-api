@@ -1,23 +1,18 @@
 """API utility functions"""
 # standard modules
-from datetime import datetime, date
 import functools
 import pathlib
-from typing import Any, Union
 import urllib3
 import certifi
 import os
+from datetime import datetime, date
+from typing import Any, Callable, Union
+
+# 3rd party modules
+from pony.orm.core import Multiset, SetInstance
+from pony.orm.ormtypes import TrackedArray
 
 USE_CACHING: bool = os.environ.get("USE_CACHING", "true") == "true"
-
-
-def find(filter_func, i):
-    result = None
-    try:
-        result = next(d for d in i if filter_func(d))
-    except Exception:
-        pass
-    return result
 
 
 def str_to_date(s: str):
@@ -54,24 +49,9 @@ def download_file(
     write_path: str = None,
     as_object: bool = True,
 ):
-    """Download the PDF at the specified URL and either save it to disk or
+    """
+    Download the PDF at the specified URL and either save it to disk or
     return it as a byte stream.
-
-    Parameters
-    ----------
-    download_url : type
-        Description of parameter `download_url`.
-    fn : type
-        Description of parameter `fn`.
-    write_path : type
-        Description of parameter `write_path`.
-    as_object : type
-        Description of parameter `as_object`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
 
     """
     http = urllib3.PoolManager(
@@ -97,13 +77,31 @@ def download_file(
 
 
 def use_relpath(relpath: str, abspath: str) -> str:
+    """Returns the absolute path to the relative path provided
+
+    Args:
+        relpath (str): The relative path
+        abspath (str): The absolute path to the current file
+
+    Returns:
+        str: The absolute path to the relative path provided.
+    """
     path = pathlib.Path(abspath).parent / relpath
     return path.absolute()
 
 
-def cached(func):
-    """Caching"""
-    cache = {}
+def cached(func: Callable):
+    """Decorator that returns function output if previously generated, as
+    indexed by the concatenated kwargs; otherwise, runs the function and stores
+    the output in the cache indexed by the concatenated kwargs.
+
+    Args:
+        func (Callable): Any function
+
+    Returns:
+        Any: The function result, possibly from the cache.
+    """
+    cache: dict = {}
 
     @functools.wraps(func)
     def wrapper(*func_args, **kwargs):
@@ -146,8 +144,10 @@ def get_first(
 
     Args:
         i (Union[set, list]): The set or list
+
         default (Any, optional): The default value to return if the set or list
         has no elements. Defaults to None.
+
         as_list (bool, optional): If True, returns a list with the value,
         otherwise returns only the value. If value is None then an empty list
         is returned.
@@ -173,19 +173,16 @@ def get_first(
             return [v]
 
 
-# def set_level_filters_from_geo_filters(filters: dict) -> None:
-#     """Given a set of filters for `get_policy`, return the set of filters with
-#     place level filters added based on existing geographic area filters, if any
+def is_listlike(obj: Any) -> bool:
+    """Returns True if the object is listlike, False otherwise.
 
-#     Args:
-#         filters (dict): The filters passed to method `schema.get_policy`
-#     """
-#     if filters is not None and (
-#         "level" not in filters or len(filters["level"]) == 0
-#     ):
-#         if "area2" in filters:
-#             filters["level"] = ["Local"]
-#         elif "area1" in filters:
-#             filters["level"] = "State / Province"
-#         elif "country_name" in filters:
-#             filters["level"] = "Country"
+    Args:
+        obj (Any): Any object
+
+    Returns:
+        bool: True if the object is listlike, False otherwise.
+    """
+    obj_type: Any = type(obj)
+    return (obj_type in (set, list)) or issubclass(
+        obj_type, (Multiset, TrackedArray, SetInstance)
+    )

@@ -1,17 +1,25 @@
 """Project-specific plugins for export module"""
 # standard modules
-from datetime import date
+import datetime
 from collections import defaultdict
-from typing import List
+
+from typing import Any, DefaultDict, Dict, List, Set
 
 # 3rd party modules
-from pony.orm import select
 import pprint
+from alive_progress import alive_bar
+from pony.orm import select
+from pony.orm.core import (
+    Query,
+    db_session,
+)
 
 # local modules
+from . import policyexport, planexport
 from .formats import WorkbookFormats
 from .export import ExcelExport, WorkbookTab
-from api import schema
+from db.models import Metadata
+from api.util import date_to_str, is_listlike
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
@@ -106,11 +114,16 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         self.sheet_settings = []
         for tab in tabs:
+            preposition: str = (
+                "" if tab["s"] != "Court_Challenge" else " for policies"
+            )
             self.sheet_settings += [
                 CovidPolicyTab(
                     name=tab["p"],
                     type="data",
-                    intro_text=f"""The table below lists {tab['p'].lower()}{'' if tab['s'] != 'Court_Challenge' else ' for policies'} implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website.""",
+                    intro_text=f"""The table below lists {tab['p'].lower()}"""
+                    f"""{preposition} implemented to address the COVID-19"""
+                    " pandemic as downloaded from the COVID AMP website.",
                     init_irow={
                         "logo": 0,
                         "title": 1,
@@ -130,7 +143,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                 CovidPolicyTab(
                     name="Legend - " + tab["p"],
                     type="legend",
-                    intro_text=f"""A description for each data column in the "{tab['p']}" tab and its possible values is provided below.""",
+                    intro_text="A description for each data column in the"
+                    f""" "{tab['p']}" tab and its possible values is """
+                    "provided below.",
                     init_irow={
                         "logo": 0,
                         "title": 1,
@@ -209,272 +224,175 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         return self
 
+    @db_session
     def default_data_getter(self, tab, class_name: str = "Policy"):
-        def get_joined_entity(main_entity, joined_entity_string):
-            """Given a main entity class and a string of joined entities like
-            'Entity2' or 'Entity2.Entity3', performs joins and returns the
-            final entity listed, if it is available.
-
-            Parameters
-            ----------
-            main_entity : type
-                Description of parameter `main_entity`.
-            joined_entity_string : type
-                Description of parameter `joined_entity_string`.
-
-            Returns
-            -------
-            type
-                Description of returned object.
-
-            """
-            joined_entity_list = joined_entity_string.split(".")
-            joined_entity = main_entity
-
-            for d in joined_entity_list:
-                joined_entity = getattr(joined_entity, d.lower())
-            return joined_entity
-
         # get all metadata
         db = self.db
         metadata = select(
             i
             for i in db.Metadata
-            if i.export == True and i.class_name == class_name
-        ).order_by(db.Metadata.order)
+            if i.export == True and i.class_name == class_name  # noqa: E712
+        ).order_by(db.Metadata.order)[:][:]
 
-        # get all policies (one policy per row exported)
-        # TODO use generic var names
-        policies = None
+        # get all instances (one instance per row exported)
+        custom_fields: Set[str] = None
+        export_fields: List[str] = None
+        instances: Query = None
         if class_name == "Policy":
-            policies = schema.get_policy(
-                filters=self.filters, return_db_instances=True
-            )
-            policies = policies.order_by(db.Policy.date_start_effective)
+            (
+                instances,
+                export_fields,
+                custom_fields,
+            ) = policyexport.get_export_data(self.filters)
 
         elif class_name == "Plan":
-            policies = schema.get_plan(
-                filters=self.filters, return_db_instances=True
-            )
-            policies = policies.order_by(db.Plan.date_issued)
+            (
+                instances,
+                export_fields,
+                custom_fields,
+            ) = planexport.get_export_data(self.filters)
 
-        # elif class_name == "Court_Challenge":
-        #     if tab.challenges_only:
-        #         policies = schema.get_challenge(
-        #             filters=self.filters, return_db_instances=True
-        #         )
-        #     else:
-        #         policies_with_challenges = schema.get_policy(
-        #             filters=self.filters, return_db_instances=True
-        #         )
-        #         n_all_policies = db.Policy.select().count()
-        #         filter_challenges = (
-        #             policies_with_challenges.count() != n_all_policies
-        #         )
-        #         if filter_challenges:
-        #             challenge_ids = set()
-        #             for d in policies_with_challenges:
-        #                 if len(d.court_challenges) > 0:
-        #                     for dd in d.court_challenges:
-        #                         challenge_ids.add(dd.id)
-        #             policies = select(
-        #                 i for i in db.Court_Challenge if i.id in challenge_ids
-        #             )
-        #         else:
-        #             policies = schema.get_challenge(
-        #                 filters=self.filters, return_db_instances=True
-        #             )
-        #     policies = policies.order_by(db.Court_Challenge.date_of_complaint)
+        else:
+            raise NotImplementedError(
+                "Unexpected class name, should be Policy or Plan: "
+                + class_name
+            )
 
         # init export data list
         rows = list()
 
-        def iterable(obj):
-            try:
-                iter(obj)
-            except Exception:
-                return False
-            else:
-                return True
-
-        formatters = {
-            "area1": lambda instance, value: value
-            if instance.level != "Country"
-            else "N/A",
-            "area2": lambda instance, value: value
-            if instance.level not in ("Country", "State / Province")
-            and value != ""
-            and value != "Unspecified"
-            else "N/A",
-        }
+        # get metadata by field name
+        metadata_by_field: DefaultDict[Dict[str, Metadata]] = defaultdict(dict)
+        m: Metadata = None
+        for m in metadata:
+            metadata_by_field[m.entity_name][m.field] = m
 
         # for each policy (i.e., row)
-        for d in policies:
+        with alive_bar(
+            instances.count(), title="Processing instances for Excel"
+        ) as bar:
+            raw_vals: tuple = None
+            for raw_vals in instances:
+                bar()
 
-            # create dict to store row information
-            row = defaultdict(dict)
+                # create dict to store row information
+                row = defaultdict(dict)
+                cell_vals_by_field: Dict[str, Any] = dict()
 
-            # for each metadatum (i.e., column in the spreadsheet)
-            for dd in metadata:
+                # add values to row
+                idx: int = -1
+                table_and_field: str = None
+                for table_and_field in export_fields:
+                    idx += 1
+                    field_arr: List[str] = table_and_field.split(".")
+                    field: str = field_arr[-1]
+                    table_name: str = ".".join(field_arr[0:-1])
+                    raw_val: Any = raw_vals[idx]
+                    cell_val: str = raw_val
+                    raw_val_type: Any = type(raw_val)
+                    level_field_name: str = table_name + ".level"
 
-                # if it's the PDF permalink column: handle specially
-                # TODO reduce repeated code
-                if dd.display_name == "Attachment for policy":
-                    permalinks = list()
-                    for file in d.file:
-                        permalinks.append(
-                            "https://api.covidamp.org/get/file/redirect?id="
-                            + str(file.id)
+                    # handle custom fields specially
+                    if table_and_field in custom_fields:
+                        meta: Metadata = metadata_by_field[table_name][field]
+                        self.__set_multiline_cell_val(
+                            row,
+                            cell_vals_by_field,
+                            table_and_field,
+                            raw_val,
+                            raw_val_type,
+                            meta,
                         )
-                    row[dd.colgroup][
-                        "Permalink for policy PDF(s)"
-                    ] = "\n".join(permalinks)
-                    continue
-                elif dd.display_name == "Plan PDF":
-                    permalinks = list()
-                    for file in d.file:
-                        permalinks.append(
-                            "https://api.covidamp.org/get/file/redirect?id="
-                            + str(file.id)
-                        )
-                    row[dd.colgroup]["Permalink for plan PDF(s)"] = "\n".join(
-                        permalinks
-                    )
-                    continue
-                elif dd.display_name == "Plan announcement PDF":
-                    permalinks = list()
-                    for file in d.file:
-                        permalinks.append(
-                            "https://api.covidamp.org/get/file/redirect?id="
-                            + str(file.id)
-                        )
-                    row[dd.colgroup][
-                        "Permalink for plan announcement PDF(s)"
-                    ] = "\n".join(permalinks)
-                    continue
-                elif dd.field == "level":
-                    places_for_levels: set = (
-                        d.place
-                        if dd.entity_name == "Place"
-                        else [x.place for x in d.auth_entity]
-                    )
-                    vals: List[str] = [
-                        x.level
-                        for x in places_for_levels
-                        if x.level != "Local plus state/province"
-                    ]
-                    row[dd.colgroup][dd.display_name] = "; ".join(vals)
-                    continue
-
-                # check whether it is a policy or a joined entity
-                join = (
-                    dd.entity_name != "Policy"
-                    and dd.entity_name != "Plan"
-                    and dd.entity_name != "Court_Challenge"
-                )
-
-                # if it is not a join (data field entity is Policy)
-                if not join:
-
-                    # get value of data field
-                    value = getattr(d, dd.field)
-
-                    # format date values
-                    # DATES #--------------------------------------------------#
-                    # YYYY-MM-DD
-                    if type(value) == date:
-                        row[dd.colgroup][dd.display_name] = str(value)
-
-                    # SETS / LISTS #-------------------------------------------#
-                    # semicolon-delimited list of values
-                    elif type(value) != str and iterable(value):
-                        value_list = []
-                        for v in value:
-                            if type(v) == db.Policy:
-                                value_list.append(
-                                    v.policy_name + " (ID = " + str(v.id) + ")"
-                                )
-                            else:
-                                value_list.append(str(v))
-                        row[dd.colgroup][dd.display_name] = "; ".join(
-                            value_list
-                        )
-
-                    # STRINGS AND NUMBERS #------------------------------------#
-                    # run through formatters
-                    else:
-                        if dd.field in formatters:
-                            row[dd.colgroup][dd.display_name] = formatters[
-                                dd.field
-                            ](d, value)
-                        else:
-                            row[dd.colgroup][dd.display_name] = value
-
-                # otherwise, if the data field is on an entity other than Policy
-                else:
-
-                    # specially handle location fields
-                    is_location_field = dd.field in ("area1", "area2", "iso3")
-
-                    # get the joined entity
-                    joined_entity = get_joined_entity(d, dd.entity_name)
-
-                    if joined_entity is None:
-                        row[dd.colgroup][dd.display_name] = ""
                         continue
-                    else:
 
-                        # check if the joined entity is a set or single
-                        is_set = (
-                            iterable(joined_entity)
-                            and type(joined_entity) != str
-                        )
+                    # set to N/A if field is for geo. area that doesn't apply
+                    elif (
+                        field == "area1"
+                        and cell_vals_by_field.get(level_field_name)
+                        in ("Country", "Tribal nation")
+                        and cell_val in ("Unspecified", None, "")
+                    ):
+                        cell_val = "N/A"
+                    elif field == "area2" and (
+                        cell_vals_by_field.get(level_field_name)
+                        in ("Country", "State / Province", "Tribal nation")
+                        and cell_val in ("Unspecified", None, "")
+                    ):
+                        cell_val = "N/A"
+                    elif (
+                        field == "iso3"
+                        and cell_vals_by_field.get(level_field_name)
+                        == "Tribal nation"
+                    ):
+                        cell_val = "N/A"
 
-                        # SET OF ENTITIES #------------------------------------#
-                        # iterate over them and return a semicolon-delimited
-                        # list of values, formatting if necessary
-                        # TODO generalize to reuse above code
-                        if is_set:
-                            values = list()
-                            if dd.field not in formatters:
-                                values = "; ".join(
-                                    set(
-                                        [
-                                            getattr(ddd, dd.field)
-                                            for ddd in joined_entity
-                                            if getattr(ddd, dd.field)
-                                            is not None
-                                        ]
-                                    )
-                                )
-                            else:
-                                func = formatters[dd.field]
-                                values = "; ".join(
-                                    set(
-                                        [
-                                            func(ddd, getattr(ddd, dd.field))
-                                            for ddd in joined_entity
-                                        ]
-                                    )
-                                )
-                            row[dd.colgroup][dd.display_name] = values
-                            continue
-                        # SINGLE ENTITY #--------------------------------------#
-                        # run through formatters
-                        # TODO generalize to reuse above code
-                        else:
-                            value = getattr(joined_entity, dd.field)
-                            if dd.field in formatters:
-                                row[dd.colgroup][dd.display_name] = formatters[
-                                    dd.field
-                                ](joined_entity, value)
-                            else:
-                                row[dd.colgroup][dd.display_name] = value
+                    # if no val or blank string, make "Unspecified"
+                    elif raw_val is None:
+                        cell_val = "Unspecified"
+                    elif raw_val_type == str:
+                        if raw_val.strip() == "":
+                            cell_val = "Unspecified"
+                        elif "; " in raw_val:
+                            cell_val = "; ".join(
+                                [v for v in raw_val.split("; ") if v != ""]
+                            )
 
-            # append row data to overall row list
-            rows.append(row)
+                    # if date, convert to YYYY-MM-DD
+                    elif raw_val_type == datetime.date:
+                        cell_val = date_to_str(raw_val)
+
+                    if is_listlike(cell_val):
+                        cell_val = "; ".join([v for v in cell_val if v != ""])
+
+                    meta: Metadata = metadata_by_field[table_name][field]
+                    row[meta.colgroup][meta.display_name] = cell_val
+                    cell_vals_by_field[table_and_field] = cell_val
+
+                # append row data to overall row list
+                rows.append(row)
         # return list of rows
         return rows
+
+    def __set_multiline_cell_val(
+        self,
+        row: Dict[str, Any],
+        cell_vals_by_field: Dict[str, str],
+        table_and_field: str,
+        raw_val: Any,
+        raw_val_type: Any,
+        meta: Metadata,
+    ) -> None:
+        """Sets a cell val as the formatted value if it is a single value, or
+        as lines of values if multiple values.
+
+        Args:
+            row (Dict[str, Any]): The dict containing Excel row final values,
+            with keys as columns and values as cell content.
+
+            cell_vals_by_field (Dict[str, str]): The final cell values for each
+            column in the row indexed by their table and field name.
+
+            table_and_field (str): The table and field name for the data col.
+
+            raw_val (Any): The unformatted value to be processed for writing
+            to the Excel
+
+            raw_val_type (Any): The type of the unformatted value
+
+            meta (Metadata): The metadata describing the data col.
+        """
+        # show unspec if None
+        cell_val: str = ""
+        if raw_val is None:
+            cell_val = "Unspecified"
+
+        # if raw is string, format as list of values or single value
+        elif raw_val_type == str:
+            cell_val = ";\n ".join(list(set(raw_val.split("; "))))
+
+        # set final value for Excel writing
+        row[meta.colgroup][meta.display_name] = cell_val
+        cell_vals_by_field[table_and_field] = cell_val
 
     def default_data_getter_legend(self, tab, class_name: str = "Policy"):
         # get all metadata
@@ -482,7 +400,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata = select(
             i
             for i in db.Metadata
-            if i.export == True and i.class_name == class_name
+            if i.export == True and i.class_name == class_name  # noqa: E712
         ).order_by(db.Metadata.order)
 
         # init export data list
@@ -496,13 +414,12 @@ class CovidPolicyExportPlugin(ExcelExport):
             for d in metadata:
                 if d.display_name == "Attachment for policy":
                     if row_type == "definition":
-                        row[d.colgroup][
-                            "Permalink for policy PDF(s)"
-                        ] = "URL of permanently hosted PDF document(s) for the policy"
+                        row[d.colgroup]["Attachment for policy"] = (
+                            "URL of permanently hosted PDF document(s) for "
+                            "the policy"
+                        )
                     elif row_type == "possible_values":
-                        row[d.colgroup][
-                            "Permalink for policy PDF(s)"
-                        ] = "Any URL(s)"
+                        row[d.colgroup]["Attachment for policy"] = "Any URL(s)"
                 else:
                     row[d.colgroup][d.display_name] = getattr(d, row_type)
             rows.append(row)
