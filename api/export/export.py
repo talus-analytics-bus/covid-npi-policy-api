@@ -5,8 +5,6 @@ from datetime import date
 import types
 
 # 3rd party modules
-from pony.orm import db_session, select
-from openpyxl import load_workbook
 import pandas as pd
 
 # local modules
@@ -415,7 +413,10 @@ class GenericExcelExport(ExcelExport):
             WorkbookTab(
                 name="Exported data",
                 type="data",
-                intro_text="This is placeholder intro text for the main data sheet of the workbook. It can be edited by changing the `text` argument to the function `write_intro_text` in module `~/py/api/excel.py`.",
+                intro_text="This is placeholder intro text for the main data "
+                "sheet of the workbook. It can be edited by changing the "
+                "`text` argument to the function `write_intro_text` "
+                "in module `~/py/api/excel.py`.",
                 init_irow={
                     "logo": 0,
                     "title": 1,

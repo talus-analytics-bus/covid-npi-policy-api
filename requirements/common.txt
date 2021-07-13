@@ -1,5 +1,6 @@
 aiofiles==0.5.0
 airtable-python-wrapper==0.13.0
+alive-progress==1.6.2
 appdirs==1.4.4
 attrs==21.2.0
 boto3==1.13.3
@@ -9,6 +10,7 @@ certifi==2020.4.5.1
 cffi==1.14.0
 chardet==3.0.4
 click==8.0.0
+cryptography==3.4.7
 docutils==0.15.2
 et-xmlfile==1.0.1
 fastapi==0.65.1
