@@ -46,6 +46,7 @@ allow_origin_regex = (
     + "https?:\/\/covidamp\.org|"
     + "https?:\/\/test\.covidamp\.org|"
     + "https?:\/\/review\.covidamp\.org|"
+    + "https?:\/\/staging\.covidamp\.org|"
     + "https?:\/\/.*\.cloudfront\.net|"
     + "https?:\/\/ghscosting\.org|"
     + "https?:\/\/devtracking\.ghscosting\.org|"
