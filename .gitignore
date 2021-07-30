@@ -176,3 +176,6 @@ debug.py
 
 # Pipfile
 Pipfile
+
+# data backups
+/ingest/backups/*
