@@ -8,6 +8,7 @@ from ingest.metricimporters.helpers import get_place_from_name
 import pprint
 import requests
 import csv
+import io
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Union
 from unicodedata import numeric
@@ -186,9 +187,7 @@ def upsert_jhu_country_covid_data(
     updated_at = datetime.now()
     last_datum_date = None
     n_cases = len(data)
-    with alive_bar(
-        n_cases, title="Importing national-level cases data"
-    ) as bar:
+    with alive_bar(n_cases, title="Importing national-level cases data") as bar:
         for d in data:
             bar()
             dt = None
@@ -214,9 +213,7 @@ def upsert_jhu_country_covid_data(
             )
 
     n_deaths = len(data_deaths)
-    with alive_bar(
-        n_deaths, title="Importing national-level deaths data"
-    ) as bar:
+    with alive_bar(n_deaths, title="Importing national-level deaths data") as bar:
         for d in data_deaths:
             bar()
             dt = None
@@ -302,8 +299,7 @@ def jhu_daily_csv_to_dict(
     date_to_check: date = None
     with alive_bar(
         len(dates_to_check),
-        title="Importing national-level cases and deaths data from "
-        "daily reports",
+        title="Importing national-level cases and deaths data from " "daily reports",
     ) as bar:
         for date_to_check in dates_to_check:
             bar()
@@ -312,21 +308,23 @@ def jhu_daily_csv_to_dict(
             # Fetch the daily CSV file from JHU GitHub
             cur_download_url: str = download_url_daily + url_date_str + ".csv"
             r: Response = requests.get(cur_download_url, allow_redirects=True)
-            rows: Iterator = r.iter_lines(decode_unicode=True)
+            # rows: Iterator = r.iter_lines(decode_unicode=True)
+            rows = csv.reader(io.StringIO(r.content.decode()))
 
             # extract header row from iterator
-            headers: List[str] = next(rows).split(",")
+            # headers: List[str] = next(rows).split(",")
+            headers: List[str] = next(rows)
 
             # For each location needed
             row: str = None
             for row in rows:
 
-                row_values: List[str] = next(csv.reader([row]))
+                # row_values: List[str] = next(csv.reader([row]))
                 row_dict: Dict[str, str] = dict()
                 header: str = None
                 idx: int = None
                 for idx, header in enumerate(headers):
-                    row_dict[header] = row_values[idx]
+                    row_dict[header] = row[idx]
 
                 province_state: str = row_dict.get("Province_State", None)
                 if province_state in province_names:
@@ -379,9 +377,7 @@ def get_int_or_none(row_dict: dict, key: str) -> int:
 
 
 @db_session
-def jhu_caseload_csv_to_dict(
-    download_url: str, db: Database
-) -> Dict[str, Any]:
+def jhu_caseload_csv_to_dict(download_url: str, db: Database) -> Dict[str, Any]:
     """Returns a dictionary of COVID-19 case data from the JHU GitHub, given
     the download URL and the database object.
 
@@ -406,15 +402,9 @@ def jhu_caseload_csv_to_dict(
     d: str = None
     for d in dates_raw:
         date_parts: List[str] = d.split("/")
-        mm: str = (
-            date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
-        )
-        dd: str = (
-            date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
-        )
-        yyyy: str = (
-            date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
-        )
+        mm: str = date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
+        dd: str = date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
+        yyyy: str = date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
         date_str: str = yyyy + "-" + mm + "-" + dd
         dates.append(date_str)
 
@@ -484,9 +474,7 @@ def jhu_caseload_csv_to_dict(
                 continue
             else:
                 if header == "Country/Region":
-                    datum["name"] = (
-                        row_list[idx].replace('"', "").replace("*", "")
-                    )
+                    datum["name"] = row_list[idx].replace('"', "").replace("*", "")
 
                 else:
                     datum[header] = int(float(row_list[idx]))
