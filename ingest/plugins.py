@@ -2725,13 +2725,19 @@ class CovidPolicyPlugin(IngestPlugin):
                     type="intermediate", name=area1
                 )
 
-                iso3: str = area2_info.get(
-                    (
-                        "ISO-alpha3 code (from ISO Code Look-up) (from "
-                        "Intermediate Area Database)"
-                    ),
-                    [None],
-                )[0]
+                try:
+                    iso3: str = area2_info.get(
+                        (
+                            "ISO-alpha3 code (from ISO Code Look-up) (from "
+                            "Intermediate Area Database)"
+                        ),
+                        [None],
+                    )[0]
+                except Exception as e:
+                    print("This local area had a missing ISO-3 code: ")
+                    print(area2_info)
+                    raise e
+                
                 place_dict = dict(
                     level="Local",
                     iso3=iso3,
