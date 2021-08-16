@@ -21,6 +21,7 @@ dbprodhost=${3?Provide the name of the host on AWS RDS to which you are updating
 # dump local
 echo "Current date: $now";
 cd ingest/backups/local;
+echo Dumping local database;
 pg_dump \
 --host "localhost" \
 --port "5432" \
@@ -30,21 +31,23 @@ pg_dump \
 cd ../../..;
 
 # dump prod'
+echo Dumping production database;
 cd ingest/backups/prod;
 pg_dump \
 --host $dbprodhost \
 --port "5432" \
 --username "talus" \
---dbname $dblocal \
+--dbname covid-npi-policy \
 -F d -f "$now-prod";
 cd ../../..;
 
 # drop prod
+echo Dropping production database;
 psql \
 --host $dbprodhost \
 --port "5432" \
 --username "talus" \
---dbname $dblocal \
+--dbname covid-npi-policy \
 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
 
 # restore prod from local dump
@@ -53,7 +56,7 @@ pg_restore \
 --host $dbprodhost \
 --port "5432" \
 --username "talus" \
---dbname $dblocal \
+--dbname covid-npi-policy \
 --format=d --verbose "$now-local";
 cd ../../..;
 
