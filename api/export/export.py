@@ -20,7 +20,11 @@ class ExcelExport:
     def build(self, **kwargs):
         # Create bytes output to return to client
         io = BytesIO()
-        writer = pd.ExcelWriter("temp.xlsx", engine="xlsxwriter")
+        writer = pd.ExcelWriter(
+            "temp.xlsx",
+            engine="xlsxwriter",
+            options={"strings_to_urls": False},
+        )
         writer.book.filename = io
 
         # add a worksheet
