@@ -1,5 +1,6 @@
 """Define project-specific methods for data ingestion."""
 # standard modules
+from ingest.distancinglevelgetter.core import DistancingLevelGetter
 from api.models import Policy
 from pony.orm.core import Database
 from db.models import Place
@@ -15,7 +16,8 @@ from collections import defaultdict
 # 3rd party modules
 import boto3
 import pprint
-from pony.orm import db_session, commit, select, delete, StrArray
+import botocore
+from pony.orm import db_session, commit, select, StrArray
 from alive_progress import alive_bar
 
 # local modules
@@ -43,7 +45,7 @@ from ingest.metricimporters.covid_global_country import (
 # constants
 # define S3 client used for adding / checking for files in the S3
 # storage bucket
-s3 = boto3.client("s3")
+s3: botocore.client = boto3.client("s3")
 S3_BUCKET_NAME = "covid-npi-policy-storage"
 
 # define policy level values that correspond to an intermediate geography
@@ -555,114 +557,20 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
-    def load_observations(self, db):
-        print(
-            "\n\n[X] Connecting to Airtable for observations and fetching"
-            " tables..."
+    def load_distancing_levels(self, db: Database) -> None:
+        """Loads the latest distancing levels from a CSV stored in S3 into
+        the database.
+
+        Args:
+            db (Database): The database connection
+
+        """
+        getter: DistancingLevelGetter = DistancingLevelGetter(
+            S3_BUCKET_NAME="covid-npi-policy-storage",
+            path="Distancing-Status",
+            fn_prefix="distancing_status",
         )
-        airtable_iter = self.client.worksheet(name="Status table").ws.get_iter(
-            view="API ingest",
-            fields=["Name", "Date", "Location type", "Status"],
-        )
-
-        # delete existing observations
-        print("Deleting existing observations...")
-        delete(i for i in db.Observation if i.metric == 0)
-        print("Existing observations deleted.")
-
-        # add new observations
-        skipped = 0
-        # n_est = len(all_rows)
-        n_est = 28523
-        with alive_bar(n_est, title="Importing observations") as bar:
-            # for page in [1]:
-            for page in airtable_iter:
-                for record in page:
-                    bar()
-                    # TODO add observations
-                    d = record["fields"]
-                    if "Name" not in d:
-                        skipped += 1
-                        continue
-                    if not (
-                        d["Date"].startswith("2020")
-                        or d["Date"].startswith("2021")
-                    ):
-                        skipped += 1
-                        continue
-
-                    place = None
-                    if d["Location type"] == "State":
-                        place = select(
-                            i
-                            for i in db.Place
-                            if i.iso3 == "USA"
-                            and i.area1 == d["Name"]
-                            and (i.area2 == "Unspecified" or i.area2 == "")
-                            and i.level == "State / Province"
-                        ).first()
-
-                        if place is None:
-                            # TODO generalize to all countries
-                            action, place = upsert(
-                                db.Place,
-                                {
-                                    "iso3": "USA",
-                                    "country_name": "United States of America"
-                                    " (USA)",
-                                    "area1": d["Name"],
-                                    "area2": "Unspecified",
-                                    "level": "State / Province",
-                                },
-                                {"loc": f"""{d['Name']}, USA"""},
-                            )
-
-                    else:
-                        # TODO
-                        place = select(
-                            i
-                            for i in db.Place
-                            if i.iso3 == d["Name"] and i.level == "Country"
-                        ).first()
-
-                        if place is None:
-                            # TODO generalize to all countries
-                            action, place = upsert(
-                                db.Place,
-                                {
-                                    "iso3": d["Name"],
-                                    "country_name": get_name_from_iso3(
-                                        d["Name"]
-                                    )
-                                    + f""" ({d['Name']})""",
-                                    "area1": "Unspecified",
-                                    "area2": "Unspecified",
-                                    "level": "Country",
-                                },
-                                {
-                                    "loc": get_name_from_iso3(d["Name"])
-                                    + f""" ({d['Name']})"""
-                                },
-                            )
-
-                    if place is None:
-                        print("[FATAL ERROR] Missing place")
-                        os.sys.exit(0)
-
-                    action, d = upsert(
-                        db.Observation,
-                        {"source_id": record["id"]},
-                        {
-                            "date": d["Date"],
-                            "metric": 0,
-                            "value": "Mixed distancing levels"
-                            if d["Status"] == "Mixed"
-                            else d["Status"],
-                            "place": place,
-                        },
-                    )
-                    commit()
-
+        getter.import_levels(db=db)
         return self
 
     @db_session
@@ -2737,7 +2645,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     print("This local area had a missing ISO-3 code: ")
                     print(area2_info)
                     raise e
-                
+
                 place_dict = dict(
                     level="Local",
                     iso3=iso3,
