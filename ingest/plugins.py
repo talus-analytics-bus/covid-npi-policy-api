@@ -17,7 +17,7 @@ import pprint
 import botocore
 import pandas as pd
 from pony.orm import db_session, commit, select, StrArray
-from alive_progress import alive_bar
+from tqdm import tqdm
 
 # local modules
 from api.ampqualitycheckers.categoryfixer.core import CategoryFixer
@@ -1496,35 +1496,32 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        data_rows = list(self.data.iterrows())
+        logger.info("Ingesting policies")
+        for i, d in tqdm(self.data.iterrows()):
 
-        with alive_bar(len(data_rows), title="Ingesting policies") as bar:
-            for i, d in self.data.iterrows():
-                bar()
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d["id"])
+            except Exception:
+                continue
 
-                # if unique ID is not an integer, skip
-                # TODO handle on ingest
-                try:
-                    int(d["id"])
-                except Exception:
-                    continue
+            if reject_policy(d):
+                continue
 
-                if reject_policy(d):
-                    continue
-
-                # upsert policies
-                action, instance = upsert(
-                    db.Policy,
-                    {"id": d["id"]},
-                    {key: formatter(key, d) for key in keys if key in d},
-                    skip=["prior_policy"],
-                    do_commit=False,
-                )
-                if action == "update":
-                    n_updated += 1
-                elif action == "insert":
-                    n_inserted += 1
-                upserted.add(instance)
+            # upsert policies
+            action, instance = upsert(
+                db.Policy,
+                {"id": d["id"]},
+                {key: formatter(key, d) for key in keys if key in d},
+                skip=["prior_policy"],
+                do_commit=False,
+            )
+            if action == "update":
+                n_updated += 1
+            elif action == "insert":
+                n_inserted += 1
+            upserted.add(instance)
 
         # commit
         logger.info("\n\nCommitting ingested policies...")
@@ -1537,43 +1534,41 @@ class CovidPolicyPlugin(IngestPlugin):
             db.Policy, "source_id"
         )
         logger.info("Loaded.\n\n")
+        logger.info("Linking policies")
+        for i, d in tqdm(self.data.iterrows()):
 
-        with alive_bar(len(data_rows), title="Linking policies") as bar:
-            for i, d in self.data.iterrows():
-                bar()
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d["id"])
+            except Exception:
+                continue
 
-                # if unique ID is not an integer, skip
-                # TODO handle on ingest
-                try:
-                    int(d["id"])
-                except Exception:
-                    continue
+            if reject_policy(d):
+                continue
 
-                if reject_policy(d):
-                    continue
-
-                # upsert policies
-                # TODO consider how to count these updates, since they're done
-                # after new instances are created (if counting them at all)
-                prior_pol_src_ids: List[str] = d.get("prior_policy", list())
-                if len(prior_pol_src_ids) > 0:
-                    prior_pols: List[db.Policy] = list()
-                    source_id: str
-                    for source_id in prior_pol_src_ids:
-                        prior_pol_inst: "db.Policy" = pol_by_src_id.get(
-                            source_id, [None]
-                        )[0]
-                        # prior_policy_instance: db.Policy = select(
-                        #     i for i in db.Policy if i.source_id == source_id
-                        # ).first()
-                        if prior_pol_inst is not None:
-                            prior_pols.append(prior_pol_inst)
-                    upsert(
-                        db.Policy,
-                        {"id": d["id"]},
-                        {"prior_policy": prior_pols},
-                        do_commit=False,
-                    )
+            # upsert policies
+            # TODO consider how to count these updates, since they're done
+            # after new instances are created (if counting them at all)
+            prior_pol_src_ids: List[str] = d.get("prior_policy", list())
+            if len(prior_pol_src_ids) > 0:
+                prior_pols: List[db.Policy] = list()
+                source_id: str
+                for source_id in prior_pol_src_ids:
+                    prior_pol_inst: "db.Policy" = pol_by_src_id.get(
+                        source_id, [None]
+                    )[0]
+                    # prior_policy_instance: db.Policy = select(
+                    #     i for i in db.Policy if i.source_id == source_id
+                    # ).first()
+                    if prior_pol_inst is not None:
+                        prior_pols.append(prior_pol_inst)
+                upsert(
+                    db.Policy,
+                    {"id": d["id"]},
+                    {"prior_policy": prior_pols},
+                    do_commit=False,
+                )
 
         # commit
         logger.info("\n\nCommitting linked policies...")
@@ -2417,7 +2412,9 @@ class CovidPolicyPlugin(IngestPlugin):
                     missing_filenames.add(file.name)
                     n_missing += 1
                 else:
-                    # logger.info('\nFetching and adding PDF to S3: ' + file_key)
+                    # logger.info(
+                    #     '\nFetching and adding PDF to S3: ' + file_key
+                    # )
                     file_url = (
                         file.permalink
                         if file.permalink is not None

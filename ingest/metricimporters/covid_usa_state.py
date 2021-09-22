@@ -3,7 +3,7 @@ Methods to ingest USA state-level COVID data into the Talus
 Metrics database.
 
 """
-import pprint
+import logging
 from typing import Dict
 from alive_progress import alive_bar
 from datetime import datetime, date
@@ -11,8 +11,9 @@ from pony.orm.core import Database, commit, select
 import db_metric
 from ingest.util import nyt_caseload_csv_to_dict, upsert
 
-# pretty printing: for printing JSON objects legibly
-pp = pprint.PrettyPrinter(indent=4)
+
+# logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def upsert_nyt_state_covid_data(
@@ -31,15 +32,15 @@ def upsert_nyt_state_covid_data(
         all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
         date string of Metrics database datetime records
     """
-    print("\nFetching data from New York Times GitHub...")
+    logger.info("\nFetching data from New York Times GitHub...")
     download_url = (
         "https://raw.githubusercontent.com/nytimes/covid-19-data/"
         "master/us-states.csv"
     )
     data = nyt_caseload_csv_to_dict(download_url)
-    print("Done.")
+    logger.info("Done.")
 
-    print("\nUpserting relevant metrics...")
+    logger.info("\nUpserting relevant metrics...")
 
     # upsert metric for daily US caseload
     _action, covid_total_cases_provinces = upsert(
@@ -175,9 +176,9 @@ def upsert_nyt_state_covid_data(
     )
     commit()
 
-    print("Done.")
+    logger.info("Done.")
 
-    print("\nUpserting observations...")
+    logger.info("\nUpserting observations...")
 
     # get all places indexed by name
     all_places_list = select((i.place_id, i.name) for i in db.Place)[:][:]
@@ -203,8 +204,7 @@ def upsert_nyt_state_covid_data(
                     try:
                         dt = all_dt_dict[d["date"]]
                     except Exception:
-                        print("error: missing dt")
-                        # input('error: missing dt. Press enter to continue.')
+                        logger.error("error: missing dt")
                         continue
 
                     last_datum_date = d["date"]
@@ -263,10 +263,11 @@ def upsert_nyt_state_covid_data(
     )
 
     if len(missing) > 0:
-        print(
+        logger.warn(
             "These places in the NYT dataset were missing from the COVID AMP"
             " places database:"
         )
-        pp.pprint(missing)
+        for name in missing:
+            logger.warn(name)
 
-    print("Done.")
+    logger.info("Done.")
