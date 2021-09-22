@@ -2,6 +2,7 @@
 # standard modules and packages
 import argparse
 from datetime import date
+from ingest.distancinglevelgetter.core import DistancingLevelGetter
 from ingest.places.core import (
     add_local_plus_state_places,
     add_missing_usa_local_areas,
@@ -123,11 +124,16 @@ if __name__ == "__main__":
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
         try:
-            plugin.load_client("appEtzBj5rWEsbcE9").load_distancing_levels(db)
+            getter: DistancingLevelGetter = DistancingLevelGetter(
+                S3_BUCKET_NAME="covid-npi-policy-storage",
+                path="Distancing-Status",
+                fn_prefix="distancing_status",
+            )
+            getter.import_levels(db=db)
         except Exception:
-            print(
+            logger.error(
                 "\nERROR: Observations not loaded successfully, check for "
-                "Airtable exceptions."
+                "Amazon S3 errors."
             )
 
     if ingest_court:

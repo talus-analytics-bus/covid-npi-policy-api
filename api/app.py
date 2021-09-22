@@ -1,7 +1,22 @@
 """Define API application"""
+from api.util import get_today_datetime_stamp
+import logging
+from logging import FileHandler, StreamHandler
+from io import StringIO
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+
+sio: StringIO = StringIO()
+fh: FileHandler = FileHandler(f"logs/{get_today_datetime_stamp()}.log")
+sh: StreamHandler = StreamHandler(sio)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[sh, fh],
+)
+logging.getLogger().info("Main logger initialized.")
 
 # define API app
 tags_metadata = [
