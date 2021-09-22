@@ -70,3 +70,4 @@ uvloop==0.14.0
 websockets==8.1
 XlsxWriter==1.2.8
 zipp==3.4.1
+tqpd==4.62.3
