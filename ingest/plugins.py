@@ -51,9 +51,6 @@ S3_BUCKET_NAME = "covid-npi-policy-storage"
 # define policy level values that correspond to an intermediate geography
 INTERMEDIATE_LEVELS: Tuple[str, str] = ("State / Province", "Tribal nation")
 
-# pretty logger.infoing: for logger.infoing JSON objects legibly
-pp = pprint.PrettyPrinter(indent=4)
-
 # define exported classes
 __all__ = ["CovidPolicyPlugin", "CovidCaseloadPlugin"]
 
@@ -1585,7 +1582,7 @@ class CovidPolicyPlugin(IngestPlugin):
         logger.info("Updated: " + str(n_updated))
         logger.info("Deleted: " + str(n_deleted))
         logger.info("Skipped dates:")
-        pp.plogger.info(self.skipped_dates)
+        logger.info(self.skipped_dates)
 
     @db_session
     def create_plans(self, db):
@@ -2614,8 +2611,8 @@ class CovidPolicyPlugin(IngestPlugin):
                         [None],
                     )[0]
                 except Exception as e:
-                    logger.info("This local area had a missing ISO-3 code: ")
-                    logger.info(area2_info)
+                    logger.error("This local area had a missing ISO-3 code: ")
+                    logger.error(area2_info)
                     raise e
 
                 place_dict = dict(
