@@ -183,7 +183,9 @@ def get_place_loc(i: models.Place):
         return "Multiple countries"
     else:
         logger.info(i.to_dict())
-        input("Could not determine place name for this instance.")
+        print("Could not determine place name for this instance.")
+        print(i.to_dict())
+        return "Unspecified"
 
 
 def get_s3_bucket_keys(s3_bucket_name: str):
