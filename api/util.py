@@ -186,3 +186,7 @@ def is_listlike(obj: Any) -> bool:
     return (obj_type in (set, list)) or issubclass(
         obj_type, (Multiset, TrackedArray, SetInstance)
     )
+
+def get_today_datetime_stamp() -> str:
+    today: datetime = datetime.today()
+    return today.strftime("%Y-%m-%d %H:%M:%S %Z").strip()

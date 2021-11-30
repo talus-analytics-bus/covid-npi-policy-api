@@ -4,7 +4,6 @@ from api.models import Policy
 from pony.orm.core import Database
 from db.models import Place
 from typing import DefaultDict, Dict, List, Tuple
-from api.util import use_relpath
 import os
 import random
 import itertools
@@ -15,8 +14,10 @@ from collections import defaultdict
 # 3rd party modules
 import boto3
 import pprint
-from pony.orm import db_session, commit, select, delete, StrArray
-from alive_progress import alive_bar
+import botocore
+import pandas as pd
+from pony.orm import db_session, commit, select, StrArray
+from tqdm import tqdm
 
 # local modules
 from api.ampqualitycheckers.categoryfixer.core import CategoryFixer
@@ -27,7 +28,6 @@ from .util import (
     download_file,
     bcolors,
 )
-import pandas as pd
 from db.config import db as models
 from ingest.metricimporters.covid_usa_county import (
     upsert_nyt_county_covid_data,
@@ -41,16 +41,15 @@ from ingest.metricimporters.covid_global_country import (
 
 
 # constants
+logger: logging.Logger = logging.getLogger(__name__)
+
 # define S3 client used for adding / checking for files in the S3
 # storage bucket
-s3 = boto3.client("s3")
+s3: botocore.client = boto3.client("s3")
 S3_BUCKET_NAME = "covid-npi-policy-storage"
 
 # define policy level values that correspond to an intermediate geography
 INTERMEDIATE_LEVELS: Tuple[str, str] = ("State / Province", "Tribal nation")
-
-# pretty printing: for printing JSON objects legibly
-pp = pprint.PrettyPrinter(indent=4)
 
 # define exported classes
 __all__ = ["CovidPolicyPlugin", "CovidCaseloadPlugin"]
@@ -67,7 +66,7 @@ def format_date(key, d, unspec_val):
     if d[key] == "" or d[key] is None or d[key] == "N/A" or d[key] == "NA":
         return None
     elif len(d[key].split("/")) == 2:
-        print(f"""Unexpected format for `{key}`: {d[key]}\n""")
+        logger.info(f"""Unexpected format for `{key}`: {d[key]}\n""")
         return unspec_val
     else:
         return d[key]
@@ -145,7 +144,7 @@ def get_name_from_iso3(iso3: str):
         country = next(d for d in country_data if d["alpha-3"] == iso3)
         return country["name"] + " (" + iso3 + ")"
     except Exception:
-        print("Found no country match for: " + str(iso3))
+        logger.info("Found no country match for: " + str(iso3))
         return None
 
 
@@ -183,8 +182,10 @@ def get_place_loc(i: models.Place):
     elif i.level == "Country" and ";" in i.iso3:
         return "Multiple countries"
     else:
+        logger.info(i.to_dict())
+        print("Could not determine place name for this instance.")
         print(i.to_dict())
-        input("Could not determine place name for this instance.")
+        return "Unspecified"
 
 
 def get_s3_bucket_keys(s3_bucket_name: str):
@@ -363,19 +364,7 @@ class CovidPolicyPlugin(IngestPlugin):
     """
 
     def __init__(self):
-        # configure logger
-        # TODO with instance from `getLogger`
-        filename: str = use_relpath(
-            "logs/ingest_policies_"
-            f"""{datetime.now().strftime('%Y-%m-%d %X')}.log""",
-            __file__,
-        )
-        logging.basicConfig(
-            filename=filename,
-            level=logging.WARNING,
-        )
-        logging.info("Created new data ingest plugin.")
-        return None
+        logger.info("Created new data ingest plugin.")
 
     def load_client(self, base_key):
         """Load client to access Airtable. NOTE: You must set environment
@@ -416,7 +405,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        print("\n\n[0] Connecting to Airtable and fetching tables...")
+        logger.info("\n\n[0] Connecting to Airtable and fetching tables...")
         self.client.connect()
 
         # show every row of data dictionary preview in terminal
@@ -459,7 +448,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         """
 
-        print("\n\n[0] Connecting to Airtable and fetching tables...")
+        logger.info("\n\n[0] Connecting to Airtable and fetching tables...")
         self.client.connect()
 
         # local area database
@@ -555,117 +544,6 @@ class CovidPolicyPlugin(IngestPlugin):
         return self
 
     @db_session
-    def load_observations(self, db):
-        print(
-            "\n\n[X] Connecting to Airtable for observations and fetching"
-            " tables..."
-        )
-        airtable_iter = self.client.worksheet(name="Status table").ws.get_iter(
-            view="API ingest",
-            fields=["Name", "Date", "Location type", "Status"],
-        )
-
-        # delete existing observations
-        print("Deleting existing observations...")
-        delete(i for i in db.Observation if i.metric == 0)
-        print("Existing observations deleted.")
-
-        # add new observations
-        skipped = 0
-        # n_est = len(all_rows)
-        n_est = 28523
-        with alive_bar(n_est, title="Importing observations") as bar:
-            # for page in [1]:
-            for page in airtable_iter:
-                for record in page:
-                    bar()
-                    # TODO add observations
-                    d = record["fields"]
-                    if "Name" not in d:
-                        skipped += 1
-                        continue
-                    if not (
-                        d["Date"].startswith("2020")
-                        or d["Date"].startswith("2021")
-                    ):
-                        skipped += 1
-                        continue
-
-                    place = None
-                    if d["Location type"] == "State":
-                        place = select(
-                            i
-                            for i in db.Place
-                            if i.iso3 == "USA"
-                            and i.area1 == d["Name"]
-                            and (i.area2 == "Unspecified" or i.area2 == "")
-                            and i.level == "State / Province"
-                        ).first()
-
-                        if place is None:
-                            # TODO generalize to all countries
-                            action, place = upsert(
-                                db.Place,
-                                {
-                                    "iso3": "USA",
-                                    "country_name": "United States of America"
-                                    " (USA)",
-                                    "area1": d["Name"],
-                                    "area2": "Unspecified",
-                                    "level": "State / Province",
-                                },
-                                {"loc": f"""{d['Name']}, USA"""},
-                            )
-
-                    else:
-                        # TODO
-                        place = select(
-                            i
-                            for i in db.Place
-                            if i.iso3 == d["Name"] and i.level == "Country"
-                        ).first()
-
-                        if place is None:
-                            # TODO generalize to all countries
-                            action, place = upsert(
-                                db.Place,
-                                {
-                                    "iso3": d["Name"],
-                                    "country_name": get_name_from_iso3(
-                                        d["Name"]
-                                    )
-                                    + f""" ({d['Name']})""",
-                                    "area1": "Unspecified",
-                                    "area2": "Unspecified",
-                                    "level": "Country",
-                                },
-                                {
-                                    "loc": get_name_from_iso3(d["Name"])
-                                    + f""" ({d['Name']})"""
-                                },
-                            )
-
-                    if place is None:
-                        print("[FATAL ERROR] Missing place")
-                        os.sys.exit(0)
-
-                    action, d = upsert(
-                        db.Observation,
-                        {"source_id": record["id"]},
-                        {
-                            "date": d["Date"],
-                            "metric": 0,
-                            "value": "Mixed distancing levels"
-                            if d["Status"] == "Mixed"
-                            else d["Status"],
-                            "place": place,
-                        },
-                    )
-                    commit()
-
-        return self
-
-    @db_session
     def process_metadata(self, db):
         """Create `metadata` table in database based on all data dictionaries
         ingested from the data source.
@@ -752,12 +630,14 @@ class CovidPolicyPlugin(IngestPlugin):
             # analyze for QA/QC and quit if errors detected
             valid = self.run_tests(self.data)
             if not valid:
-                print("Data are invalid. Please correct issues and try again.")
+                logger.info(
+                    "Data are invalid. Please correct issues and try again."
+                )
                 # sys.exit(0)
             else:
-                print("QA/QC found no issues. Continuing.")
+                logger.info("QA/QC found no issues. Continuing.")
 
-            print(
+            logger.info(
                 "Number of policies before dropping duplicates: "
                 + str(len(self.data.index))
             )
@@ -765,7 +645,7 @@ class CovidPolicyPlugin(IngestPlugin):
             self.data = self.data.drop_duplicates(
                 subset="Unique ID", keep="first"
             )
-            print(
+            logger.info(
                 "Number of policies after dropping duplicates: "
                 + str(len(self.data.index))
             )
@@ -828,7 +708,7 @@ class CovidPolicyPlugin(IngestPlugin):
             self.create_files_from_attachments(db, "Plan")
             self.create_files_from_urls(db)
             self.validate_docs(db)
-            print("Debug run finished, exiting ingest.")
+            logger.info("Debug run finished, exiting ingest.")
             os.sys.exit(0)
 
         # PLAN DATA # --------------------------------------------------------#
@@ -848,18 +728,20 @@ class CovidPolicyPlugin(IngestPlugin):
             # analyze for QA/QC and quit if errors detected
             valid = self.run_tests(data)
             if not valid:
-                print("Data are invalid. Please correct issues and try again.")
+                logger.info(
+                    "Data are invalid. Please correct issues and try again."
+                )
                 # sys.exit(0)
             else:
-                print("QA/QC found no issues. Continuing.")
+                logger.info("QA/QC found no issues. Continuing.")
 
-            print(
+            logger.info(
                 "Number of plans before dropping duplicates: "
                 + str(len(data.index))
             )
             # only keep first of duplicate IDs
             data = data.drop_duplicates(subset="Unique ID", keep="first")
-            print(
+            logger.info(
                 "Number of plans after dropping duplicates: "
                 + str(len(data.index))
             )
@@ -909,12 +791,12 @@ class CovidPolicyPlugin(IngestPlugin):
             },
         )
 
-        print("\nData ingest completed.")
+        logger.info("\nData ingest completed.")
         return self
 
     @db_session
     def post_process_places(self, db):
-        print("[X] Splitting places where needed...")
+        logger.info("[X] Splitting places where needed...")
         places_to_split_area2 = select(i for i in db.Place if ";" in i.area2)
         for p in places_to_split_area2:
             places_to_upsert = p.area2.split("; ")
@@ -992,7 +874,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
     @db_session
     def post_process_policies(self, db, include_court_challenges=False):
-        print("Post-processing policies.")
+        logger.info("Post-processing policies.")
         # delete all current policy number records
         all_policy_numbers = select(i for i in db.Policy_Number)
         all_policy_numbers.delete()
@@ -1267,13 +1149,13 @@ class CovidPolicyPlugin(IngestPlugin):
             n_deleted += len(places_to_delete)
             commit()
 
-        print("\n\n[7] Ingesting places...")
-        print("Total in database: " + str(len(db.Place.select())))
-        print("Deleted: " + str(n_deleted))
+        logger.info("\n\n[7] Ingesting places...")
+        logger.info("Total in database: " + str(len(db.Place.select())))
+        logger.info("Deleted: " + str(n_deleted))
 
-        print("\n\n[8] Ingesting authorizing entities...")
-        print("Total in database: " + str(len(db.Auth_Entity.select())))
-        print("Deleted: " + str(n_deleted_auth_entity))
+        logger.info("\n\n[8] Ingesting authorizing entities...")
+        logger.info("Total in database: " + str(len(db.Auth_Entity.select())))
+        logger.info("Deleted: " + str(n_deleted_auth_entity))
 
     def is_aff_diff_from_auth(self, d) -> bool:
         """Returns True if the authorizing entity's place is different from the
@@ -1445,8 +1327,8 @@ class CovidPolicyPlugin(IngestPlugin):
             ):
                 level = "Country"
             else:
-                print("place")
-                print(d)
+                logger.info("place")
+                logger.info(d)
                 input("ERROR: Could not determine a `level` for place")
 
             # assign synthetic "level"
@@ -1536,13 +1418,13 @@ class CovidPolicyPlugin(IngestPlugin):
             n_deleted += len(places_to_delete)
             commit()
 
-        print("\n\n[7] Ingesting places...")
-        print("Total in database: " + str(len(db.Place.select())))
-        print("Deleted: " + str(n_deleted))
+        logger.info("\n\n[7] Ingesting places...")
+        logger.info("Total in database: " + str(len(db.Place.select())))
+        logger.info("Deleted: " + str(n_deleted))
 
-        print("\n\n[8] Ingesting authorizing entities...")
-        print("Total in database: " + str(len(db.Auth_Entity.select())))
-        print("Deleted: " + str(n_deleted_auth_entity))
+        logger.info("\n\n[8] Ingesting authorizing entities...")
+        logger.info("Total in database: " + str(len(db.Auth_Entity.select())))
+        logger.info("Deleted: " + str(n_deleted_auth_entity))
 
     @db_session
     def create_policies(self, db):
@@ -1560,7 +1442,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[3] Ingesting policy data...")
+        logger.info("\n\n[3] Ingesting policy data...")
 
         # retrieve data field keys for policies
         keys = select(
@@ -1613,101 +1495,96 @@ class CovidPolicyPlugin(IngestPlugin):
         n_inserted = 0
         n_updated = 0
 
-        data_rows = list(self.data.iterrows())
+        logger.info("Ingesting policies")
+        for i, d in tqdm(self.data.iterrows()):
 
-        with alive_bar(len(data_rows), title="Ingesting policies") as bar:
-            for i, d in self.data.iterrows():
-                bar()
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d["id"])
+            except Exception:
+                continue
 
-                # if unique ID is not an integer, skip
-                # TODO handle on ingest
-                try:
-                    int(d["id"])
-                except Exception:
-                    continue
+            if reject_policy(d):
+                continue
 
-                if reject_policy(d):
-                    continue
-
-                # upsert policies
-                action, instance = upsert(
-                    db.Policy,
-                    {"id": d["id"]},
-                    {key: formatter(key, d) for key in keys if key in d},
-                    skip=["prior_policy"],
-                    do_commit=False,
-                )
-                if action == "update":
-                    n_updated += 1
-                elif action == "insert":
-                    n_inserted += 1
-                upserted.add(instance)
+            # upsert policies
+            action, instance = upsert(
+                db.Policy,
+                {"id": d["id"]},
+                {key: formatter(key, d) for key in keys if key in d},
+                skip=["prior_policy"],
+                do_commit=False,
+            )
+            if action == "update":
+                n_updated += 1
+            elif action == "insert":
+                n_inserted += 1
+            upserted.add(instance)
 
         # commit
-        print("\n\nCommitting ingested policies...")
+        logger.info("\n\nCommitting ingested policies...")
         commit()
-        print("Committed.\n\n")
+        logger.info("Committed.\n\n")
 
         # get policies by source id
-        print("\n\nLoading policies by source ID...")
+        logger.info("\n\nLoading policies by source ID...")
         pol_by_src_id: Dict[str, db.Policy] = get_inst_by_col(
             db.Policy, "source_id"
         )
-        print("Loaded.\n\n")
+        logger.info("Loaded.\n\n")
+        logger.info("Linking policies")
+        for i, d in tqdm(self.data.iterrows()):
 
-        with alive_bar(len(data_rows), title="Linking policies") as bar:
-            for i, d in self.data.iterrows():
-                bar()
+            # if unique ID is not an integer, skip
+            # TODO handle on ingest
+            try:
+                int(d["id"])
+            except Exception:
+                continue
 
-                # if unique ID is not an integer, skip
-                # TODO handle on ingest
-                try:
-                    int(d["id"])
-                except Exception:
-                    continue
+            if reject_policy(d):
+                continue
 
-                if reject_policy(d):
-                    continue
-
-                # upsert policies
-                # TODO consider how to count these updates, since they're done
-                # after new instances are created (if counting them at all)
-                prior_pol_src_ids: List[str] = d.get("prior_policy", list())
-                if len(prior_pol_src_ids) > 0:
-                    prior_pols: List[db.Policy] = list()
-                    source_id: str
-                    for source_id in prior_pol_src_ids:
-                        prior_pol_inst: "db.Policy" = pol_by_src_id.get(
-                            source_id, [None]
-                        )[0]
-                        # prior_policy_instance: db.Policy = select(
-                        #     i for i in db.Policy if i.source_id == source_id
-                        # ).first()
-                        if prior_pol_inst is not None:
-                            prior_pols.append(prior_pol_inst)
-                    upsert(
-                        db.Policy,
-                        {"id": d["id"]},
-                        {"prior_policy": prior_pols},
-                        do_commit=False,
-                    )
+            # upsert policies
+            # TODO consider how to count these updates, since they're done
+            # after new instances are created (if counting them at all)
+            prior_pol_src_ids: List[str] = d.get("prior_policy", list())
+            if len(prior_pol_src_ids) > 0:
+                prior_pols: List[db.Policy] = list()
+                source_id: str
+                for source_id in prior_pol_src_ids:
+                    prior_pol_inst: "db.Policy" = pol_by_src_id.get(
+                        source_id, [None]
+                    )[0]
+                    # prior_policy_instance: db.Policy = select(
+                    #     i for i in db.Policy if i.source_id == source_id
+                    # ).first()
+                    if prior_pol_inst is not None:
+                        prior_pols.append(prior_pol_inst)
+                upsert(
+                    db.Policy,
+                    {"id": d["id"]},
+                    {"prior_policy": prior_pols},
+                    do_commit=False,
+                )
 
         # commit
-        print("\n\nCommitting linked policies...")
+        logger.info("\n\nCommitting linked policies...")
         commit()
-        print("Committed.\n\n")
+        logger.info("Committed.\n\n")
 
         # delete all records in table but not in ingest dataset
-        print("Deleting policies no longer needed...")
+        logger.info("Deleting policies no longer needed...")
         n_deleted = db.Policy.delete_2(upserted)
         commit()
-        print("Deleted.\n")
+        logger.info("Deleted.\n")
 
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted: " + str(n_deleted))
-        print("Skipped dates:")
-        pp.pprint(self.skipped_dates)
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted: " + str(n_deleted))
+        logger.info("Skipped dates:")
+        logger.info(self.skipped_dates)
 
     @db_session
     def create_plans(self, db):
@@ -1724,7 +1601,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[3b] Ingesting plan data...")
+        logger.info("\n\n[3b] Ingesting plan data...")
 
         # retrieve data field keys for plans
         keys = select(
@@ -1804,9 +1681,9 @@ class CovidPolicyPlugin(IngestPlugin):
         # delete all records in table but not in ingest dataset
         n_deleted = db.Plan.delete_2(upserted)
         commit()
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted: " + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted: " + str(n_deleted))
 
     @db_session
     def create_court_challenges(self, db):
@@ -1823,7 +1700,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[XX] Ingesting court challenge data...")
+        logger.info("\n\n[XX] Ingesting court challenge data...")
 
         # skip linked fields and assign them later
         linked_fields = ("policies", "matter_numbers")
@@ -1943,12 +1820,12 @@ class CovidPolicyPlugin(IngestPlugin):
         # delete all records in table but not in ingest dataset
         n_deleted = db.Court_Challenge.delete_2(upserted)
         commit()
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted: " + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted: " + str(n_deleted))
 
         # join matter numbers to court challenges
-        print("\n\nAdding matter numbers to court challenges...")
+        logger.info("\n\nAdding matter numbers to court challenges...")
 
         for i, d in self.data_matter_numbers.iterrows():
             if d["Court challenge link"] == "":
@@ -1967,7 +1844,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         new_matter_numbers = set(dd.matter_numbers)
                         new_matter_numbers.add(matter_number)
                         dd.matter_numbers = list(new_matter_numbers)
-        print("Done.")
+        logger.info("Done.")
         return self
 
     @db_session
@@ -1990,7 +1867,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # upsert glossary terms
         self.create_glossary(db)
 
-        print("\n\n[2] Ingesting metadata from data dictionary...")
+        logger.info("\n\n[2] Ingesting metadata from data dictionary...")
         colgroup = ""
         upserted = set()
         n_inserted = 0
@@ -2150,9 +2027,9 @@ class CovidPolicyPlugin(IngestPlugin):
         # delete all records in table but not in ingest dataset
         n_deleted = db.Metadata.delete_2(upserted)
         commit()
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted: " + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted: " + str(n_deleted))
 
     @db_session
     def create_glossary(self, db):
@@ -2170,7 +2047,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[2b] Ingesting glossary...")
+        logger.info("\n\n[2b] Ingesting glossary...")
         upserted = set()
         n_inserted = 0
         n_updated = 0
@@ -2217,9 +2094,9 @@ class CovidPolicyPlugin(IngestPlugin):
         # delete all records in table but not in ingest dataset
         n_deleted = db.Glossary.delete_2(upserted)
         commit()
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted: " + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted: " + str(n_deleted))
 
     @db_session
     def create_files_from_urls(self, db):
@@ -2236,7 +2113,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[5] Ingesting files from URLs / filenames...")
+        logger.info("\n\n[5] Ingesting files from URLs / filenames...")
 
         policy_doc_keys = [
             "policy_name",
@@ -2314,20 +2191,20 @@ class CovidPolicyPlugin(IngestPlugin):
         # to_delete.delete()
         commit()
 
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        # print('Deleted (still in S3): ' + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        # logger.info('Deleted (still in S3): ' + str(n_deleted))
 
         # display any records that were missing a PDF
         if len(missing_filenames) > 0:
             missing_filenames_list = list(missing_filenames)
             missing_filenames_list.sort(key=lambda x: int(x))
-            print(
+            logger.info(
                 f"""\n{bcolors.BOLD}[Warning] Missing filenames for """
                 f"""{len(missing_filenames_list)} policies with these """
                 f"""unique IDs:{bcolors.ENDC}"""
             )
-            print(
+            logger.info(
                 bcolors.BOLD
                 + str(", ".join(missing_filenames_list))
                 + bcolors.ENDC
@@ -2349,7 +2226,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print(
+        logger.info(
             "\n\n[4] Ingesting files from Airtable attachments"
             f""" for {entity_class_name}..."""
         )
@@ -2460,9 +2337,9 @@ class CovidPolicyPlugin(IngestPlugin):
         to_delete.delete()
         commit()
 
-        print("Inserted: " + str(n_inserted))
-        print("Updated: " + str(n_updated))
-        print("Deleted (still in S3): " + str(n_deleted))
+        logger.info("Inserted: " + str(n_inserted))
+        logger.info("Updated: " + str(n_updated))
+        logger.info("Deleted (still in S3): " + str(n_deleted))
 
     @db_session
     def debug_add_test_complaint_cats(self, db):
@@ -2471,7 +2348,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
 
         """
-        print("\nAdding debug data...")
+        logger.info("\nAdding debug data...")
         # get subcats and their cats
         possible_values = select(
             (i.term, i.subterm)
@@ -2498,12 +2375,12 @@ class CovidPolicyPlugin(IngestPlugin):
             i.complaint_category_new = cats
             i.complaint_subcategory_new = subcats
             commit()
-        print("\nDone.")
+        logger.info("\nDone.")
 
     @db_session
     def validate_docs(self, db):
         files = db.File.select()
-        print(f"""\n\n[6] Validating {len(files)} files...""")
+        logger.info(f"""\n\n[6] Validating {len(files)} files...""")
         # confirm file exists in S3 bucket for file, if not, either add it
         # or remove the PDF text
         # define filename from db
@@ -2518,23 +2395,25 @@ class CovidPolicyPlugin(IngestPlugin):
         missing_filenames = set()
         for file in files:
             n_checked += 1
-            print(f"""Checking file {n_checked} of {len(files)}...""")
+            logger.info(f"""Checking file {n_checked} of {len(files)}...""")
             if file.filename is not None:
                 file_key = file.filename
                 if file_key in self.s3_bucket_keys:
-                    # print('\nFile found')
+                    # logger.info('\nFile found')
                     n_valid += 1
                     pass
                 elif (
                     file.data_source is None or file.data_source.strip() == ""
                 ) and (file.permalink is None or file.permalink.strip() == ""):
-                    # print('\nDocument not found (404), no URL')
+                    # logger.info('\nDocument not found (404), no URL')
                     file.filename = None
                     commit()
                     missing_filenames.add(file.name)
                     n_missing += 1
                 else:
-                    # print('\nFetching and adding PDF to S3: ' + file_key)
+                    # logger.info(
+                    #     '\nFetching and adding PDF to S3: ' + file_key
+                    # )
                     file_url = (
                         file.permalink
                         if file.permalink is not None
@@ -2551,7 +2430,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         )
                         n_added += 1
                     else:
-                        print(
+                        logger.info(
                             "Could not download file at URL " + str(file_url)
                         )
                         if file is not None:
@@ -2560,33 +2439,33 @@ class CovidPolicyPlugin(IngestPlugin):
                         could_not_download.add(file_url)
                         n_failed += 1
             else:
-                print("Skipping, no file associated")
+                logger.info("Skipping, no file associated")
 
-        print("Valid: " + str(n_valid))
-        print("Added to S3: " + str(n_added))
-        print("Missing (no URL or filename): " + str(n_missing))
-        print("Failed to fetch from URL: " + str(n_failed))
+        logger.info("Valid: " + str(n_valid))
+        logger.info("Added to S3: " + str(n_added))
+        logger.info("Missing (no URL or filename): " + str(n_missing))
+        logger.info("Failed to fetch from URL: " + str(n_failed))
         if n_missing > 0:
             missing_filenames = list(missing_filenames)
             missing_filenames.sort()
-            print(
+            logger.info(
                 f"""\n{bcolors.BOLD}[Warning] URLs or filenames were not """
                 f"""provided for {n_missing} files with the following """
                 f"""names:{bcolors.ENDC}"""
             )
-            print(
+            logger.info(
                 bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC
             )
 
         if n_failed > 0:
             could_not_download = list(could_not_download)
             could_not_download.sort()
-            print(
+            logger.info(
                 f"""\n{bcolors.BOLD}[Warning] Files could not be """
                 f"""downloaded from the following {n_failed} """
                 f"""sources:{bcolors.ENDC}"""
             )
-            print(
+            logger.info(
                 bcolors.BOLD
                 + str(", ".join(could_not_download))
                 + bcolors.ENDC
@@ -2607,7 +2486,7 @@ class CovidPolicyPlugin(IngestPlugin):
             Description of returned object.
 
         """
-        print("\n\n[1] Performing QA/QC on dataset...")
+        logger.info("\n\n[1] Performing QA/QC on dataset...")
 
         # unique primary key `id`
         valid = self.test_unique_ids(data)
@@ -2629,12 +2508,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 else:
                     ids_seen.add(id)
         if len(ids_duplicated) > 0:
-            logging.warning(
+            logger.warning(
                 "[WARNING] Found the following unique IDs that are "
                 "duplicated in the data:"
             )
             for id in ids_duplicated:
-                logging.warning("   " + str(id))
+                logger.warning("   " + str(id))
             return False
         else:
             return True
@@ -2716,7 +2595,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area1_tmp != "" and len(area1_tmp) > 0:
                     area1: str = area1_tmp[0]
                 if area1 is None or area1 == "":
-                    logging.error(
+                    logger.error(
                         "No intermediate area for "
                         + area2_info.get("Local Area Name")
                     )
@@ -2734,10 +2613,10 @@ class CovidPolicyPlugin(IngestPlugin):
                         [None],
                     )[0]
                 except Exception as e:
-                    print("This local area had a missing ISO-3 code: ")
-                    print(area2_info)
+                    logger.error("This local area had a missing ISO-3 code: ")
+                    logger.error(area2_info)
                     raise e
-                
+
                 place_dict = dict(
                     level="Local",
                     iso3=iso3,
@@ -2864,10 +2743,12 @@ def assign_policy_group_numbers(db):
     ps_iter = itertools.groupby(policy_sections, key=key_func)
 
     group_number = 0
-    print("\nAssigning group numbers to policies with similar attributes...")
+    logger.info(
+        "\nAssigning group numbers to policies with similar attributes..."
+    )
     for key, records in ps_iter:
         for r in list(records):
             r.group_number = group_number
         group_number += 1
     commit()
-    print("Assigned.")
+    logger.info("Assigned.")

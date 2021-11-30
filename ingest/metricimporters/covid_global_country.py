@@ -3,24 +3,28 @@ Methods to ingest global country-level COVID data into the Talus
 Metrics database.
 
 """
-from db_metric.models import Place
-from ingest.metricimporters.helpers import get_place_from_name
-import pprint
+
+
+import logging
 import requests
 import csv
 import io
+from datetime import datetime, date, timedelta
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Union
 from unicodedata import numeric
-from alive_progress import alive_bar
-from datetime import datetime, date, timedelta
+
+from tqdm import tqdm
 from pony.orm.core import Database, commit, db_session, select
 from requests.models import Response
+
 import db_metric
 from ingest.util import upsert
+from db_metric.models import Place
+from ingest.metricimporters.helpers import get_place_from_name
 
-# pretty printing: for printing JSON objects legibly
-pp = pprint.PrettyPrinter(indent=4)
+# logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def upsert_jhu_country_covid_data(
@@ -47,7 +51,7 @@ def upsert_jhu_country_covid_data(
         do_global_daily (bool, optional): If true, ingest COVID-19 case and
         death data for for countries from time series report (single file)
     """
-    print("\nFetching data from JHU GitHub...")
+    logger.info("\nFetching data from JHU GitHub...")
     download_url = (
         "https://raw.githubusercontent.com/CSSEGISandData"
         "/COVID-19/master/csse_covid_19_data/"
@@ -87,9 +91,9 @@ def upsert_jhu_country_covid_data(
         )
         data += data_daily
         data_deaths += data_deaths_daily
-    print("Done.")
+    logger.info("Done.")
 
-    print("\nUpserting relevant metrics...")
+    logger.info("\nUpserting relevant metrics...")
 
     # upsert metric for daily country caseload
     _action, covid_total_cases_countries = upsert(
@@ -180,63 +184,59 @@ def upsert_jhu_country_covid_data(
     )
     commit()
 
-    print("Done.")
+    logger.info("Done.")
 
-    print("\nUpserting observations...")
+    logger.info("\nUpserting observations...")
 
     updated_at = datetime.now()
     last_datum_date = None
-    n_cases = len(data)
-    with alive_bar(n_cases, title="Importing national-level cases data") as bar:
-        for d in data:
-            bar()
-            dt = None
-            try:
-                dt = all_dt_dict[d["date"]]
-            except Exception:
-                input("error: missing dt. Press enter to continue.")
-                continue
+    logger.info("Importing national-level cases data")
+    for d in tqdm(data):
+        dt = None
+        try:
+            dt = all_dt_dict[d["date"]]
+        except Exception:
+            input("error: missing dt. Press enter to continue.")
+            continue
 
-            last_datum_date = d["date"]
-            upsert(
-                db.Observation,
-                {
-                    "metric": covid_total_cases_countries,
-                    "date_time": dt["dt_id"],
-                    "place": d["place"],
-                    "data_source": "JHU CSSE COVID-19 Dataset",
-                },
-                {
-                    "value": d["value"],
-                    "updated_at": updated_at,
-                },
-            )
+        last_datum_date = d["date"]
+        upsert(
+            db.Observation,
+            {
+                "metric": covid_total_cases_countries,
+                "date_time": dt["dt_id"],
+                "place": d["place"],
+                "data_source": "JHU CSSE COVID-19 Dataset",
+            },
+            {
+                "value": d["value"],
+                "updated_at": updated_at,
+            },
+        )
 
-    n_deaths = len(data_deaths)
-    with alive_bar(n_deaths, title="Importing national-level deaths data") as bar:
-        for d in data_deaths:
-            bar()
-            dt = None
-            try:
-                dt = all_dt_dict[d["date"]]
-            except Exception:
-                input("error: missing dt. Press enter to continue.")
-                continue
+    logger.info("Importing national-level deaths data")
+    for d in tqdm(data_deaths):
+        dt = None
+        try:
+            dt = all_dt_dict[d["date"]]
+        except Exception:
+            input("error: missing dt. Press enter to continue.")
+            continue
 
-            last_datum_date = d["date"]
-            upsert(
-                db.Observation,
-                {
-                    "metric": covid_total_deaths_countries,
-                    "date_time": dt["dt_id"],
-                    "place": d["place"],
-                    "data_source": "JHU CSSE COVID-19 Dataset",
-                },
-                {
-                    "value": d["value"],
-                    "updated_at": updated_at,
-                },
-            )
+        last_datum_date = d["date"]
+        upsert(
+            db.Observation,
+            {
+                "metric": covid_total_deaths_countries,
+                "date_time": dt["dt_id"],
+                "place": d["place"],
+                "data_source": "JHU CSSE COVID-19 Dataset",
+            },
+            {
+                "value": d["value"],
+                "updated_at": updated_at,
+            },
+        )
 
     # update version
     upsert(
@@ -251,7 +251,7 @@ def upsert_jhu_country_covid_data(
         },
     )
 
-    print("Done.")
+    logger.info("Done.")
 
 
 def jhu_daily_csv_to_dict(
@@ -297,58 +297,56 @@ def jhu_daily_csv_to_dict(
     data_deaths: List[Dict[str, Union[str | numeric]]] = list()
     missing_place_names: Set[str] = set()
     date_to_check: date = None
-    with alive_bar(
-        len(dates_to_check),
-        title="Importing national-level cases and deaths data from " "daily reports",
-    ) as bar:
-        for date_to_check in dates_to_check:
-            bar()
-            url_date_str: str = date_to_check.strftime("%m-%d-%Y")
+    logger.info(
+        "Importing national-level cases and deaths data from daily reports"
+    )
+    for date_to_check in tqdm(dates_to_check):
+        url_date_str: str = date_to_check.strftime("%m-%d-%Y")
 
-            # Fetch the daily CSV file from JHU GitHub
-            cur_download_url: str = download_url_daily + url_date_str + ".csv"
-            r: Response = requests.get(cur_download_url, allow_redirects=True)
-            # rows: Iterator = r.iter_lines(decode_unicode=True)
-            rows = csv.reader(io.StringIO(r.content.decode()))
+        # Fetch the daily CSV file from JHU GitHub
+        cur_download_url: str = download_url_daily + url_date_str + ".csv"
+        r: Response = requests.get(cur_download_url, allow_redirects=True)
+        # rows: Iterator = r.iter_lines(decode_unicode=True)
+        rows = csv.reader(io.StringIO(r.content.decode()))
 
-            # extract header row from iterator
-            # headers: List[str] = next(rows).split(",")
-            headers: List[str] = next(rows)
+        # extract header row from iterator
+        # headers: List[str] = next(rows).split(",")
+        headers: List[str] = next(rows)
 
-            # For each location needed
-            row: str = None
-            for row in rows:
+        # For each location needed
+        row: str = None
+        for row in rows:
 
-                # row_values: List[str] = next(csv.reader([row]))
-                row_dict: Dict[str, str] = dict()
-                header: str = None
-                idx: int = None
-                for idx, header in enumerate(headers):
-                    row_dict[header] = row[idx]
+            # row_values: List[str] = next(csv.reader([row]))
+            row_dict: Dict[str, str] = dict()
+            header: str = None
+            idx: int = None
+            for idx, header in enumerate(headers):
+                row_dict[header] = row[idx]
 
-                province_state: str = row_dict.get("Province_State", None)
-                if province_state in province_names:
-                    # Get the "confirmed" case value
-                    # name, date, value place
-                    datum: Dict[str, Union[str | numeric]] = dict(
-                        date=str(date_to_check)
-                    )
-                    datum_deaths: Dict[str, Union[str | numeric]] = dict(
-                        date=str(date_to_check)
-                    )
-                    datum["value"] = get_int_or_none(row_dict, "Confirmed")
-                    datum_deaths["value"] = get_int_or_none(row_dict, "Deaths")
-                    datum["name"] = province_state
-                    datum_deaths["name"] = province_state
-                    place: Place = get_place_from_name(db, province_state)
+            province_state: str = row_dict.get("Province_State", None)
+            if province_state in province_names:
+                # Get the "confirmed" case value
+                # name, date, value place
+                datum: Dict[str, Union[str | numeric]] = dict(
+                    date=str(date_to_check)
+                )
+                datum_deaths: Dict[str, Union[str | numeric]] = dict(
+                    date=str(date_to_check)
+                )
+                datum["value"] = get_int_or_none(row_dict, "Confirmed")
+                datum_deaths["value"] = get_int_or_none(row_dict, "Deaths")
+                datum["name"] = province_state
+                datum_deaths["name"] = province_state
+                place: Place = get_place_from_name(db, province_state)
 
-                    if place is None:
-                        missing_place_names.add(province_state)
-                    else:
-                        datum["place"] = place
-                        datum_deaths["place"] = place
-                        data.append(datum)
-                        data_deaths.append(datum_deaths)
+                if place is None:
+                    missing_place_names.add(province_state)
+                else:
+                    datum["place"] = place
+                    datum_deaths["place"] = place
+                    data.append(datum)
+                    data_deaths.append(datum_deaths)
 
     # List missing place names
     if len(missing_place_names) > 0:
@@ -377,7 +375,9 @@ def get_int_or_none(row_dict: dict, key: str) -> int:
 
 
 @db_session
-def jhu_caseload_csv_to_dict(download_url: str, db: Database) -> Dict[str, Any]:
+def jhu_caseload_csv_to_dict(
+    download_url: str, db: Database
+) -> Dict[str, Any]:
     """Returns a dictionary of COVID-19 case data from the JHU GitHub, given
     the download URL and the database object.
 
@@ -402,9 +402,15 @@ def jhu_caseload_csv_to_dict(download_url: str, db: Database) -> Dict[str, Any]:
     d: str = None
     for d in dates_raw:
         date_parts: List[str] = d.split("/")
-        mm: str = date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
-        dd: str = date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
-        yyyy: str = date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
+        mm: str = (
+            date_parts[0] if len(date_parts[0]) == 2 else "0" + date_parts[0]
+        )
+        dd: str = (
+            date_parts[1] if len(date_parts[1]) == 2 else "0" + date_parts[1]
+        )
+        yyyy: str = (
+            date_parts[2] if len(date_parts[2]) == 4 else "20" + date_parts[2]
+        )
         date_str: str = yyyy + "-" + mm + "-" + dd
         dates.append(date_str)
 
@@ -474,7 +480,9 @@ def jhu_caseload_csv_to_dict(download_url: str, db: Database) -> Dict[str, Any]:
                 continue
             else:
                 if header == "Country/Region":
-                    datum["name"] = row_list[idx].replace('"', "").replace("*", "")
+                    datum["name"] = (
+                        row_list[idx].replace('"', "").replace("*", "")
+                    )
 
                 else:
                     datum[header] = int(float(row_list[idx]))
@@ -509,8 +517,9 @@ def jhu_caseload_csv_to_dict(download_url: str, db: Database) -> Dict[str, Any]:
 
 
 def print_missing_place_names(missing_place_names):
-    print(
+    logger.warning(
         "These places in the JHU dataset were missing from the COVID AMP "
         "places database:"
     )
-    pp.pprint(missing_place_names)
+    for name in missing_place_names:
+        logger.warning(name)

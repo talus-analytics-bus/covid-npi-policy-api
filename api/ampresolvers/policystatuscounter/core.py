@@ -48,6 +48,7 @@ class PolicyStatusCounter(QueryResolver):
         geo_res: GeoRes,
         cats: List[str],
         subcats: List[str],
+        subtargets: List[str],
         date: datetime.date,
         sort: bool = False,
     ) -> PlaceObsList:
@@ -64,6 +65,8 @@ class PolicyStatusCounter(QueryResolver):
 
             subcats (List[str]): Optional list of subcategories to filter by.
 
+            subtargets (List[str]): Optional list of subtargets to filter by.
+
             date (datetime.date): The date of interest.
 
             sort (bool, optional): Whether to sort the observation list by
@@ -78,9 +81,14 @@ class PolicyStatusCounter(QueryResolver):
         usa_only: bool = geo_res != GeoRes.country
 
         # define query and get results
+        # pre-filter by subtargets if needed
+        q_subtargets: Query = select(p for p in Policy)
+        for st in subtargets:
+            q_subtargets = q_subtargets.filter(lambda p: st in p.subtarget)
+
         q: Query = select(
             (getattr(pl, loc_field), count(pbgn))
-            for p in Policy
+            for p in q_subtargets
             for pbgn in p._policy_by_group_number
             for pl in p.place
             for pdd in p._policy_day_dates

@@ -29,6 +29,7 @@ async def get_policy_status_counts_for_map(
     ),
     categories: List[str] = Query(list()),
     subcategories: List[str] = Query(list()),
+    subtargets: List[str] = Query(list()),
     date: datetime.date = Query(None),
     sort: bool = False,
 ) -> PlaceObsList:
@@ -37,20 +38,18 @@ async def get_policy_status_counts_for_map(
 
     """
     response: dict = None
-    try:
-        # validate args
-        assert date is not None
+    # validate args
+    assert date is not None
 
-        # get response
-        response: PlaceObsList = counter.get_policy_status_counts_for_map(
-            geo_res=geo_res,
-            cats=categories,
-            subcats=subcategories,
-            date=date,
-            sort=sort,
-        )
-    except AssertionError:
-        response = {"message": "Parameter error", "data": [], "success": False}
+    # get response
+    response: PlaceObsList = counter.get_policy_status_counts_for_map(
+        geo_res=geo_res,
+        cats=categories,
+        subcats=subcategories,
+        subtargets=subtargets,
+        date=date,
+        sort=sort,
+    )
     return response
 
 

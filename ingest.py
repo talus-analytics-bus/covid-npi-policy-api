@@ -1,6 +1,8 @@
 """Run data ingest application"""
 # standard modules and packages
 import argparse
+from datetime import date
+from ingest.distancinglevelgetter.core import DistancingLevelGetter
 from ingest.places.core import (
     add_local_plus_state_places,
     add_missing_usa_local_areas,
@@ -81,10 +83,12 @@ if __name__ == "__main__":
     # ingest court challenges and matter numbers?
     ingest_court = args.challenges or args.all
 
-    # generate database mapping and ingest data for the COVID-AMP project
-    ingest_lockdown_levels = args.distancing_levels or args.all
+    # only ingest distancing levels on Fridays or if requested
+    is_friday: bool = date.today().weekday() == 4
+    ingest_lockdown_levels: bool = args.distancing_levels or is_friday
+    # ingest_lockdown_levels = args.distancing_levels or args.all
 
-    # generate db mapping
+    # generate database mapping and ingest data for the COVID-AMP project
     db.generate_mapping(create_tables=False)
 
     # update core policy data, if appropriate
@@ -120,11 +124,16 @@ if __name__ == "__main__":
     # Update observations of lockdown level, if appropriate
     if ingest_lockdown_levels:
         try:
-            plugin.load_client("appEtzBj5rWEsbcE9").load_observations(db)
+            getter: DistancingLevelGetter = DistancingLevelGetter(
+                S3_BUCKET_NAME="covid-npi-policy-storage",
+                path="Distancing-Status",
+                fn_prefix="distancing_status",
+            )
+            getter.import_levels(db=db)
         except Exception:
-            print(
+            logger.error(
                 "\nERROR: Observations not loaded successfully, check for "
-                "Airtable exceptions."
+                "Amazon S3 errors."
             )
 
     if ingest_court:
