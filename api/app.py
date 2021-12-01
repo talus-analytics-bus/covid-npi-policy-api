@@ -58,6 +58,9 @@ app = FastAPI()
 # set allowed origins
 allow_origin_regex = (
     "(http:\/\/localhost:.*|"
+    + "covidamp\.org|"
+    + "www\.covidamp\.org|"
+    + "https?:\/\/www\.covidamp\.org|"
     + "https?:\/\/covidamp\.org|"
     + "https?:\/\/test\.covidamp\.org|"
     + "https?:\/\/review\.covidamp\.org|"
