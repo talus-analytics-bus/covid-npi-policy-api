@@ -86,7 +86,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         # export whichever is defined in `class_name`
         export_policies_and_plans = class_name in (
             "All_data_recreate",
-            "All_data_recreate_simplified",
+            "All_data_recreate_simple",
         )
         tabs = None
         if not export_policies_and_plans:
@@ -116,15 +116,27 @@ class CovidPolicyExportPlugin(ExcelExport):
             #         'p': 'Court challenges'
             #     }]
         else:
-            # export all data
-            tabs = (
-                {"s": "Policy", "p": "Policies"},
-                {"s": "Plan", "p": "Plans"},
-                # {
-                #     's': 'Court_Challenge',
-                #     'p': 'Court challenges'
-                # }
-            )
+
+            if class_name == "All_data_recreate_simple":
+                tabs = [
+                    {
+                        "s": "PolicySimple",
+                        "p": "Policies (compact)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                    },
+                    {"s": "Plan", "p": "Plans"},
+                ]
+            else:
+                # export all data
+                tabs = (
+                    {"s": "Policy", "p": "Policies"},
+                    {"s": "Plan", "p": "Plans"},
+                    # {
+                    #     's': 'Court_Challenge',
+                    #     'p': 'Court challenges'
+                    # }
+                )
 
         self.sheet_settings: List[CovidPolicyTab] = []
         for tab in tabs:

@@ -104,12 +104,14 @@ def export(filters: dict = None, class_name: str = "Policy"):
     )
 
     # If all data: return static Excel file
-    if class_name == "all_static":
+    if class_name.startswith("all_static"):
+        suffix: str = ' (compact)' if class_name === 'all_static_simple' else ''
+        suffix_name: str = ' (compact)' if class_name === 'all_static_simple' else ' '
         today = date.today()
         file = download_file(
             "https://ghssidea.org/downloads/"
-            "COVID AMP - Policy and Plan Data Export.xlsx",
-            "COVID AMP - Full Data Export - " + str(today).replace("-", ""),
+            f"COVID AMP - Policy and Plan Data Export{suffix}.xlsx",
+            f"COVID AMP - Full Data Export{suffix_name}- " + str(today).replace("-", ""),
             None,
             as_object=True,
         )
