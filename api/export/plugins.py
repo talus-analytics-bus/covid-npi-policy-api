@@ -86,7 +86,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         # export whichever is defined in `class_name`
         export_policies_and_plans = class_name in (
             "All_data_recreate",
-            "All_data_recreate_simple",
+            "All_data_recreate_summary",
         )
         tabs = None
         if not export_policies_and_plans:
@@ -100,13 +100,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 ]
             elif class_name == "Plan":
                 tabs = [{"s": "Plan", "p": "Plans"}]
-            elif class_name == "PolicySimple":
+            elif class_name == "PolicySummary":
                 tabs = [
                     {
-                        "s": "PolicySimple",
-                        "p": "Policies (compact)",
-                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
-                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                        "s": "PolicySummary",
+                        "p": "Policies (summary)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (summary)" tab is provided below. This is a subset of fields from the full dataset available online.""",
                     }
                 ]
 
@@ -117,13 +117,13 @@ class CovidPolicyExportPlugin(ExcelExport):
             #     }]
         else:
 
-            if class_name == "All_data_recreate_simple":
+            if class_name == "All_data_recreate_summary":
                 tabs = [
                     {
-                        "s": "PolicySimple",
-                        "p": "Policies (compact)",
-                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
-                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                        "s": "PolicySummary",
+                        "p": "Policies (summary)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (summary)" tab is provided below. This is a subset of fields from the full dataset available online.""",
                     },
                     {"s": "Plan", "p": "Plans"},
                 ]
@@ -256,7 +256,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     settings.num_cols - 1,
                 )
             if (
-                settings.class_name == "PolicySimple"
+                settings.class_name == "PolicySummary"
                 and settings.type == "data"
             ):
                 worksheet.set_column(0, 1, 42.33)
@@ -272,7 +272,7 @@ class CovidPolicyExportPlugin(ExcelExport):
     def default_data_getter(self, tab, class_name: str = "Policy"):
         # get all metadata
         m_class_name: str = (
-            class_name if class_name != "PolicySimple" else "Policy"
+            class_name if class_name != "PolicySummary" else "Policy"
         )
         db = self.db
         metadata = select(
@@ -292,13 +292,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 custom_fields,
                 custom_value_getters,
             ) = policyexport.get_export_data(self.filters)
-        elif class_name == "PolicySimple":
+        elif class_name == "PolicySummary":
             (
                 instances,
                 export_fields,
                 custom_fields,
                 custom_value_getters,
-            ) = policyexport.get_export_data_compact(self.filters)
+            ) = policyexport.get_export_data_summary(self.filters)
         elif class_name == "Plan":
             (
                 instances,
@@ -322,14 +322,14 @@ class CovidPolicyExportPlugin(ExcelExport):
         for m in metadata:
             metadata_by_field[m.entity_name][m.field] = m.to_dict()
 
-        if class_name == "PolicySimple":
-            for m in policyexport.policy_simple_custom_metadata:
+        if class_name == "PolicySummary":
+            for m in policyexport.policy_summary_custom_metadata:
                 metadata_by_field[m["entity_name"]][m["field"]] = m
 
         # for each policy (i.e., row)
         n: int = instances.count()
         sort_col_idx: int = None
-        if class_name == "PolicySimple":
+        if class_name == "PolicySummary":
             sort_col_idx = 7
         elif class_name == "Policy":
             sort_col_idx = 20
@@ -494,10 +494,10 @@ class CovidPolicyExportPlugin(ExcelExport):
         # use custom metadata if applicable
         custom_metadata: list = (
             None
-            if class_name != "PolicySimple"
+            if class_name != "PolicySummary"
             else [
                 m
-                for m in policyexport.policy_simple_custom_metadata
+                for m in policyexport.policy_summary_custom_metadata
                 if m["export"]
             ]
         )

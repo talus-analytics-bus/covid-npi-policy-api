@@ -42,13 +42,13 @@ ClassNameExport = Enum(
     value="ClassNameExport",
     names=[
         ("all_static", "All_data"),
-        ("all_static_simple", "All_data_simple"),
-        ("PolicySimple", "PolicySimple"),
+        ("all_static_summary", "All_data_summary"),
+        ("PolicySummary", "PolicySummary"),
         ("Policy", "Policy"),
         ("Plan", "Plan"),
         ("Court_Challenge", "Court_Challenge"),
         ("All_data_recreate", "All_data_recreate"),
-        ("All_data_recreate_simple", "All_data_recreate_simple"),
+        ("All_data_recreate_summary", "All_data_recreate_summary"),
         ("none", ""),
     ],
 )
@@ -90,8 +90,8 @@ async def post_export(
     """
     if class_name == "All_data":
         class_name = "all_static"
-    if class_name == "All_data_simple":
-        class_name = "all_static_simple"
+    if class_name == "All_data_summary":
+        class_name = "all_static_summary"
     if class_name == ClassNameExport.none or class_name is None:
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"

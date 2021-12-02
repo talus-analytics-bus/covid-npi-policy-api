@@ -123,7 +123,7 @@ def get_export_data(
     return (instances, export_fields, custom_fields, {})
 
 
-def get_export_data_compact(
+def get_export_data_summary(
     filters: dict = dict(),
 ) -> Tuple[Query, List[str], Set[str], dict]:
     """Returns instances, export fields, and custom fields for policy data
@@ -221,7 +221,7 @@ def get_export_data_compact(
 
 
 # Custom metadata used in simple policy Excels
-policy_simple_custom_metadata: List[dict] = [
+policy_summary_custom_metadata: List[dict] = [
     {
         "field": "id",
         "display_name": "Unique ID",

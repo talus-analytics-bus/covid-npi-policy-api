@@ -105,9 +105,11 @@ def export(filters: dict = None, class_name: str = "Policy"):
 
     # If all data: return static Excel file
     if class_name.startswith("all_static"):
-        suffix: str = " (compact)" if class_name == "all_static_simple" else ""
+        suffix: str = (
+            " (summary)" if class_name == "all_static_summary" else ""
+        )
         suffix_name: str = (
-            " (compact)" if class_name == "all_static_simple" else " "
+            " (summary)" if class_name == "all_static_summary" else " "
         )
         today = date.today()
         file = download_file(
