@@ -104,9 +104,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                 tabs = [
                     {
                         "s": "PolicySimple",
-                        "p": "Policies (compact)",
-                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
-                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                        "p": "Policies (summary)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (summary)" tab is provided below. This is a subset of fields from the full dataset available online.""",
                     }
                 ]
 
@@ -121,9 +121,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                 tabs = [
                     {
                         "s": "PolicySimple",
-                        "p": "Policies (compact)",
-                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
-                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                        "p": "Policies (summary)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (summary)" tab is provided below. This is a subset of fields from the full dataset available online.""",
                     },
                     {"s": "Plan", "p": "Plans"},
                 ]
@@ -298,7 +298,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                 export_fields,
                 custom_fields,
                 custom_value_getters,
-            ) = policyexport.get_export_data_compact(self.filters)
+            ) = policyexport.get_export_data_summary(self.filters)
         elif class_name == "Plan":
             (
                 instances,

@@ -123,7 +123,7 @@ def get_export_data(
     return (instances, export_fields, custom_fields, {})
 
 
-def get_export_data_compact(
+def get_export_data_summary(
     filters: dict = dict(),
 ) -> Tuple[Query, List[str], Set[str], dict]:
     """Returns instances, export fields, and custom fields for policy data
