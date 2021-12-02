@@ -128,7 +128,7 @@ class WorkbookTab:
         # get row height
         row_height: int = (
             180
-            if self.class_name == "PolicySimple" and self.type == "data"
+            if self.class_name == "PolicySummary" and self.type == "data"
             else 75
         )
 

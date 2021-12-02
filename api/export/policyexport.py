@@ -221,7 +221,7 @@ def get_export_data_summary(
 
 
 # Custom metadata used in simple policy Excels
-policy_simple_custom_metadata: List[dict] = [
+policy_summary_custom_metadata: List[dict] = [
     {
         "field": "id",
         "display_name": "Unique ID",
