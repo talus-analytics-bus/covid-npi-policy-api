@@ -320,7 +320,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         if class_name == "PolicySimple":
             sort_col_idx = 7
         elif class_name == "Policy":
-            sort_col_idx = 21
+            sort_col_idx = 20
         elif class_name == "Plan":
             sort_col_idx = 7
 
