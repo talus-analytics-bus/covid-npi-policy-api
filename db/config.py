@@ -90,7 +90,8 @@ def get_secret(
 # check for config.ini and use that configuration for the PostgreSQL
 # database if it's there
 config = configparser.ConfigParser(allow_no_value=True)
-config.read("./db/config-local.ini")
+db_config_path: str = os.environ.get("DB_CONFIG_PATH", "./db/config-local.ini")
+config.read(db_config_path)
 
 # collate parameters from INI file or from AWS Secrets Manager if that is
 # not provided

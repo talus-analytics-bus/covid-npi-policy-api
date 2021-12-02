@@ -5,7 +5,7 @@ from pony.orm.core import Query, desc, group_concat, select
 
 def get_export_data(
     filters: dict = dict(),
-) -> Tuple[Query, List[str], Set[str]]:
+) -> Tuple[Query, List[str], Set[str], dict]:
     """Returns instances, export fields, and custom fields for plan data
     export operations, optionally filtered.
 
@@ -92,4 +92,4 @@ def get_export_data(
         for i in instances_tmp
         for ae in i.auth_entity
     ).order_by(desc(7))
-    return (instances, export_fields, custom_fields)
+    return (instances, export_fields, custom_fields, {})

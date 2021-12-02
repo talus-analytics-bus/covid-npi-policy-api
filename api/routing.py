@@ -42,10 +42,13 @@ ClassNameExport = Enum(
     value="ClassNameExport",
     names=[
         ("all_static", "All_data"),
+        ("all_static_simple", "All_data_simple"),
+        ("PolicySimple", "PolicySimple"),
         ("Policy", "Policy"),
         ("Plan", "Plan"),
         ("Court_Challenge", "Court_Challenge"),
         ("All_data_recreate", "All_data_recreate"),
+        ("All_data_recreate_simple", "All_data_recreate_simple"),
         ("none", ""),
     ],
 )
@@ -91,6 +94,8 @@ async def post_export(
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"
         )
+    if class_name == "All_data_recreate_simplified":
+        raise NotImplementedError()
     filters = body.filters if bool(body.filters) is True else None
     return schema.export(filters=filters, class_name=class_name.name)
 

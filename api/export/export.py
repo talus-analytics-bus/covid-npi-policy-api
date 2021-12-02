@@ -124,6 +124,14 @@ class WorkbookTab:
             Description of returned object.
 
         """
+
+        # get row height
+        row_height: int = (
+            180
+            if self.class_name == "PolicySimple" and self.type == "data"
+            else 75
+        )
+
         init_irow = self.init_irow["data"]
         init_icol = self.get_init_icol()
         irow = init_irow
@@ -140,7 +148,8 @@ class WorkbookTab:
 
                     worksheet.write(irow, icol, value, self.formats.cell())
                     icol = icol + 1
-            worksheet.set_row(irow, 75)
+
+            worksheet.set_row(irow, row_height)
             irow = irow + 1
             icol = init_icol
 
