@@ -90,12 +90,12 @@ async def post_export(
     """
     if class_name == "All_data":
         class_name = "all_static"
+    if class_name == "All_data_simple":
+        class_name = "all_static_simple"
     if class_name == ClassNameExport.none or class_name is None:
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"
         )
-    if class_name == "All_data_recreate_simplified":
-        raise NotImplementedError()
     filters = body.filters if bool(body.filters) is True else None
     return schema.export(filters=filters, class_name=class_name.name)
 
