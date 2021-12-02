@@ -3,9 +3,10 @@
 import datetime
 from collections import defaultdict
 
-from typing import Any, DefaultDict, Dict, List, Set
+from typing import Any, Callable, DefaultDict, Dict, List, Set
 
 # 3rd party modules
+from xlsxwriter.worksheet import Worksheet
 import pprint
 from alive_progress import alive_bar
 from pony.orm import select
@@ -65,7 +66,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
     """
 
-    def __init__(self, db, filters, class_name):
+    def __init__(self, db, filters, class_name: str):
         self.db = db
         self.data = None
         self.init_irow = {
@@ -83,7 +84,10 @@ class CovidPolicyExportPlugin(ExcelExport):
         # Define a sheet settings instance for each tab of the XLSX
         # If class_name is all, then export policies and plans, otherwise
         # export whichever is defined in `class_name`
-        export_policies_and_plans = class_name == "All_data_recreate"
+        export_policies_and_plans = class_name in (
+            "All_data_recreate",
+            "All_data_recreate_simplified",
+        )
         tabs = None
         if not export_policies_and_plans:
             if class_name == "Policy":
@@ -96,6 +100,16 @@ class CovidPolicyExportPlugin(ExcelExport):
                 ]
             elif class_name == "Plan":
                 tabs = [{"s": "Plan", "p": "Plans"}]
+            elif class_name == "PolicySimple":
+                tabs = [
+                    {
+                        "s": "PolicySimple",
+                        "p": "Policies (compact)",
+                        "intro_text_override": "The table below lists policies implemented to address the COVID-19 pandemic as downloaded from the COVID AMP website. This is a compact subset of fields from the full dataset available online.",
+                        "legend_text_override": """A description for each data column in the "Policies (compact)" tab is provided below. This is a compact subset of fields from the full dataset available online.""",
+                    }
+                ]
+
             # elif class_name == 'Court_Challenge':
             #     tabs = [{
             #         's': 'Court_Challenge',
@@ -112,7 +126,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                 # }
             )
 
-        self.sheet_settings = []
+        self.sheet_settings: List[CovidPolicyTab] = []
         for tab in tabs:
             preposition: str = (
                 "" if tab["s"] != "Court_Challenge" else " for policies"
@@ -121,9 +135,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 CovidPolicyTab(
                     name=tab["p"],
                     type="data",
-                    intro_text=f"""The table below lists {tab['p'].lower()}"""
-                    f"""{preposition} implemented to address the COVID-19"""
-                    " pandemic as downloaded from the COVID AMP website.",
+                    intro_text=(
+                        f"""The table below lists {tab['p'].lower()}"""
+                        f"""{preposition} implemented to address the COVID-19"""
+                        " pandemic as downloaded from the COVID AMP website."
+                    )
+                    if tab.get("intro_text_override") is None
+                    else tab["intro_text_override"],
                     init_irow={
                         "logo": 0,
                         "title": 1,
@@ -143,9 +161,13 @@ class CovidPolicyExportPlugin(ExcelExport):
                 CovidPolicyTab(
                     name="Legend - " + tab["p"],
                     type="legend",
-                    intro_text="A description for each data column in the"
-                    f""" "{tab['p']}" tab and its possible values is """
-                    "provided below.",
+                    intro_text=(
+                        "A description for each data column in the"
+                        f""" "{tab['p']}" tab and its possible values is """
+                        "provided below."
+                    )
+                    if tab.get("legend_text_override") is None
+                    else tab["legend_text_override"],
                     init_irow={
                         "logo": 0,
                         "title": 1,
@@ -177,6 +199,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         """
         # track which sheets were skipped so their legends can be omitted
         skipped = set()
+        settings: CovidPolicyTab
         for settings in self.sheet_settings:
             # Skip empty tabs
             if len(settings.data) == 0 or any(
@@ -185,7 +208,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                 skipped.add(settings.name)
                 continue
 
-            worksheet = workbook.add_worksheet(settings.name)
+            worksheet: Worksheet = workbook.add_worksheet(settings.name)
 
             # hide gridlines
             worksheet.hide_gridlines(2)
@@ -220,18 +243,30 @@ class CovidPolicyExportPlugin(ExcelExport):
                     settings.init_irow["colnames"],
                     settings.num_cols - 1,
                 )
-            worksheet.set_column(0, 0, 25)
+            if (
+                settings.class_name == "PolicySimple"
+                and settings.type == "data"
+            ):
+                worksheet.set_column(0, 1, 42.33)
+                worksheet.set_column(2, 2, 100)
+                worksheet.set_column(4, 4, 25)
+                worksheet.set_column(5, 5, 35)
+            else:
+                worksheet.set_column(0, 0, 25)
 
         return self
 
     @db_session
     def default_data_getter(self, tab, class_name: str = "Policy"):
         # get all metadata
+        m_class_name: str = (
+            class_name if class_name != "PolicySimple" else "Policy"
+        )
         db = self.db
         metadata = select(
             i
             for i in db.Metadata
-            if i.export == True and i.class_name == class_name  # noqa: E712
+            if i.export == True and i.class_name == m_class_name  # noqa: E712
         ).order_by(db.Metadata.order)[:][:]
 
         # get all instances (one instance per row exported)
@@ -243,13 +278,21 @@ class CovidPolicyExportPlugin(ExcelExport):
                 instances,
                 export_fields,
                 custom_fields,
+                custom_value_getters,
             ) = policyexport.get_export_data(self.filters)
-
+        elif class_name == "PolicySimple":
+            (
+                instances,
+                export_fields,
+                custom_fields,
+                custom_value_getters,
+            ) = policyexport.get_export_data_compact(self.filters)
         elif class_name == "Plan":
             (
                 instances,
                 export_fields,
                 custom_fields,
+                custom_value_getters,
             ) = planexport.get_export_data(self.filters)
 
         else:
@@ -265,12 +308,30 @@ class CovidPolicyExportPlugin(ExcelExport):
         metadata_by_field: DefaultDict[Dict[str, Metadata]] = defaultdict(dict)
         m: Metadata = None
         for m in metadata:
-            metadata_by_field[m.entity_name][m.field] = m
+            metadata_by_field[m.entity_name][m.field] = m.to_dict()
+
+        if class_name == "PolicySimple":
+            for m in policyexport.policy_simple_custom_metadata:
+                metadata_by_field[m["entity_name"]][m["field"]] = m
 
         # for each policy (i.e., row)
-        with alive_bar(
-            instances.count(), title="Processing instances for Excel"
-        ) as bar:
+        n: int = instances.count()
+        sort_col_idx: int = None
+        if class_name == "PolicySimple":
+            sort_col_idx = 7
+        elif class_name == "Policy":
+            sort_col_idx = 21
+        elif class_name == "Plan":
+            sort_col_idx = 7
+
+        instances = sorted(
+            instances,
+            key=lambda x: datetime.date(1970, 1, 1)
+            if x[sort_col_idx] is None
+            else x[sort_col_idx],
+            reverse=True,
+        )
+        with alive_bar(n, title="Processing instances for Excel") as bar:
             raw_vals: tuple = None
             for raw_vals in instances:
                 bar()
@@ -295,15 +356,32 @@ class CovidPolicyExportPlugin(ExcelExport):
                     # handle custom fields specially
                     if table_and_field in custom_fields:
                         meta: Metadata = metadata_by_field[table_name][field]
-                        self.__set_multiline_cell_val(
-                            row,
-                            cell_vals_by_field,
-                            table_and_field,
-                            raw_val,
-                            raw_val_type,
-                            meta,
-                        )
-                        continue
+                        if table_and_field in custom_value_getters:
+                            custom_value_getter: Callable = (
+                                custom_value_getters[table_and_field]
+                            )
+                            if custom_value_getter is None:
+                                continue
+                            val: str = custom_value_getter(raw_vals)
+                            self.__set_multiline_cell_val(
+                                row,
+                                cell_vals_by_field,
+                                table_and_field,
+                                val,
+                                type(val),
+                                meta,
+                            )
+                            continue
+                        else:
+                            self.__set_multiline_cell_val(
+                                row,
+                                cell_vals_by_field,
+                                table_and_field,
+                                raw_val,
+                                raw_val_type,
+                                meta,
+                            )
+                            continue
 
                     # set to N/A if field is for geo. area that doesn't apply
                     elif (
@@ -341,11 +419,14 @@ class CovidPolicyExportPlugin(ExcelExport):
                     elif raw_val_type == datetime.date:
                         cell_val = date_to_str(raw_val)
 
-                    if is_listlike(cell_val):
+                    if (
+                        is_listlike(cell_val)
+                        and table_and_field not in custom_fields
+                    ):
                         cell_val = "; ".join([v for v in cell_val if v != ""])
 
                     meta: Metadata = metadata_by_field[table_name][field]
-                    row[meta.colgroup][meta.display_name] = cell_val
+                    row[meta["colgroup"]][meta["display_name"]] = cell_val
                     cell_vals_by_field[table_and_field] = cell_val
 
                 # append row data to overall row list
@@ -360,7 +441,7 @@ class CovidPolicyExportPlugin(ExcelExport):
         table_and_field: str,
         raw_val: Any,
         raw_val_type: Any,
-        meta: Metadata,
+        meta: dict,
     ) -> None:
         """Sets a cell val as the formatted value if it is a single value, or
         as lines of values if multiple values.
@@ -379,7 +460,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
             raw_val_type (Any): The type of the unformatted value
 
-            meta (Metadata): The metadata describing the data col.
+            meta (dict): The metadata describing the data col.
         """
         # show unspec if None
         cell_val: str = ""
@@ -388,20 +469,40 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         # if raw is string, format as list of values or single value
         elif raw_val_type == str:
-            cell_val = ";\n ".join(list(set(raw_val.split("; "))))
+            cell_val = raw_val
+        elif raw_val_type == list or raw_val_type == set:
+            cell_val = ";\n".join(list(set(raw_val)))
 
         # set final value for Excel writing
-        row[meta.colgroup][meta.display_name] = cell_val
+        row[meta["colgroup"]][meta["display_name"]] = cell_val
         cell_vals_by_field[table_and_field] = cell_val
 
     def default_data_getter_legend(self, tab, class_name: str = "Policy"):
+
+        # use custom metadata if applicable
+        custom_metadata: list = (
+            None
+            if class_name != "PolicySimple"
+            else [
+                m
+                for m in policyexport.policy_simple_custom_metadata
+                if m["export"]
+            ]
+        )
+
         # get all metadata
         db = self.db
-        metadata = select(
-            i
-            for i in db.Metadata
-            if i.export == True and i.class_name == class_name  # noqa: E712
-        ).order_by(db.Metadata.order)
+        metadata: list = (
+            custom_metadata if custom_metadata is not None else dict()
+        )
+        if custom_metadata is None:
+            metadata_tmp = select(
+                i
+                for i in db.Metadata
+                if i.export == True
+                and i.class_name == class_name  # noqa: E712
+            ).order_by(db.Metadata.order)
+            metadata = [m.to_dict() for m in metadata_tmp]
 
         # init export data list
         rows = list()
@@ -412,15 +513,17 @@ class CovidPolicyExportPlugin(ExcelExport):
             # append rows containing the field's definition and possible values
             row = defaultdict(dict)
             for d in metadata:
-                if d.display_name == "Attachment for policy":
+                if d["display_name"] == "Attachment for policy":
                     if row_type == "definition":
-                        row[d.colgroup]["Attachment for policy"] = (
+                        row[d["colgroup"]]["Attachment for policy"] = (
                             "URL of permanently hosted PDF document(s) for "
                             "the policy"
                         )
                     elif row_type == "possible_values":
-                        row[d.colgroup]["Attachment for policy"] = "Any URL(s)"
+                        row[d["colgroup"]][
+                            "Attachment for policy"
+                        ] = "Any URL(s)"
                 else:
-                    row[d.colgroup][d.display_name] = getattr(d, row_type)
+                    row[d["colgroup"]][d["display_name"]] = d[row_type]
             rows.append(row)
         return rows
