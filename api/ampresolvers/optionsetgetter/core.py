@@ -426,7 +426,7 @@ class OptionSetGetter:
             options_tmp: List[Any] = options[:][:]
 
             # if list of tuples, store tuples indexed by first element
-            options: List[str] = None
+            options: List[str] = list()
             groups_by_option: Dict[str, str] = None
             if len(options_tmp) > 0:
                 first: Any = options_tmp[0]
