@@ -658,6 +658,8 @@ class Iso3Codes(str, Enum):
     ZAF = "ZAF"
     ZMB = "ZMB"
     ZWE = "ZWE"
+    EU = "EU"
+    GLOBAL = "GLOBAL"
     none = ""
 
 
