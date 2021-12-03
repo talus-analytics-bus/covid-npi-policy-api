@@ -36,6 +36,7 @@ from .models import (
     PolicyDict,
     PolicyStatus,
     PolicyStatusList,
+    Place,
     PlanList,
     ChallengeList,
     PolicyNumber,
@@ -1169,6 +1170,15 @@ def get_lockdown_level(
     data = list()
 
     # RETURN MOST RECENT OBSERVATION FOR EACH PLACE
+    # if iso3 provided, convert to where clause
+    iso3_where_clause: str = ""
+    if iso3 is not None and geo_res == "country":
+        iso3_p: Place = select(
+            p for p in db.Place if p.level == "Country" and p.iso3 == iso3
+        ).get()
+        if iso3_p is not None:
+            iso3_where_clause = f"""and place = {iso3_p.id}"""
+
     distinct_clause = (
         "distinct on (place)"
         if end_date is None
@@ -1179,6 +1189,7 @@ def get_lockdown_level(
                 select {distinct_clause} *
                 from observation o
                 where date <= '{date if end_date is None else end_date}'
+                {iso3_where_clause}
                 order by place, date desc
         """
     )
