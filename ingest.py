@@ -83,9 +83,9 @@ if __name__ == "__main__":
     # ingest court challenges and matter numbers?
     ingest_court = args.challenges or args.all
 
-    # only ingest distancing levels on Fridays or if requested
-    is_friday: bool = date.today().weekday() == 4
-    ingest_lockdown_levels: bool = args.distancing_levels or is_friday
+    # only ingest distancing levels on Thursdays or if requested
+    is_thurs: bool = date.today().weekday() == 3
+    ingest_lockdown_levels: bool = args.distancing_levels or is_thurs
     # ingest_lockdown_levels = args.distancing_levels or args.all
 
     # generate database mapping and ingest data for the COVID-AMP project
