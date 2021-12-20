@@ -882,7 +882,21 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # policy_section: one per row in Airtable
         policy_sections = select(i for i in db.Policy)
+        p: Policy = None
         for p in policy_sections:
+
+            # remove invalid subtargets
+            p.subtarget = {
+                s
+                for s in p.subtarget
+                if s
+                not in (
+                    "I don't know (MUST RESOLVE)",
+                    "Intersection of subtargets",
+                    "Much narrower than subtarget",
+                )
+            }
+
             # for travel restriction policies, set affected place to auth. pl.
             if p.primary_ph_measure == "Travel restrictions":
                 # all_country = all(ae.place.level ==
