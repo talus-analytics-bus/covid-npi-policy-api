@@ -13,7 +13,7 @@ from pony import orm
 
 
 def get_secret(
-    secret_name="talus_dev_rds_secret",
+    secret_name="talus-prod-1",
     region_name="us-west-1",
     profile="default",
 ):
