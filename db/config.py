@@ -99,7 +99,6 @@ conn_params = {"database": os.environ.get("DBNAME")}
 no_config = len(config) == 1 and len(config["DEFAULT"]) == 0
 
 if os.environ.get("PROD") != "true" and not no_config:
-    # if not no_config:
     for d in config["DEFAULT"]:
         conn_params[d] = config["DEFAULT"].get(d)
 else:
