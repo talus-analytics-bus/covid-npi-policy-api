@@ -4,7 +4,7 @@ jobs:
     working_directory: ~/repo
 
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.7
 
     steps:
       - checkout
@@ -17,12 +17,12 @@ jobs:
 
       - run:
           name: Deploying
-          command: eb deploy covid-npi-policy-api-prod
+          command: eb deploy covid-amp-api-prod
   deploy-test:
     working_directory: ~/repo
 
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.7
 
     steps:
       - checkout
@@ -35,7 +35,7 @@ jobs:
 
       - run:
           name: Deploying
-          command: eb deploy covid-npi-policy-api-dev
+          command: eb deploy covid-amp-api-dev
 
 workflows:
   version: 2
