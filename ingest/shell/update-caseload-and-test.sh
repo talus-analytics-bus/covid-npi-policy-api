@@ -28,7 +28,7 @@ skip_caseload_data=${6-false}
 if [ "$skip_caseload_data" = false ] ; then
     echo 'Updating caseload data...'
     bash ingest/sql/ingest-caseload.sh $username $dblocal && \
-    bash ingest/shell/update-metric-prod-from-local.sh $username $dbmetriclocal $dbprodhost && \  
+    bash ingest/shell/update-metric-prod-from-local.sh $username $dbmetriclocal $dbprodhost
 else
     echo 'Not updating caseload data.'
 fi
