@@ -1,21 +1,18 @@
 branch-defaults:
   master:
-    environment: covid-npi-policy-api-dev
-environment-defaults:
-  covid-npi-policy-api-dev:
-    branch: null
-    repository: null
+    environment: null
+    group_suffix: null
 global:
-  application_name: covid-npi-policy-api
-  default_ec2_keyname: aws-eb
-  default_platform:
-    arn:aws:elasticbeanstalk:us-west-2::platform/Python 3.7 running
-    on 64bit Amazon Linux 2/3.0.0
-  default_region: us-west-2
+  application_name: covid-amp-api
+  branch: null
+  default_ec2_keyname: vaccines_centos
+  default_platform: Python 3.7 running on 64bit Amazon Linux 2
+  default_region: us-west-1
   include_git_submodules: true
   instance_profile: null
   platform_name: null
   platform_version: null
-  profile: null
+  profile: eb-cli
+  repository: null
   sc: git
   workspace_type: Application
