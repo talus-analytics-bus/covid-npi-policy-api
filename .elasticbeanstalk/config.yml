@@ -1,4 +1,6 @@
 branch-defaults:
+  dev:
+    environment: covid-amp-api-test
   master:
     environment: covid-amp-api-prod
     group_suffix: null
