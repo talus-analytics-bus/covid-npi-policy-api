@@ -64,5 +64,5 @@ cd ../../..;
 
 # restart API server
 aws elasticbeanstalk restart-app-server \
---environment-name covid-npi-policy-api-dev \
---region us-west-2;
+--environment-name amp-test \
+--region us-west-1;
