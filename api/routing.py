@@ -1,5 +1,6 @@
 """Define API endpoints"""
 # standard modules
+from re import L
 from api.ampresolvers.optionsetgetter.core import OptionSetGetter
 from api.types import ClassName, GeoRes
 from api.ampresolvers import PolicyStatusCounter
@@ -46,14 +47,58 @@ ClassNameExport = Enum(
         ("PolicySummary", "PolicySummary"),
         ("Policy", "Policy"),
         ("Plan", "Plan"),
-        ("Court_Challenge", "Court_Challenge"),
+        # ("Court_Challenge", "Court_Challenge"),
         ("All_data_recreate", "All_data_recreate"),
         ("All_data_recreate_summary", "All_data_recreate_summary"),
         ("none", ""),
     ],
 )
 
+export_defs: List[list] = [
+    [
+        "All_data",
+        "Returns data of all types including Policies and Plans, and includes all data fields that can be exported",
+    ],
+    [
+        "All_data_summary",
+        "Returns data of all types including Policies and Plans, and includes a compact subset of data fields",
+    ],
+    [
+        "PolicySummary",
+        "Returns data for Policies only, compact subset of fields",
+    ],
+    [
+        "Policy",
+        "Returns data for Policies only, all fields",
+    ],
+    [
+        "Plan",
+        "Returns data for Plans only, all fields",
+    ],
+    [
+        "All_data_recreate",
+        "ADVANCED, do not use: Same as `All_data` option but will not use cached export",
+    ],
+    [
+        "All_data_recreate_summary",
+        "ADVANCED, do not use: Same as `All_data_summary` option but will not use cached export",
+    ],
+]
 
+
+@app.post(
+    "/export",
+    tags=["Downloads"],
+    summary="Return Excel (.xlsx) file containing formatted data for all "
+    'records belonging to the provided class, e.g., "Policy" or "Plan"'
+    " that match filters.",
+    description=DOWNLOAD_DESCRIPTION
+    + """ <br/><br/>**Example:** to download all face mask policies:<br/><br/>
+    ```curl -X POST "https://api.covidamp.org/"""
+    """post/export?class_name=Policy" -H  "accept: application/json" -H"""
+    """  "Content-Type: application/json" -d """
+    """"{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```""",
+)
 @app.post(
     "/post/export",
     tags=["Downloads"],
@@ -66,13 +111,14 @@ ClassNameExport = Enum(
     """post/export?class_name=Policy" -H  "accept: application/json" -H"""
     """  "Content-Type: application/json" -d """
     """"{\"filters\":{\"primary_ph_measure\":[\"Face mask\"]}}```""",
+    include_in_schema=False,
 )
 async def post_export(
     body: ExportFiltersNoOrdering,
     class_name: ClassNameExport = Query(
         ClassNameExport.all_static,
         description="The name of the data type for which an Excel export "
-        "is requested",
+        f"is requested. Use one of the following options:<ul>{''.join([f'<li><strong>{label}</strong>: {val}</li>' for label, val in export_defs])}</ul>",
     ),
 ):
     """Return XLSX data export for policies with the given filters applied.
@@ -101,30 +147,48 @@ async def post_export(
 
 
 @app.get(
-    "/get/version",
+    "/version",
     tags=["Metadata"],
     summary="Return dates different data types were last updated, and the "
     "most recent date appearing in the data",
+)
+@app.get(
+    "/get/version",
+    include_in_schema=False,
 )
 async def get_version():
     return schema.get_version()
 
 
 @app.get(
+    "/countries_with_lockdown_levels",
+    tags=["Metadata"],
+    summary="Return ISO 3166-1 alpha-3 codes of countries for which "
+    "national-level policy data are currently available in AMP",
+)
+@app.get(
     "/get/countries_with_lockdown_levels",
     tags=["Metadata"],
     summary="Return ISO 3166-1 alpha-3 codes of countries for which "
     "national-level policy data are currently available in AMP",
+    include_in_schema=False,
 )
 async def get_countries_with_lockdown_levels():
     return schema.get_countries_with_lockdown_levels()
 
 
 @app.get(
+    "/count",
+    tags=["Metadata"],
+    summary="Return the total number of records currently in AMP of the "
+    'provided class(es), e.g., "Policy" or "Plan".',
+)
+@app.get(
     "/get/count",
     tags=["Metadata"],
     summary="Return the total number of records currently in AMP of the "
     'provided class(es), e.g., "Policy" or "Plan".',
+    include_in_schema=False,
 )
 async def get_count(
     class_names: List[ClassName] = Query(
@@ -140,6 +204,15 @@ async def get_count(
 
 
 @app.get(
+    "/metadata",
+    response_model=MetadataList,
+    response_model_exclude_unset=True,
+    tags=["Metadata"],
+    summary="Return metadata describing the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
+)
+@app.get(
     "/get/metadata",
     response_model=MetadataList,
     response_model_exclude_unset=True,
@@ -147,6 +220,7 @@ async def get_count(
     summary="Return metadata describing the provided field(s), e.g, "
     '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
     ' or "Plan".',
+    include_in_schema=False,
 )
 async def get_metadata(
     entity_class_name: ClassName = Query(
@@ -176,7 +250,8 @@ async def get_metadata(
     )
 
 
-@app.get("/get/file/redirect", tags=["Downloads"], include_in_schema=False)
+@app.get("/file/redirect", tags=["Downloads"], include_in_schema=False)
+@app.get("/get/file/redirect", include_in_schema=False)
 async def get_file_redirect(id: int):
     """Return file from S3 with the matching ID using the provided title.
 
@@ -198,10 +273,14 @@ async def get_file_redirect(id: int):
 
 
 @app.get(
-    "/get/file/{title}",
+    "/file/{title}",
     tags=["Downloads"],
     summary="Download PDF with the given id, using the provided title as "
     "the filename",
+    include_in_schema=False,
+)
+@app.get(
+    "/get/file/{title}",
     include_in_schema=False,
 )
 async def get_file_title_required(
@@ -216,11 +295,15 @@ async def get_file_title_required(
 
 
 @app.get(
-    "/get/file/{id}/{title}",
+    "/file/{id}/{title}",
     tags=["Downloads"],
     summary="Download PDF with the given id, using the provided title as"
     " the filename",
     description=DOWNLOAD_DESCRIPTION,
+)
+@app.get(
+    "/get/file/{id}/{title}",
+    include_in_schema=False,
 )
 async def get_file(
     id: int = Query(
@@ -233,6 +316,13 @@ async def get_file(
     return schema.get_file(id)
 
 
+@app.get(
+    "/policy",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Policies"],
+    include_in_schema=False,
+)
 @app.get(
     "/get/policy",
     response_model=ListResponse,
@@ -265,11 +355,17 @@ async def get_policy(
 
 
 @app.post(
-    "/post/policy",
+    "/policy",
     response_model=ListResponse,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return data for policies matching filters",
+)
+@app.post(
+    "/post/policy",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
 )
 async def post_policy(
     body: PolicyFilters,
@@ -347,11 +443,19 @@ async def post_policy(
 
 
 @app.get(
+    "/place",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Places"],
+    summary="Return places matching filters",
+)
+@app.get(
     "/get/place",
     response_model=ListResponse,
     response_model_exclude_unset=True,
     tags=["Places"],
     summary="Return places matching filters",
+    include_in_schema=False,
 )
 async def get_place(
     fields: List[PlaceFields] = Query(None),
@@ -379,6 +483,13 @@ async def get_place(
     )
 
 
+@app.get(
+    "/plan",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Plans"],
+    include_in_schema=False,
+)
 @app.get(
     "/get/plan",
     response_model=ListResponse,
@@ -408,6 +519,13 @@ async def get_plan(
 
 
 @app.get(
+    "/policy_status/{geo_res}",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Policies"],
+    include_in_schema=False,
+)
+@app.get(
     "/get/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
@@ -431,6 +549,13 @@ async def get_policy_status(geo_res=str):
     return schema.get_policy_status(geo_res=geo_res)
 
 
+@app.get(
+    "/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"],
+    include_in_schema=False,
+)
 @app.get(
     "/get/lockdown_level/model/{iso3}/{geo_res}/{name}/{end_date}",
     response_model=PolicyStatusList,
@@ -456,6 +581,13 @@ async def get_lockdown_level_model(
 
 
 @app.get(
+    "/lockdown_level/country/{iso3}/{end_date}",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"],
+    include_in_schema=False,
+)
+@app.get(
     "/get/lockdown_level/country/{iso3}/{end_date}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
@@ -475,6 +607,13 @@ async def get_lockdown_level_country(
 
 
 @app.get(
+    "/lockdown_level/map/{iso3}/{geo_res}/{date}",
+    include_in_schema=False,
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"],
+)
+@app.get(
     "/get/lockdown_level/map/{iso3}/{geo_res}/{date}",
     include_in_schema=False,
     response_model=PolicyStatusList,
@@ -486,12 +625,21 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
 
 
 @app.post(
+    "/policy_status/{geo_res}",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Policies"],
+    summary="Return whether or not ('t' or 'f') policies were in effect by"
+    " location which match the filters and the provided geographic resolution",
+)
+@app.post(
     "/post/policy_status/{geo_res}",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return whether or not ('t' or 'f') policies were in effect by"
     " location which match the filters and the provided geographic resolution",
+    include_in_schema=False,
 )
 async def post_policy_status(
     body: PolicyFilters,
@@ -507,12 +655,21 @@ policy_status_counter: PolicyStatusCounter = PolicyStatusCounter()
 
 
 @app.post(
+    "/policy_status_counts/{geo_res}",
+    response_model=PlaceObsList,
+    response_model_exclude_unset=True,
+    tags=["Policies"],
+    summary="Return number of policies in effect by location matching filters"
+    " and the provided geographic resolution",
+)
+@app.post(
     "/post/policy_status_counts/{geo_res}",
     response_model=PlaceObsList,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return number of policies in effect by location matching filters"
     " and the provided geographic resolution",
+    include_in_schema=False,
 )
 async def post_policy_status_counts(
     body: PolicyFilters,
@@ -578,6 +735,13 @@ async def post_policy_status_counts(
 
 
 @app.post(
+    "/policy_number",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+    tags=["Advanced"],
+)
+@app.post(
     "/post/policy_number",
     response_model=ListResponse,
     response_model_exclude_unset=True,
@@ -631,11 +795,19 @@ async def post_policy_number(
 
 
 @app.post(
+    "/plan",
+    response_model=ListResponse,
+    response_model_exclude_unset=True,
+    tags=["Plans"],
+    summary="Return data for plans matching filters",
+)
+@app.post(
     "/post/plan",
     response_model=ListResponse,
     response_model_exclude_unset=True,
     tags=["Plans"],
     summary="Return data for plans matching filters",
+    include_in_schema=False,
 )
 async def post_plan(
     body: PlanFilters,
@@ -681,6 +853,15 @@ iso3_def = Query(
 
 
 @app.get(
+    "/optionset",
+    response_model=OptionSetList,
+    response_model_exclude_unset=True,
+    tags=["Metadata"],
+    summary="Return all possible values for the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
+)
+@app.get(
     "/get/optionset",
     response_model=OptionSetList,
     response_model_exclude_unset=True,
@@ -688,6 +869,7 @@ iso3_def = Query(
     summary="Return all possible values for the provided field(s), e.g, "
     '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
     ' or "Plan".',
+    include_in_schema=False,
 )
 async def get_optionset(
     class_name: ClassName = Query(
@@ -744,10 +926,17 @@ async def get_test(test_param: str = "GET successful"):
 
 
 @app.get(
+    "/distancing_levels",
+    response_model=PolicyStatusList,
+    response_model_exclude_unset=True,
+    tags=["Distancing levels"],
+)
+@app.get(
     "/get/distancing_levels",
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
     tags=["Distancing levels"],
+    include_in_schema=False,
 )
 async def get_distancing_levels(
     geo_res: GeoRes = geo_res_def(GeoRes.state),
