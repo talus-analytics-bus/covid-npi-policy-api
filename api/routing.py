@@ -316,13 +316,13 @@ async def get_file(
     return schema.get_file(id)
 
 
-@app.get(
-    "/policy",
-    response_model=ListResponse,
-    response_model_exclude_unset=True,
-    tags=["Policies"],
-    include_in_schema=False,
-)
+# @app.get(
+#     "/policy",
+#     response_model=ListResponse,
+#     response_model_exclude_unset=True,
+#     tags=["Policies"],
+#     include_in_schema=False,
+# )
 @app.get(
     "/get/policy",
     response_model=ListResponse,

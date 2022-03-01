@@ -14,6 +14,15 @@ counter: PolicyStatusCounter = PolicyStatusCounter()
 
 
 @app.get(
+    "/policy_status_counts_for_map/{geo_res}",
+    response_model=PlaceObsList,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+    tags=["Policies -- Custom"],
+    summary="Return number of policies in effect by location matching filters"
+    " and the provided geographic resolution",
+)
+@app.get(
     "/get/policy_status_counts_for_map/{geo_res}",
     response_model=PlaceObsList,
     response_model_exclude_unset=True,
@@ -56,6 +65,16 @@ async def get_policy_status_counts_for_map(
 getter: OptionSetGetter = OptionSetGetter()
 
 
+@app.get(
+    "/optionset_for_data",
+    response_model=OptionSetList,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+    tags=["Metadata -- Custom"],
+    summary="Return all possible values for the provided field(s), e.g, "
+    '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
+    ' or "Plan".',
+)
 @app.get(
     "/get/optionset_for_data",
     response_model=OptionSetList,
