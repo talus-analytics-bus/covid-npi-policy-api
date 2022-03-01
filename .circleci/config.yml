@@ -1,10 +1,14 @@
 version: 2
 jobs:
-  deploy-prod:
+  deploy:
     working_directory: ~/repo
 
     docker:
       - image: cimg/python:3.7
+
+    parameters:
+      env:
+        type: string
 
     steps:
       - checkout
@@ -17,36 +21,20 @@ jobs:
 
       - run:
           name: Deploying
-          command: eb deploy amp-prod
-  deploy-test:
-    working_directory: ~/repo
-
-    docker:
-      - image: cimg/python:3.7
-
-    steps:
-      - checkout
-
-      - run:
-          name: Installing Deployment Dependencies
-          working_directory: /
-          command: |
-            pip install awsebcli --upgrade
-
-      - run:
-          name: Deploying
-          command: eb deploy amp-test
+          command: eb deploy <<parameters.env>>
 
 workflows:
   version: 2
   build:
     jobs:
-      - deploy-prod:
+      - deploy:
+          env: 'amp-prod'
           filters:
             branches:
               only:
                 - master
-      - deploy-test:
+      - deploy:
+          env: 'amp-test'
           filters:
             branches:
               only:
