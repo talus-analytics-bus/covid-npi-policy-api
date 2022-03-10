@@ -17,7 +17,7 @@ from db import db
 class ClassName(str, Enum):
     Policy = "Policy"
     Plan = "Plan"
-    Court_Challenge = "Court_Challenge"
+    # Court_Challenge = "Court_Challenge"
     none = ""
 
     def get_place_field_name(self) -> str:
@@ -58,13 +58,8 @@ class ClassName(str, Enum):
             )
 
 
-class GeoRes(str, Enum):
-    country = "country"
-    state = "state"
-    county = "county"
-    county_plus_state = "county_plus_state"
-
-    def is_child_of(self, geo_res: "GeoRes") -> bool:
+class GeoResBase(str, Enum):
+    def is_child_of(self, geo_res: "GeoResBase") -> bool:
         if self.name == "country" or self.name == geo_res.name:
             return False
         elif self.name == "state":
@@ -156,9 +151,21 @@ class GeoRes(str, Enum):
                 "method `get_map_type`: " + self
             )
 
-    # TESTS # --------------------------------------------------------------- #
-    def test_is_child_of():
-        assert GeoRes.state.is_child_of(GeoRes.country)
-        assert not GeoRes.state.is_child_of(GeoRes.county)
-        assert not GeoRes.state.is_child_of(GeoRes.state)
-        assert GeoRes.county.is_child_of(GeoRes.state)
+    # # TESTS # --------------------------------------------------------------- #
+    # def test_is_child_of():
+    #     assert GeoRes.state.is_child_of(GeoRes.country)
+    #     assert not GeoRes.state.is_child_of(GeoRes.county)
+    #     assert not GeoRes.state.is_child_of(GeoRes.state)
+    #     assert GeoRes.county.is_child_of(GeoRes.state)
+
+
+class GeoRes(GeoResBase):
+    country = "country"
+    state = "state"
+    county = "county"
+    county_plus_state = "county_plus_state"
+
+
+class GeoResCountryState(GeoResBase):
+    country = "country"
+    state = "state"
