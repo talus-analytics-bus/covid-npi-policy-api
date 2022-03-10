@@ -1,13 +1,13 @@
 """Define API endpoints"""
 # standard modules
 from api.ampresolvers.optionsetgetter.core import OptionSetGetter
-from api.types import ClassName, GeoRes
+from api.types import ClassName, GeoRes, GeoResCountryState
 from api.ampresolvers import PolicyStatusCounter
 from datetime import date
 from enum import Enum
 
 # 3rd party modules
-from fastapi import Query, Path
+from fastapi import Query, Path, Response
 from starlette.responses import RedirectResponse
 from typing import List
 
@@ -877,7 +877,9 @@ iso3_def = Query(
     tags=["Metadata"],
     summary="Return all possible values for the provided field(s), e.g, "
     '"Policy.policy_name" belonging to the provided class, e.g., "Policy"'
-    ' or "Plan".',
+    ' or "Plan". If you define a geographic resolution and/or specific'
+    " location, only optionsets and values for which that location has at"
+    " least one corresponding Policy or Plan will be returned.",
 )
 @app.get(
     "/get/optionset",
@@ -900,7 +902,7 @@ async def get_optionset(
         description="A list of fields for which optionsets are requested,"
         " prefixed by the data type name and a period",
     ),
-    geo_res: GeoRes = geo_res_def(None),
+    geo_res: GeoResCountryState = geo_res_def(None),
     state_name: StateNames = state_name_def,
     iso3: Iso3Codes = iso3_def,
 ):
@@ -957,7 +959,7 @@ async def get_test(test_param: str = "GET successful"):
     include_in_schema=False,
 )
 async def get_distancing_levels(
-    geo_res: GeoRes = geo_res_def(GeoRes.state),
+    geo_res: GeoResCountryState = geo_res_def(GeoResCountryState.state),
     iso3: Iso3Codes = iso3_def,
     state_name: StateNames = state_name_def,
     date: date = Query(
@@ -991,6 +993,20 @@ async def get_distancing_levels(
     )
     end_date = None if not all_dates else str(date)
     date = None if all_dates else str(date)
+
+    if state_name is not None and geo_res != GeoResCountryState.state:
+        return Response(
+            "Cannot define `state_name` unless `geo_res` is `state`",
+            status_code=400,
+            media_type="text/plain",
+        )
+    elif iso3 is not None and geo_res != GeoResCountryState.country:
+        return Response(
+            "Cannot define `iso3` unless `geo_res` is `country`",
+            status_code=400,
+            media_type="text/plain",
+        )
+
     return schema.get_lockdown_level(
         iso3=iso3,
         geo_res=geo_res.name,
