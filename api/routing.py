@@ -950,6 +950,9 @@ async def get_test(test_param: str = "GET successful"):
     response_model=PolicyStatusList,
     response_model_exclude_unset=True,
     tags=["Distancing levels"],
+    summary="""Get level of distancing (e.g., "Lockdown", "Partially open")"""
+    """ that was in effect in a given US state or a given country on a"""
+    """ given date.""",
 )
 @app.get(
     "/get/distancing_levels",
@@ -1015,3 +1018,14 @@ async def get_distancing_levels(
         end_date=end_date,
         deltas_only=deltas_only,
     )
+
+
+@app.get("/", include_in_schema=False)
+async def get_default():
+    return {
+        "success": True,
+        "data": None,
+        "message": "This is the default route of the COVID AMP API that"
+        " supports https://covidamp.org/. Visit route `/docs` to learn how to"
+        " use COVID AMP's data in your own work.",
+    }
