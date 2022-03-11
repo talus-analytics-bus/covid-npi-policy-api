@@ -54,7 +54,9 @@ tags_metadata = [
         "description": "Operations to download data (.xlsx or .pdf). Excel-exportable data types can be downloaded with `/post/export` and include policies, plans, and court challenges. Filters may be applied. Individual PDF files associated with those data types can be downloaded using the `/get/file` endpoint.",
     },
 ]
-app = FastAPI()
+app = FastAPI(
+    title="COVID AMP application programming interface (API) documentation"
+)
 
 # set allowed origins
 allow_origin_regex = (
