@@ -179,8 +179,8 @@ dmypy.json
 # debug Python files
 debug.py
 
+# # Pipfile
 # Pipfile
-Pipfile
 
 # data backups
 /ingest/backups/*
