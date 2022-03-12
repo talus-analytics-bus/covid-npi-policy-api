@@ -315,7 +315,14 @@ examplePolicyFilter: Dict[str, List[str]] = {
     "dates_in_effect": [
         "2019-12-31",
         "2022-12-31",
-    ]
+    ],
+    "country_name": ["United States of America (USA)"],
+    "area1": ["California"],
+    "area2": ["Alameda County, CA"],
+    "primary_ph_measure": ["Social distancing"],
+    "ph_measure_details": ["Adaptation and mitigation measures"],
+    "subtarget": ["All essential businesses"],
+    "_text": [],
 }
 
 
@@ -329,7 +336,13 @@ class ExportFiltersNoOrdering(BaseModel):
 
 
 class PolicyFiltersFields(BaseModel):
-    dates_in_effect: Optional[List[date]] = None
+    dates_in_effect: Optional[List[date]] = list()
+    country_name: Optional[List[str]] = list()
+    area1: Optional[List[str]] = list()
+    area2: Optional[List[str]] = list()
+    primary_ph_measure: Optional[List[str]] = list()
+    subtarget: Optional[List[str]] = list()
+    _text: Optional[List[str]] = list()
 
 
 class PolicyFilters(BaseModel):
