@@ -157,7 +157,11 @@ async def post_export(
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"
         )
-    filters = body.filters if bool(body.filters) is True else None
+    filters = (
+        helpers.get_body_attr(body, "filters")
+        if bool(body.filters) is True
+        else None
+    )
     return schema.export(filters=filters, class_name=class_name.name)
 
 
@@ -668,7 +672,9 @@ async def post_policy_status(
         description="The geographic resolution for which to return data",
     ),
 ):
-    return schema.get_policy_status(geo_res=geo_res, filters=body.filters)
+    return schema.get_policy_status(
+        geo_res=geo_res, filters=helpers.get_body_attr(body, "filters")
+    )
 
 
 policy_status_counter: PolicyStatusCounter = PolicyStatusCounter()
@@ -742,7 +748,7 @@ async def post_policy_status_counts(
 ):
     res = policy_status_counter.get_policy_status_counts(
         geo_res=geo_res,
-        filters=body.filters,
+        filters=helpers.get_body_attr(body, "filters"),
         by_group_number=merge_like_policies,
         filter_by_subgeo=count_sub,
         include_zeros=include_zeros,
@@ -776,7 +782,7 @@ async def post_policy_number(
 ):
     """Return Policy number metadata."""
     return schema.get_policy_number(
-        filters=body.filters,
+        filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
         page=page,
