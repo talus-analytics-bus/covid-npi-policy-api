@@ -157,11 +157,7 @@ async def post_export(
         raise NotImplementedError(
             "Must provide a `class_name` to /post/export"
         )
-    filters = (
-        helpers.get_body_attr(body, "filters")
-        if bool(body.filters) is True
-        else None
-    )
+    filters = body.filters if bool(body.filters) is True else None
     return schema.export(filters=filters, class_name=class_name.name)
 
 
