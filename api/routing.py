@@ -56,11 +56,13 @@ ClassNameExport = Enum(
 export_defs: List[list] = [
     [
         "All_data",
-        "Returns data of all types including Policies and Plans, and includes all data fields that can be exported",
+        "Returns data of all types including Policies and Plans, and includes"
+        " all data fields that can be exported",
     ],
     [
         "All_data_summary",
-        "Returns data of all types including Policies and Plans, and includes a compact subset of data fields",
+        "Returns data of all types including Policies and Plans, and includes"
+        " a compact subset of data fields",
     ],
     [
         "PolicySummary",
@@ -76,13 +78,19 @@ export_defs: List[list] = [
     ],
     [
         "All_data_recreate",
-        "ADVANCED, do not use: Same as `All_data` option but will not use cached export",
+        "ADVANCED, do not use: Same as `All_data` option but will not use"
+        " cached export",
     ],
     [
         "All_data_recreate_summary",
-        "ADVANCED, do not use: Same as `All_data_summary` option but will not use cached export",
+        "ADVANCED, do not use: Same as `All_data_summary` option but will not"
+        " use cached export",
     ],
 ]
+
+EXCEL_EXPORT_FILTERS_DESCR = "".join(
+    [f"<li><strong>{label}</strong>: {val}</li>" for label, val in export_defs]
+)
 
 
 @app.post(
@@ -117,7 +125,8 @@ async def post_export(
     class_name: ClassNameExport = Query(
         ClassNameExport.all_static,
         description="The name of the data type for which an Excel export "
-        f"is requested. Use one of the following options:<ul>{''.join([f'<li><strong>{label}</strong>: {val}</li>' for label, val in export_defs])}</ul>",
+        "is requested. Use one of the following options:<ul>"
+        f"{EXCEL_EXPORT_FILTERS_DESCR}</ul>",
     ),
 ):
     """Return XLSX data export for Policies with the given filters applied.
