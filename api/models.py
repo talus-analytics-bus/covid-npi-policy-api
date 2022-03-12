@@ -453,8 +453,26 @@ class OptionSetList(Response):
     data: OptionSetRecords
 
 
+class Metadata(BaseModel):
+    class_name: Optional[str] = None
+    colgroup: Optional[str] = None
+    definition: Optional[str] = None
+    display_name: Optional[str] = None
+    entity_name: Optional[str] = None
+    export: Optional[bool] = None
+    field: Optional[str] = None
+    ingest_field: Optional[str] = None
+    order: Optional[float] = None
+    possible_values: Optional[str] = None
+    table_name: Optional[str] = None
+    tooltip: Optional[str] = None
+
+
+MetadataRecords = Dict[str, Metadata]
+
+
 class MetadataList(Response):
-    data: Dict[str, dict] = {}
+    data: MetadataRecords
 
 
 class Version(BaseModel):
