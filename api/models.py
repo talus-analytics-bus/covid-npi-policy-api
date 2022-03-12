@@ -326,6 +326,17 @@ examplePolicyFilter: Dict[str, List[str]] = {
     "_text": [],
 }
 
+examplePlanFilter = {
+    "date_issued": [
+        "2019-12-31",
+        "2022-12-31",
+    ],
+    "area1": ["California"],
+    "area2": ["Office of the Chancellor"],
+    "org_type": ["University"],
+    "_text": [],
+}
+
 
 class ExportFiltersNoOrdering(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
@@ -346,6 +357,14 @@ class PolicyFiltersFields(BaseModel):
     _text: Optional[List[str]] = list()
 
 
+class PlanFiltersFields(BaseModel):
+    date_issued: Optional[List[date]] = list()
+    area1: Optional[List[str]] = list()
+    area2: Optional[List[str]] = list()
+    org_type: Optional[List[str]] = list()
+    _text: Optional[List[str]] = list()
+
+
 class PolicyFilters(BaseModel):
     filters: Optional[PolicyFiltersFields] = Field(
         examplePolicyFilter,
@@ -355,16 +374,16 @@ class PolicyFilters(BaseModel):
     )
 
 
-class PlanFiltersNoOrdering(BaseModel):
-    filters: Optional[Dict[str, List]] = Field(
-        {"date_issued": ["2019-12-31", "2022-12-31"]},
+class PlanFilters(BaseModel):
+    filters: Optional[PlanFiltersFields] = Field(
+        examplePlanFilter,
         title="Filters to be applied",
         description="Key: Name of data field on which to filter. Values: List"
         " of strings of values the data field may have.",
     )
 
 
-class ChallengeFiltersNoOrdering(BaseModel):
+class ChallengeFilters(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         {"date_of_complaint": ["2019-12-31", "2022-12-31"]},
         title="Filters to be applied",
@@ -377,11 +396,11 @@ class PolicyBody(PolicyFilters):
     ordering: List[list] = [["id", "asc"]]
 
 
-class PlanFilters(PlanFiltersNoOrdering):
+class PlanBody(PlanFilters):
     ordering: List[list] = [["id", "asc"]]
 
 
-class ChallengeFilters(ChallengeFiltersNoOrdering):
+class ChallengeBody(ChallengeFilters):
     ordering: List[list] = [["id", "asc"]]
 
 

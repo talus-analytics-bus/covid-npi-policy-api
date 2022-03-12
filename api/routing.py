@@ -17,7 +17,7 @@ from . import schema
 from .models import (
     PlaceObsList,
     PolicyBody,
-    PlanFilters,
+    PlanBody,
     OptionSetList,
     MetadataList,
     ListResponse,
@@ -819,7 +819,7 @@ async def post_policy_number(
     include_in_schema=False,
 )
 async def post_plan(
-    body: PlanFilters,
+    body: PlanBody,
     fields: List[PlanFields] = Query(
         [PlanFields.id],
         description="List of data fields that should be returned for "
@@ -830,7 +830,7 @@ async def post_plan(
 ):
     fields = [v for v in fields if v != PlanFields.none]
     return schema.get_plan(
-        filters=body.filters,
+        filters=body.filters.dict(),
         fields=fields,
         by_category=None,
         page=page,
