@@ -15,6 +15,7 @@ from typing import List
 from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
+    CountResponse,
     EntityResponse,
     Place,
     PlaceObsList,
@@ -198,6 +199,7 @@ async def get_countries_with_lockdown_levels():
     tags=["Metadata"],
     summary="Return the total number of records currently in AMP of the "
     'provided class(es), e.g., "Policy" or "Plan".',
+    response_model=CountResponse,
 )
 @app.get(
     "/get/count",

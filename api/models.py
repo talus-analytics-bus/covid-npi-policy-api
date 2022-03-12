@@ -468,6 +468,10 @@ class VersionResponse(Response):
     data: List[Version]
 
 
+class CountResponse(Response):
+    data: Dict[str, int]
+
+
 class Iso3Codes(str, Enum):
     all_countries = "All countries"
     ABW = "ABW"
