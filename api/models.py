@@ -223,6 +223,7 @@ class Policy(BaseModel):
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+    n: int = None
 
 
 class PolicyResponse(Response):
