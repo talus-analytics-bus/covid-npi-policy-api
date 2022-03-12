@@ -405,7 +405,7 @@ async def post_policy(
         by_category=None,
         page=page,
         pagesize=pagesize,
-        ordering=helpers.get_body_attr(body, "ordering", list()),
+        ordering=body.ordering,
         count_only=count,
         random=random,
         merge_like_policies=merge_like_policies,
@@ -670,7 +670,7 @@ async def post_policy_status(
 ):
     return schema.get_policy_status(
         geo_res=geo_res,
-        filters=helpers.get_body_attr(body, "ordering", list()),
+        filters=body.ordering,
     )
 
 
@@ -784,7 +784,7 @@ async def post_policy_number(
         by_category=None,
         page=page,
         pagesize=pagesize,
-        ordering=helpers.get_body_attr(body, "ordering", list()),
+        ordering=body.ordering,
     )
 
 
@@ -849,7 +849,7 @@ async def post_plan(
         by_category=None,
         page=page,
         pagesize=pagesize,
-        ordering=helpers.get_body_attr(body, "ordering", list()),
+        ordering=body.ordering,
     )
 
 
