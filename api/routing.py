@@ -15,13 +15,15 @@ from typing import List
 from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
+    EntityResponse,
     PlaceObsList,
+    Plan,
+    Policy,
     PolicyBody,
     PlanBody,
     OptionSetList,
     MetadataList,
     ListResponse,
-    PolicyResponse,
     PolicyStatusList,
     PolicyFields,
     PlanFields,
@@ -347,14 +349,14 @@ async def get_policy(
 
 @app.post(
     "/policy",
-    response_model=PolicyResponse,
+    response_model=EntityResponse[Policy],
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return data for Policies matching filters",
 )
 @app.post(
     "/post/policy",
-    response_model=PolicyResponse,
+    response_model=ListResponse,
     response_model_exclude_unset=True,
     include_in_schema=False,
 )
@@ -806,7 +808,7 @@ async def post_policy_number(
 
 @app.post(
     "/plan",
-    response_model=ListResponse,
+    response_model=EntityResponse[Plan],
     response_model_exclude_unset=True,
     tags=["Plans"],
     summary="Return data for Plans matching filters",

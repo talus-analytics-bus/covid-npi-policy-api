@@ -9,7 +9,7 @@ from enum import Enum
 
 # 3rd party modules
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 
 class FilterFieldsPolicy(str, Enum):
@@ -228,6 +228,13 @@ class Policy(BaseModel):
 
 class PolicyResponse(Response):
     data: List[Policy]
+
+
+T = TypeVar("T")
+
+
+class EntityResponse(Response, Generic[T]):
+    data: List[T]
 
 
 Court_Challenge.update_forward_refs()
