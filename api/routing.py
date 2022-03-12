@@ -30,6 +30,7 @@ from .models import (
     StateNames,
     ExportFiltersNoOrdering,
 )
+from . import helpers
 from . import app
 from db import db  # noqa F401
 
@@ -391,7 +392,7 @@ async def post_policy(
         if v not in (PolicyFields.none, PolicyFields.court_challenges_id)
     ]
     return schema.get_policy(
-        filters=body.filters.dict(),
+        filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
         page=page,
@@ -830,7 +831,7 @@ async def post_plan(
 ):
     fields = [v for v in fields if v != PlanFields.none]
     return schema.get_plan(
-        filters=body.filters.dict(),
+        filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
         page=page,
