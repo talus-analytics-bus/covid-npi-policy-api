@@ -219,10 +219,14 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
-    court_challenges: List[Court_Challenge] = None
+    # court_challenges: List[Court_Challenge] = None
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+
+
+class PolicyResponse(Response):
+    data: List[Policy]
 
 
 Court_Challenge.update_forward_refs()
@@ -324,8 +328,12 @@ class ExportFiltersNoOrdering(BaseModel):
     )
 
 
-class PolicyFiltersNoOrdering(BaseModel):
-    filters: Optional[Dict[str, List]] = Field(
+class PolicyFiltersFields(BaseModel):
+    dates_in_effect: Optional[List[date]] = None
+
+
+class PolicyFilters(BaseModel):
+    filters: Optional[PolicyFiltersFields] = Field(
         examplePolicyFilter,
         title="Filters to be applied",
         description="Key: Name of data field on which to filter. Values: List"
@@ -351,7 +359,7 @@ class ChallengeFiltersNoOrdering(BaseModel):
     )
 
 
-class PolicyFilters(PolicyFiltersNoOrdering):
+class PolicyBody(PolicyFilters):
     ordering: List[list] = [["id", "asc"]]
 
 

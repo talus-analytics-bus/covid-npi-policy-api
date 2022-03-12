@@ -1383,7 +1383,7 @@ def apply_entity_filters(
         if field.startswith("date"):
 
             # set allowed values to be start and end date instances
-            allowed_values = list(map(str_to_date, allowed_values))
+            # allowed_values = list(map(str_to_date, allowed_values))
 
             # Way using db.Policy_Date (new)
             # if it's the special "dates_in_effect" filter, handle it

@@ -16,11 +16,12 @@ from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
     PlaceObsList,
-    PolicyFilters,
+    PolicyBody,
     PlanFilters,
     OptionSetList,
     MetadataList,
     ListResponse,
+    PolicyResponse,
     PolicyStatusList,
     PolicyFields,
     PlanFields,
@@ -345,19 +346,19 @@ async def get_policy(
 
 @app.post(
     "/policy",
-    response_model=ListResponse,
+    response_model=PolicyResponse,
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return data for Policies matching filters",
 )
 @app.post(
     "/post/policy",
-    response_model=ListResponse,
+    response_model=PolicyResponse,
     response_model_exclude_unset=True,
     include_in_schema=False,
 )
 async def post_policy(
-    body: PolicyFilters,
+    body: PolicyBody,
     fields: List[PolicyFields] = Query(
         [PolicyFields.id],
         description="List of data fields that should be returned for"
@@ -390,7 +391,7 @@ async def post_policy(
         if v not in (PolicyFields.none, PolicyFields.court_challenges_id)
     ]
     return schema.get_policy(
-        filters=body.filters,
+        filters=body.filters.dict(),
         fields=fields,
         by_category=None,
         page=page,
@@ -650,7 +651,7 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     include_in_schema=False,
 )
 async def post_policy_status(
-    body: PolicyFilters,
+    body: PolicyBody,
     geo_res: GeoRes = Query(
         GeoRes.state,
         description="The geographic resolution for which to return data",
@@ -680,7 +681,7 @@ policy_status_counter: PolicyStatusCounter = PolicyStatusCounter()
     include_in_schema=False,
 )
 async def post_policy_status_counts(
-    body: PolicyFilters,
+    body: PolicyBody,
     geo_res: GeoRes = Path(
         GeoRes.state,
         description="The geographic resolution for which to return data",
@@ -757,7 +758,7 @@ async def post_policy_status_counts(
     tags=["Advanced"],
 )
 async def post_policy_number(
-    body: PolicyFilters,
+    body: PolicyBody,
     fields: List[str] = Query(None),
     page: int = None,
     pagesize: int = 100,
