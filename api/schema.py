@@ -63,10 +63,12 @@ def get_countries_with_lockdown_levels():
     countries_with_lockdown_levels = select(
         i.place.iso3 for i in db.Observation if i.metric == 0
     )
+    data = countries_with_lockdown_levels[:][:]
     return {
         "success": True,
         "message": "Success",
-        "data": countries_with_lockdown_levels[:][:],
+        "data": data,
+        "n": len(data)
     }
 
 
