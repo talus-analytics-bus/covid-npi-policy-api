@@ -16,6 +16,7 @@ from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
     EntityResponse,
+    Place,
     PlaceObsList,
     Plan,
     Policy,
@@ -448,7 +449,7 @@ class Level(str, Enum):
 
 @app.get(
     "/place",
-    response_model=ListResponse,
+    response_model=EntityResponse[Place],
     response_model_exclude_unset=True,
     tags=["Places"],
     summary="Return Places matching filters",
