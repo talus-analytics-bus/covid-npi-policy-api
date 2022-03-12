@@ -1012,9 +1012,12 @@ async def get_distancing_levels(
             status_code=400,
             media_type="text/plain",
         )
-    elif iso3 is not None and geo_res != GeoResCountryState.country:
+    elif iso3 is not None and geo_res not in (
+        GeoResCountryState.country,
+        GeoResCountryState.state,
+    ):
         return Response(
-            "Cannot define `iso3` unless `geo_res` is `country`",
+            "Cannot define `iso3` unless `geo_res` is `country` or `state`",
             status_code=400,
             media_type="text/plain",
         )
