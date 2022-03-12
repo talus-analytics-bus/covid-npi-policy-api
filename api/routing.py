@@ -32,6 +32,7 @@ from .models import (
     Iso3Codes,
     StateNames,
     ExportFiltersNoOrdering,
+    VersionResponse,
 )
 from . import helpers
 from . import app
@@ -164,6 +165,7 @@ async def post_export(
     tags=["Metadata"],
     summary="Return dates different data types were last updated, and the "
     "most recent date appearing in the data",
+    response_model=VersionResponse,
 )
 @app.get(
     "/get/version",

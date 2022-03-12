@@ -9,7 +9,7 @@ from enum import Enum
 
 # 3rd party modules
 from pydantic import BaseModel, Field
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 
 class FilterFieldsPolicy(str, Enum):
@@ -455,6 +455,17 @@ class OptionSetList(Response):
 
 class MetadataList(Response):
     data: Dict[str, dict] = {}
+
+
+class Version(BaseModel):
+    name: str
+    date: Union[date, str]
+    last_datum_date: Optional[Union[date, str]] = None
+    map_types: List[str]
+
+
+class VersionResponse(Response):
+    data: List[Version]
 
 
 class Iso3Codes(str, Enum):
