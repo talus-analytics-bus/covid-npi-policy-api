@@ -180,6 +180,7 @@ async def get_version():
     tags=["Metadata"],
     summary="Return ISO 3166-1 alpha-3 codes of countries for which "
     "national-level Policy data are currently available in AMP",
+    response_model=EntityResponse[str],
 )
 @app.get(
     "/get/countries_with_lockdown_levels",
