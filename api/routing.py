@@ -315,13 +315,6 @@ async def get_file(
     return schema.get_file(id)
 
 
-# @app.get(
-#     "/policy",
-#     response_model=ListResponse,
-#     response_model_exclude_unset=True,
-#     tags=["Policies"],
-#     include_in_schema=False,
-# )
 @app.get(
     "/get/policy",
     response_model=ListResponse,
@@ -335,19 +328,7 @@ async def get_policy(
     pagesize: int = 100,
     count: bool = False,
 ):
-    """Return Policy data.
-
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Policy response dictionary.
-
-    """
+    """Return Policy data."""
     return schema.get_policy(
         fields=fields, page=page, pagesize=pagesize, count_only=count
     )
