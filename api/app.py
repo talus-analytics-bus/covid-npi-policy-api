@@ -89,7 +89,11 @@ app.add_middleware(
 new_desc = """## Overview
 The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides access to a comprehensive list of policies and plans implemented globally to address the COVID-19 pandemic. This API provides access to some of the underlying data used in the COVID AMP site.
 
-You can visit the site at [https://covidamp.org](https://covidamp.org).<br/><br/>Note: Response models are not currently publicly available, and only exist in the form of TypeScript interfaces in the frontend source code (non-public). Please contact us with questions about how to use these data at <a href="mailto:info@talusanalytics.com">info@talusanalytics.com</a>.<br/><br/>Please contact us with comments, questions, or accessibility concerns at [https://covidamp.org/contact](https://covidamp.org/contact).
+You can visit the site at [https://covidamp.org](https://covidamp.org).
+
+Please contact us with questions about how to use these data at <a href="mailto:info@talusanalytics.com">info@talusanalytics.com</a>.
+
+Please contact us with other questions, comments, or accessibility concerns at [https://covidamp.org/contact](https://covidamp.org/contact).
 ## Database update schedule
 The AMP database is usually updated every 1-2 days on weekdays around 10 AM ET with all the latest information.
 ## Filtering data
