@@ -450,6 +450,8 @@ class Level(str, Enum):
     State_Province = "State / Province"
     Tribal_nation = "Tribal nation"
     University = "University"
+    country = "country"
+    state_provice = "state / province"
 
 
 @app.get(
