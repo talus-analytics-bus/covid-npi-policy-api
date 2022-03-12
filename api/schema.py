@@ -63,10 +63,12 @@ def get_countries_with_lockdown_levels():
     countries_with_lockdown_levels = select(
         i.place.iso3 for i in db.Observation if i.metric == 0
     )
+    data = countries_with_lockdown_levels[:][:]
     return {
         "success": True,
         "message": "Success",
-        "data": countries_with_lockdown_levels[:][:],
+        "data": data,
+        "n": len(data)
     }
 
 
@@ -1383,7 +1385,7 @@ def apply_entity_filters(
         if field.startswith("date"):
 
             # set allowed values to be start and end date instances
-            allowed_values = list(map(str_to_date, allowed_values))
+            # allowed_values = list(map(str_to_date, allowed_values))
 
             # Way using db.Policy_Date (new)
             # if it's the special "dates_in_effect" filter, handle it

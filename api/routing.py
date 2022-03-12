@@ -15,9 +15,14 @@ from typing import List
 from . import routing_custom  # noqa F401
 from . import schema
 from .models import (
+    CountResponse,
+    EntityResponse,
+    Place,
     PlaceObsList,
-    PolicyFilters,
-    PlanFilters,
+    Plan,
+    Policy,
+    PolicyBody,
+    PlanBody,
     OptionSetList,
     MetadataList,
     ListResponse,
@@ -28,7 +33,9 @@ from .models import (
     Iso3Codes,
     StateNames,
     ExportFiltersNoOrdering,
+    VersionResponse,
 )
+from . import helpers
 from . import app
 from db import db  # noqa F401
 
@@ -56,11 +63,13 @@ ClassNameExport = Enum(
 export_defs: List[list] = [
     [
         "All_data",
-        "Returns data of all types including Policies and Plans, and includes all data fields that can be exported",
+        "Returns data of all types including Policies and Plans, and includes"
+        " all data fields that can be exported",
     ],
     [
         "All_data_summary",
-        "Returns data of all types including Policies and Plans, and includes a compact subset of data fields",
+        "Returns data of all types including Policies and Plans, and includes"
+        " a compact subset of data fields",
     ],
     [
         "PolicySummary",
@@ -76,13 +85,19 @@ export_defs: List[list] = [
     ],
     [
         "All_data_recreate",
-        "ADVANCED, do not use: Same as `All_data` option but will not use cached export",
+        "ADVANCED, do not use: Same as `All_data` option but will not use"
+        " cached export",
     ],
     [
         "All_data_recreate_summary",
-        "ADVANCED, do not use: Same as `All_data_summary` option but will not use cached export",
+        "ADVANCED, do not use: Same as `All_data_summary` option but will not"
+        " use cached export",
     ],
 ]
+
+EXCEL_EXPORT_FILTERS_DESCR = "".join(
+    [f"<li><strong>{label}</strong>: {val}</li>" for label, val in export_defs]
+)
 
 
 @app.post(
@@ -117,7 +132,8 @@ async def post_export(
     class_name: ClassNameExport = Query(
         ClassNameExport.all_static,
         description="The name of the data type for which an Excel export "
-        f"is requested. Use one of the following options:<ul>{''.join([f'<li><strong>{label}</strong>: {val}</li>' for label, val in export_defs])}</ul>",
+        "is requested. Use one of the following options:<ul>"
+        f"{EXCEL_EXPORT_FILTERS_DESCR}</ul>",
     ),
 ):
     """Return XLSX data export for Policies with the given filters applied.
@@ -150,6 +166,7 @@ async def post_export(
     tags=["Metadata"],
     summary="Return dates different data types were last updated, and the "
     "most recent date appearing in the data",
+    response_model=VersionResponse,
 )
 @app.get(
     "/get/version",
@@ -164,6 +181,7 @@ async def get_version():
     tags=["Metadata"],
     summary="Return ISO 3166-1 alpha-3 codes of countries for which "
     "national-level Policy data are currently available in AMP",
+    response_model=EntityResponse[str],
 )
 @app.get(
     "/get/countries_with_lockdown_levels",
@@ -181,6 +199,7 @@ async def get_countries_with_lockdown_levels():
     tags=["Metadata"],
     summary="Return the total number of records currently in AMP of the "
     'provided class(es), e.g., "Policy" or "Plan".',
+    response_model=CountResponse,
 )
 @app.get(
     "/get/count",
@@ -315,13 +334,6 @@ async def get_file(
     return schema.get_file(id)
 
 
-# @app.get(
-#     "/policy",
-#     response_model=ListResponse,
-#     response_model_exclude_unset=True,
-#     tags=["Policies"],
-#     include_in_schema=False,
-# )
 @app.get(
     "/get/policy",
     response_model=ListResponse,
@@ -335,19 +347,7 @@ async def get_policy(
     pagesize: int = 100,
     count: bool = False,
 ):
-    """Return Policy data.
-
-    Parameters
-    ----------
-    fields : List[str]
-        Data fields to return.
-
-    Returns
-    -------
-    dict
-        Policy response dictionary.
-
-    """
+    """Return Policy data."""
     return schema.get_policy(
         fields=fields, page=page, pagesize=pagesize, count_only=count
     )
@@ -355,7 +355,7 @@ async def get_policy(
 
 @app.post(
     "/policy",
-    response_model=ListResponse,
+    response_model=EntityResponse[Policy],
     response_model_exclude_unset=True,
     tags=["Policies"],
     summary="Return data for Policies matching filters",
@@ -367,7 +367,7 @@ async def get_policy(
     include_in_schema=False,
 )
 async def post_policy(
-    body: PolicyFilters,
+    body: PolicyBody,
     fields: List[PolicyFields] = Query(
         [PolicyFields.id],
         description="List of data fields that should be returned for"
@@ -400,7 +400,7 @@ async def post_policy(
         if v not in (PolicyFields.none, PolicyFields.court_challenges_id)
     ]
     return schema.get_policy(
-        filters=body.filters,
+        filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
         page=page,
@@ -450,11 +450,13 @@ class Level(str, Enum):
     State_Province = "State / Province"
     Tribal_nation = "Tribal nation"
     University = "University"
+    country = "country"
+    state_provice = "state / province"
 
 
 @app.get(
     "/place",
-    response_model=ListResponse,
+    response_model=EntityResponse[Place],
     response_model_exclude_unset=True,
     tags=["Places"],
     summary="Return Places matching filters",
@@ -660,7 +662,7 @@ async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
     include_in_schema=False,
 )
 async def post_policy_status(
-    body: PolicyFilters,
+    body: PolicyBody,
     geo_res: GeoRes = Query(
         GeoRes.state,
         description="The geographic resolution for which to return data",
@@ -690,7 +692,7 @@ policy_status_counter: PolicyStatusCounter = PolicyStatusCounter()
     include_in_schema=False,
 )
 async def post_policy_status_counts(
-    body: PolicyFilters,
+    body: PolicyBody,
     geo_res: GeoRes = Path(
         GeoRes.state,
         description="The geographic resolution for which to return data",
@@ -767,7 +769,7 @@ async def post_policy_status_counts(
     tags=["Advanced"],
 )
 async def post_policy_number(
-    body: PolicyFilters,
+    body: PolicyBody,
     fields: List[str] = Query(None),
     page: int = None,
     pagesize: int = 100,
@@ -814,7 +816,7 @@ async def post_policy_number(
 
 @app.post(
     "/plan",
-    response_model=ListResponse,
+    response_model=EntityResponse[Plan],
     response_model_exclude_unset=True,
     tags=["Plans"],
     summary="Return data for Plans matching filters",
@@ -828,7 +830,7 @@ async def post_policy_number(
     include_in_schema=False,
 )
 async def post_plan(
-    body: PlanFilters,
+    body: PlanBody,
     fields: List[PlanFields] = Query(
         [PlanFields.id],
         description="List of data fields that should be returned for "
@@ -839,7 +841,7 @@ async def post_plan(
 ):
     fields = [v for v in fields if v != PlanFields.none]
     return schema.get_plan(
-        filters=body.filters,
+        filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
         page=page,

@@ -91,7 +91,7 @@ The <strong>COVID Analysis and Mapping of Policies (AMP)</strong> site provides 
 
 You can visit the site at [https://covidamp.org](https://covidamp.org).<br/><br/>Note: Response models are not currently publicly available, and only exist in the form of TypeScript interfaces in the frontend source code (non-public). Please contact us with questions about how to use these data at <a href="mailto:info@talusanalytics.com">info@talusanalytics.com</a>.<br/><br/>Please contact us with comments, questions, or accessibility concerns at [https://covidamp.org/contact](https://covidamp.org/contact).
 ## Database update schedule
-The AMP database is usually updated every 1-2 days on weekdays around 10 AM ET with all the latest information. Data request stalling may occur during a 5-minute period while these updates are being made, but requests will succeed again when updates are completed.
+The AMP database is usually updated every 1-2 days on weekdays around 10 AM ET with all the latest information.
 ## Filtering data
 Filters to view only a subset of data are generally defined in the body of a POST request (see POST endpoints below). Some examples of potentially useful filters follow.
  - See all "Social distancing" policies: `{"filters": "primary_ph_measure": ["Social distancing"]}`

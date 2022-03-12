@@ -9,7 +9,7 @@ from enum import Enum
 
 # 3rd party modules
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 
 class FilterFieldsPolicy(str, Enum):
@@ -219,10 +219,22 @@ class Policy(BaseModel):
     # enum_test: State = None
 
     # relationships
-    court_challenges: List[Court_Challenge] = None
+    # court_challenges: List[Court_Challenge] = None
     auth_entity: List[Auth_Entity] = None
     place: List[Place] = None
     file: List = None
+    n: int = None
+
+
+class PolicyResponse(Response):
+    data: List[Policy]
+
+
+T = TypeVar("T")
+
+
+class EntityResponse(Response, Generic[T]):
+    data: List[T]
 
 
 Court_Challenge.update_forward_refs()
@@ -311,7 +323,25 @@ examplePolicyFilter: Dict[str, List[str]] = {
     "dates_in_effect": [
         "2019-12-31",
         "2022-12-31",
-    ]
+    ],
+    "country_name": ["United States of America (USA)"],
+    "area1": ["California"],
+    "area2": ["Alameda County, CA"],
+    "primary_ph_measure": ["Social distancing"],
+    "ph_measure_details": ["Adaptation and mitigation measures"],
+    "subtarget": ["All essential businesses"],
+    "_text": [],
+}
+
+examplePlanFilter = {
+    "date_issued": [
+        "2019-12-31",
+        "2022-12-31",
+    ],
+    "area1": ["California"],
+    "area2": ["Office of the Chancellor"],
+    "org_type": ["University"],
+    "_text": [],
 }
 
 
@@ -324,8 +354,26 @@ class ExportFiltersNoOrdering(BaseModel):
     )
 
 
-class PolicyFiltersNoOrdering(BaseModel):
-    filters: Optional[Dict[str, List]] = Field(
+class PolicyFiltersFields(BaseModel):
+    dates_in_effect: Optional[List[date]] = list()
+    country_name: Optional[List[str]] = list()
+    area1: Optional[List[str]] = list()
+    area2: Optional[List[str]] = list()
+    primary_ph_measure: Optional[List[str]] = list()
+    subtarget: Optional[List[str]] = list()
+    _text: Optional[List[str]] = list()
+
+
+class PlanFiltersFields(BaseModel):
+    date_issued: Optional[List[date]] = list()
+    area1: Optional[List[str]] = list()
+    area2: Optional[List[str]] = list()
+    org_type: Optional[List[str]] = list()
+    _text: Optional[List[str]] = list()
+
+
+class PolicyFilters(BaseModel):
+    filters: Optional[PolicyFiltersFields] = Field(
         examplePolicyFilter,
         title="Filters to be applied",
         description="Key: Name of data field on which to filter. Values: List"
@@ -333,16 +381,16 @@ class PolicyFiltersNoOrdering(BaseModel):
     )
 
 
-class PlanFiltersNoOrdering(BaseModel):
-    filters: Optional[Dict[str, List]] = Field(
-        {"date_issued": ["2019-12-31", "2022-12-31"]},
+class PlanFilters(BaseModel):
+    filters: Optional[PlanFiltersFields] = Field(
+        examplePlanFilter,
         title="Filters to be applied",
         description="Key: Name of data field on which to filter. Values: List"
         " of strings of values the data field may have.",
     )
 
 
-class ChallengeFiltersNoOrdering(BaseModel):
+class ChallengeFilters(BaseModel):
     filters: Optional[Dict[str, List]] = Field(
         {"date_of_complaint": ["2019-12-31", "2022-12-31"]},
         title="Filters to be applied",
@@ -351,15 +399,15 @@ class ChallengeFiltersNoOrdering(BaseModel):
     )
 
 
-class PolicyFilters(PolicyFiltersNoOrdering):
+class PolicyBody(PolicyFilters):
     ordering: List[list] = [["id", "asc"]]
 
 
-class PlanFilters(PlanFiltersNoOrdering):
+class PlanBody(PlanFilters):
     ordering: List[list] = [["id", "asc"]]
 
 
-class ChallengeFilters(ChallengeFiltersNoOrdering):
+class ChallengeBody(ChallengeFilters):
     ordering: List[list] = [["id", "asc"]]
 
 
@@ -405,8 +453,41 @@ class OptionSetList(Response):
     data: OptionSetRecords
 
 
+class Metadata(BaseModel):
+    class_name: Optional[str] = None
+    colgroup: Optional[str] = None
+    definition: Optional[str] = None
+    display_name: Optional[str] = None
+    entity_name: Optional[str] = None
+    export: Optional[bool] = None
+    field: Optional[str] = None
+    ingest_field: Optional[str] = None
+    order: Optional[float] = None
+    possible_values: Optional[str] = None
+    table_name: Optional[str] = None
+    tooltip: Optional[str] = None
+
+
+MetadataRecords = Dict[str, Metadata]
+
+
 class MetadataList(Response):
-    data: Dict[str, dict] = {}
+    data: MetadataRecords
+
+
+class Version(BaseModel):
+    name: str
+    date: Union[date, str]
+    last_datum_date: Optional[Union[date, str]] = None
+    map_types: List[str]
+
+
+class VersionResponse(Response):
+    data: List[Version]
+
+
+class CountResponse(Response):
+    data: Dict[str, int]
 
 
 class Iso3Codes(str, Enum):
