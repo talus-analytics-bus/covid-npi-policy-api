@@ -345,15 +345,6 @@ examplePlanFilter = {
 }
 
 
-class ExportFiltersNoOrdering(BaseModel):
-    filters: Optional[Dict[str, List]] = Field(
-        {},
-        title="Filters to be applied",
-        description="Key: Name of data field on which to filter. Values: List"
-        " of strings of values the data field may have.",
-    )
-
-
 class PolicyFiltersFields(BaseModel):
     dates_in_effect: Optional[List[date]] = list()
     country_name: Optional[List[str]] = list()
@@ -366,6 +357,7 @@ class PolicyFiltersFields(BaseModel):
 
     class Config:
         fields = {"text": "_text"}
+        extra = "allow"
 
 
 class PlanFiltersFields(BaseModel):
@@ -377,6 +369,16 @@ class PlanFiltersFields(BaseModel):
 
     class Config:
         fields = {"text": "_text"}
+        extra = "allow"
+
+
+class ExportFiltersNoOrdering(BaseModel):
+    filters: Optional[PolicyFiltersFields] = Field(
+        {},
+        title="Filters to be applied",
+        description="Key: Name of data field on which to filter. Values: List"
+        " of strings of values the data field may have.",
+    )
 
 
 class PolicyFilters(BaseModel):
