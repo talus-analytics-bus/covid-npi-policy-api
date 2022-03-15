@@ -68,7 +68,7 @@ def get_countries_with_lockdown_levels():
         "success": True,
         "message": "Success",
         "data": data,
-        "n": len(data)
+        "n": len(data),
     }
 
 
@@ -1326,7 +1326,7 @@ def apply_entity_filters(
             continue
 
         # custom text search with fuzzy matching
-        if field == "_text":
+        if field == "text":
             if len(allowed_values) > 0 and allowed_values[0] is not None:
                 text = allowed_values[0].lower()
                 thresh = 80

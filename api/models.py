@@ -330,7 +330,7 @@ examplePolicyFilter: Dict[str, List[str]] = {
     "primary_ph_measure": ["Social distancing"],
     "ph_measure_details": ["Adaptation and mitigation measures"],
     "subtarget": ["All essential businesses"],
-    "_text": [],
+    "text": [],
 }
 
 examplePlanFilter = {
@@ -341,7 +341,7 @@ examplePlanFilter = {
     "area1": ["California"],
     "area2": ["Office of the Chancellor"],
     "org_type": ["University"],
-    "_text": [],
+    "text": [],
 }
 
 
@@ -362,7 +362,10 @@ class PolicyFiltersFields(BaseModel):
     area2: Optional[List[str]] = list()
     primary_ph_measure: Optional[List[str]] = list()
     subtarget: Optional[List[str]] = list()
-    _text: Optional[List[str]] = list()
+    text: Optional[List[str]] = list()
+
+    class Config:
+        fields = {"text": "_text"}
 
 
 class PlanFiltersFields(BaseModel):
@@ -370,7 +373,10 @@ class PlanFiltersFields(BaseModel):
     area1: Optional[List[str]] = list()
     area2: Optional[List[str]] = list()
     org_type: Optional[List[str]] = list()
-    _text: Optional[List[str]] = list()
+    text: Optional[List[str]] = list()
+
+    class Config:
+        fields = {"text": "_text"}
 
 
 class PolicyFilters(BaseModel):
