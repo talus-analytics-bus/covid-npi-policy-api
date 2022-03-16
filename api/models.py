@@ -347,6 +347,7 @@ examplePlanFilter = {
 
 class PolicyFiltersFields(BaseModel):
     dates_in_effect: Optional[List[date]] = list()
+    date_start_effective: Optional[List[date]] = list()
     country_name: Optional[List[str]] = list()
     iso3: Optional[List[str]] = list()
     area1: Optional[List[str]] = list()
