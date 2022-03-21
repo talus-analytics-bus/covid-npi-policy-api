@@ -3,7 +3,16 @@
 from datetime import date, datetime
 
 # 3rd party modules
-from pony.orm import PrimaryKey, Required, Optional, Optional, Set, StrArray, select, db_session
+from pony.orm import (
+    PrimaryKey,
+    Required,
+    Optional,
+    Optional,
+    Set,
+    StrArray,
+    select,
+    db_session,
+)
 
 # local modules
 from .config import db
@@ -31,24 +40,13 @@ class DateTime(db.Entity):
     dt_id = PrimaryKey(int, auto=True)
     # date = Required(date)
     # time = Required(time)
-    datetime = Required(datetime, column="dt",
-                        sql_type='TIMESTAMP WITH TIME ZONE')
+    datetime = Required(datetime, column="dt", sql_type="TIMESTAMP WITH TIME ZONE")
     day = Required(bool)
     week_sunday = Required(bool)
     week_monday = Required(bool)
     month = Required(bool)
     year = Required(bool)
     observations = Set("Observation")
-
-
-class Poly(db.Entity):
-    poly_id = PrimaryKey(int, auto=True)
-    place = Required("Place", column="place_id")
-
-
-class Point(db.Entity):
-    point_id = PrimaryKey(int, auto=True)
-    place = Required("Place", column="place_id")
 
 
 class Place(db.Entity):
@@ -60,8 +58,6 @@ class Place(db.Entity):
     iso = Optional(str)
     iso2 = Optional(str)
     place_type = Required(str)
-    poly = Optional("Poly", column="poly_id")
-    point = Optional("Point", column="point_id")
     observations = Set("Observation")
     region = Optional(str)
 
