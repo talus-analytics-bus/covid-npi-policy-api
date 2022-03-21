@@ -42,17 +42,13 @@ def get_secret(
     else:
         session = boto3.session.Session(profile_name=profile)
 
-    client = session.client(
-        service_name="secretsmanager", region_name=region_name
-    )
+    client = session.client(service_name="secretsmanager", region_name=region_name)
 
     # attempt to retrieve the secret, and throw a series of exceptions if the
     # attempt fails. See link below for more information.
     # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
     try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
         print(e)
         if e.response["Error"]["Code"] == "DecryptionFailureException":
