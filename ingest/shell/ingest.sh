@@ -21,7 +21,7 @@ psql \
 --port "5432" \
 --username $username \
 --dbname $dblocal \
--c "TRUNCATE policy, plan, court_challenge CASCADE;" && \
+-c "TRUNCATE policy, plan, court_challenge, policy_number CASCADE;" && \
 
 if python ingest.py --all; then
     echo "Ingest ran successfully"

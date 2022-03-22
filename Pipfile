@@ -77,6 +77,10 @@ tqdm = "==4.62.3"
 pyOpenSSL = "==19.1.0"
 python-Levenshtein = "==0.12.2"
 XlsxWriter = "==1.2.8"
+black = "*"
 
 [requires]
 python_version = "3.7"
+
+[pipenv]
+allow_prereleases = true
