@@ -81,8 +81,6 @@ class Config:
         keys = ("username", "host", "password", "database")
         if not all(k in secret for k in keys if k != "database"):
             raise ValueError("Secret did not contain all required config vars")
-        print("secret")
-        print(secret)
         for key in keys:
             self.db[key] = os.environ.get(key, secret.get(key))
 
