@@ -34,6 +34,4 @@ else
 fi
 export AIRTABLE_API_KEY=$airtablekey;
 bash ingest/shell/ingest.sh $username $dblocal;
-bash ingest/shell/update-test-from-local.sh $username $dblocal $dbprodhost && \
-bash ingest/shell/update-static-xlsx-files.sh && \
-echo Completed update at time $(date)
+bash ingest/shell/update-test-from-local.sh $username $dblocal $dbprodhost;
