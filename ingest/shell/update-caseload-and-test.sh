@@ -1,6 +1,6 @@
 #!/bin/bash
 ##
-# Update the COVID AMP database.
+# Update the COVID AMP test databases for Metrics and core app data.
 ##
 
 programname=$0
@@ -33,7 +33,7 @@ else
     echo 'Not updating caseload data.'
 fi
 export AIRTABLE_API_KEY=$airtablekey;
-bash ingest/shell/ingest.sh $username $dblocal && \
-bash ingest/shell/update-test-from-local.sh $username $dblocal $dbprodhost && \
-bash ingest/shell/update-static-xlsx-files.sh && \
-echo Completed update at time $(date)
+bash ingest/shell/ingest.sh $username $dblocal;
+bash ingest/shell/update-test-from-local.sh $username $dblocal $dbprodhost;
+# bash ingest/shell/update-static-xlsx-files.sh && \
+# echo Completed update at time $(date)
