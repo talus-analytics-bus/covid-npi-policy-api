@@ -1,6 +1,6 @@
 #!/bin/bash
 ##
-# Update the COVID AMP database.
+# Update the COVID AMP test databases for Metrics and core app data.
 ##
 
 programname=$0
