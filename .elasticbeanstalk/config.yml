@@ -2,7 +2,7 @@ branch-defaults:
   dev:
     environment: covid-amp-api-test
   master:
-    environment: amp-test
+    environment: null
     group_suffix: null
 global:
   application_name: covid-amp-api
