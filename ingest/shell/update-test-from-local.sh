@@ -4,6 +4,8 @@
 ##
 
 programname=$0
+origdir=$(pwd)
+scriptdir=$(dirname $0)
 
 function usage {
     echo "usage: $programname [username]"
@@ -19,8 +21,10 @@ dblocal=${2?Provide the name of the database on your local server with which you
 dbprodhost=${3?Provide the name of the host on AWS RDS to which you are updating in third argument};
 
 # dump local
+cd $scriptdir && \
+cd .. && \
 echo "Current date: $now";
-cd ingest/backups/local;
+cd backups/local;
 pg_dump \
 --no-acl \
 --no-owner \
@@ -60,9 +64,11 @@ pg_restore \
 --username "talus" \
 --dbname "covid-npi-policy-test" \
 --format=d --verbose "$now-local" && \
-cd ../../..;
+cd ../../.. && \
 
 # restart API server
 aws elasticbeanstalk restart-app-server \
---environment-name amp-test \
+--environment-name amp-dev2 \
 --region us-west-1;
+
+cd $origdir;
