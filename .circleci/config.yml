@@ -28,13 +28,13 @@ workflows:
   build:
     jobs:
       - deploy:
-          env: 'amp-prod'
+          env: 'amp-prod2'
           filters:
             branches:
               only:
                 - master
       - deploy:
-          env: 'amp-test'
+          env: 'amp-dev2'
           filters:
             branches:
               only:
