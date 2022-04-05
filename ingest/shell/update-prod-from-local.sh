@@ -61,4 +61,4 @@ pg_restore \
 cd ../../..;
 
 # restart API server
-aws elasticbeanstalk restart-app-server --environment-name amp-prod --region us-west-1;
+aws elasticbeanstalk restart-app-server --environment-name amp-prod2 --region us-west-1;
