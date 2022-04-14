@@ -403,12 +403,38 @@ class CovidPolicyExportPlugin(ExcelExport):
                         and cell_val in ("Unspecified", None, "")
                     ):
                         cell_val = "N/A"
-                    elif field == "area2" and (
-                        cell_vals_by_field.get(level_field_name)
-                        in ("Country", "State / Province", "Tribal nation")
-                        and cell_val in ("Unspecified", None, "")
-                    ):
-                        cell_val = "N/A"
+                    elif field == "area2":
+                        if (
+                            cell_vals_by_field.get(level_field_name)
+                            in (
+                                "Country",
+                                "State / Province",
+                                "Tribal nation",
+                            )
+                            and cell_val in ("Unspecified", None, "")
+                        ):
+                            cell_val = "N/A"
+                    elif field == "area2code":
+                        if (
+                            cell_vals_by_field.get(level_field_name)
+                            in (
+                                "Country",
+                                "State / Province",
+                                "Tribal nation",
+                            )
+                            and cell_val in ("Unspecified", None, "")
+                        ):
+                            cell_val = "N/A"
+                        elif cell_val is not None and "___" in cell_val:
+                            vals = cell_val.split("; ")
+                            final_vals: List[str] = list()
+                            for val in vals:
+                                place_name, ansi_fips = val.split("___")
+                                if ansi_fips != "":
+                                    final_vals.append(ansi_fips)
+                                else:
+                                    final_vals.append("Undefined")
+                            cell_val = "; ".join(final_vals)
                     elif (
                         field == "iso3"
                         and cell_vals_by_field.get(level_field_name)

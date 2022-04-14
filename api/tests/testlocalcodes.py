@@ -7,13 +7,13 @@ from db import models, db
 
 
 class TestLocalCodes(unittest.TestCase):
-    bound: bool = False
+    mapping_generated: bool = False
 
     def __init__(self, methodName: str = ...) -> None:
         unittest.TestCase.__init__(self, methodName)
-        if not TestLocalCodes.bound:
+        if not TestLocalCodes.mapping_generated:
             db.generate_mapping(create_tables=False)
-            TestLocalCodes.bound = True
+            TestLocalCodes.mapping_generated = True
 
     @db_session
     def test_usa_county_fips(self):
