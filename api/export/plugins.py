@@ -140,9 +140,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         self.sheet_settings: List[CovidPolicyTab] = []
         for tab in tabs:
-            preposition: str = (
-                "" if tab["s"] != "Court_Challenge" else " for policies"
-            )
+            preposition: str = "" if tab["s"] != "Court_Challenge" else " for policies"
             self.sheet_settings += [
                 CovidPolicyTab(
                     name=tab["p"],
@@ -167,8 +165,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     data_getter=self.default_data_getter,
                     class_name=tab["s"],
                     # Does this workbook contain court challenges only?
-                    challenges_only=tab["s"] == "Court_Challenge"
-                    and len(tabs) == 1,
+                    challenges_only=tab["s"] == "Court_Challenge" and len(tabs) == 1,
                 ),
                 CovidPolicyTab(
                     name="Legend - " + tab["p"],
@@ -255,10 +252,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     settings.init_irow["colnames"],
                     settings.num_cols - 1,
                 )
-            if (
-                settings.class_name == "PolicySummary"
-                and settings.type == "data"
-            ):
+            if settings.class_name == "PolicySummary" and settings.type == "data":
                 worksheet.set_column(0, 1, 42.33)
                 worksheet.set_column(2, 2, 100)
                 worksheet.set_column(4, 4, 25)
@@ -271,9 +265,7 @@ class CovidPolicyExportPlugin(ExcelExport):
     @db_session
     def default_data_getter(self, tab, class_name: str = "Policy"):
         # get all metadata
-        m_class_name: str = (
-            class_name if class_name != "PolicySummary" else "Policy"
-        )
+        m_class_name: str = class_name if class_name != "PolicySummary" else "Policy"
         db = self.db
         metadata = select(
             i
@@ -309,8 +301,7 @@ class CovidPolicyExportPlugin(ExcelExport):
 
         else:
             raise NotImplementedError(
-                "Unexpected class name, should be Policy or Plan: "
-                + class_name
+                "Unexpected class name, should be Policy or Plan: " + class_name
             )
 
         # init export data list
@@ -369,9 +360,9 @@ class CovidPolicyExportPlugin(ExcelExport):
                     if table_and_field in custom_fields:
                         meta: Metadata = metadata_by_field[table_name][field]
                         if table_and_field in custom_value_getters:
-                            custom_value_getter: Callable = (
-                                custom_value_getters[table_and_field]
-                            )
+                            custom_value_getter: Callable = custom_value_getters[
+                                table_and_field
+                            ]
                             if custom_value_getter is None:
                                 continue
                             val: str = custom_value_getter(raw_vals)
@@ -437,8 +428,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                             cell_val = "; ".join(final_vals)
                     elif (
                         field == "iso3"
-                        and cell_vals_by_field.get(level_field_name)
-                        == "Tribal nation"
+                        and cell_vals_by_field.get(level_field_name) == "Tribal nation"
                     ):
                         cell_val = "N/A"
 
@@ -457,10 +447,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                     elif raw_val_type == datetime.date:
                         cell_val = date_to_str(raw_val)
 
-                    if (
-                        is_listlike(cell_val)
-                        and table_and_field not in custom_fields
-                    ):
+                    if is_listlike(cell_val) and table_and_field not in custom_fields:
                         cell_val = "; ".join([v for v in cell_val if v != ""])
 
                     meta: Metadata = metadata_by_field[table_name][field]
@@ -521,24 +508,17 @@ class CovidPolicyExportPlugin(ExcelExport):
         custom_metadata: list = (
             None
             if class_name != "PolicySummary"
-            else [
-                m
-                for m in policyexport.policy_summary_custom_metadata
-                if m["export"]
-            ]
+            else [m for m in policyexport.policy_summary_custom_metadata if m["export"]]
         )
 
         # get all metadata
         db = self.db
-        metadata: list = (
-            custom_metadata if custom_metadata is not None else dict()
-        )
+        metadata: list = custom_metadata if custom_metadata is not None else dict()
         if custom_metadata is None:
             metadata_tmp = select(
                 i
                 for i in db.Metadata
-                if i.export == True
-                and i.class_name == class_name  # noqa: E712
+                if i.export == True and i.class_name == class_name  # noqa: E712
             ).order_by(db.Metadata.order)
             metadata = [m.to_dict() for m in metadata_tmp]
 
@@ -558,9 +538,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                             "the policy"
                         )
                     elif row_type == "possible_values":
-                        row[d["colgroup"]][
-                            "Attachment for policy"
-                        ] = "Any URL(s)"
+                        row[d["colgroup"]]["Attachment for policy"] = "Any URL(s)"
                 else:
                     row[d["colgroup"]][d["display_name"]] = d[row_type]
             rows.append(row)

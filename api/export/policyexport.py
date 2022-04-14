@@ -67,9 +67,7 @@ def get_export_data(
     custom_fields: Set[str] = {"File.permalink"}
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(
-        filters=filters, return_db_instances=True
-    )
+    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(
@@ -184,27 +182,19 @@ def get_export_data_summary(
         # "Policy.desc": None,
         "Policy.primary_ph_measure": lambda inst: f"""Category: {inst[4]}"""
         f"""\n\nSubcategory: {inst[5]}"""
-        + (
-            f"""\n\nTargets: {delim.join(inst[6])}"""
-            if len(inst[6]) > 0
-            else ""
-        ),
+        + (f"""\n\nTargets: {delim.join(inst[6])}""" if len(inst[6]) > 0 else ""),
         "Policy.ph_measure_details": None,
         "Policy.subtarget": None,
     }
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(
-        filters=filters, return_db_instances=True
-    )
+    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(
         (
             i.id,
-            group_concat(
-                f"{ae.place.loc} ({ae.place.level})", "; ", distinct=True
-            ),
+            group_concat(f"{ae.place.loc} ({ae.place.level})", "; ", distinct=True),
             group_concat(f"{pl.loc} ({pl.level})", "; ", distinct=True),
             f"{i.policy_name}:\n{i.desc}",
             i.primary_ph_measure,
@@ -303,8 +293,7 @@ Subcategories and targets: See all possible values, with corresponding definitio
         "field": "permalink",
         "display_name": "PDF / Link",
         "colgroup": "Files",
-        "definition": "URL of permanently hosted PDF document(s) for "
-        "the policy",
+        "definition": "URL of permanently hosted PDF document(s) for " "the policy",
         "possible_values": "Any URL(s)",
         "entity_name": "File",
         "export": True,
