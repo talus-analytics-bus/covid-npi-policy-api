@@ -1,10 +1,12 @@
 version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@2.0.3
 jobs:
   deploy:
     working_directory: ~/repo
 
     docker:
-      - image: cimg/python:3.7
+      - image: cimg/python:3.7.10
 
     parameters:
       env:
@@ -12,7 +14,7 @@ jobs:
 
     steps:
       - checkout
-
+      - aws-cli/install
       - run:
           name: Installing Deployment Dependencies
           working_directory: /

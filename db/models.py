@@ -102,9 +102,7 @@ class Policy(db.Entity):
     prior_policy = Set("Policy", table="policy_to_prior_policy")
     _prior_policy = Set("Policy", reverse="prior_policy")
     plan = Optional("Plan")
-    court_challenges = Set(
-        "Court_Challenge", table="policies_to_court_challenges"
-    )
+    court_challenges = Set("Court_Challenge", table="policies_to_court_challenges")
     _policy_by_group_number = Optional("Policy_By_Group_Number")
     _policy_day_dates = Optional("Policy_Day_Dates")
 
@@ -226,9 +224,7 @@ class Policy(db.Entity):
                     try:
                         only = return_fields_by_entity.get("auth_entity", ())
                         instances.append(
-                            Auth_Entity[id].to_dict_2(
-                                only=only, only_place=only_place
-                            )
+                            Auth_Entity[id].to_dict_2(only=only, only_place=only_place)
                         )
                     except Exception:
                         pass
@@ -558,7 +554,7 @@ class Place(db.Entity):
     loc = Optional(str)
     home_rule = Optional(str)
     dillons_rule = Optional(str)
-    ansi_fips = Optional(str, 5)
+    ansi_fips = Optional(str)
 
     # relationships
     policies = Set("Policy")

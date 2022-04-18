@@ -78,6 +78,7 @@ pyOpenSSL = "==19.1.0"
 python-Levenshtein = "==0.12.2"
 XlsxWriter = "==1.2.8"
 black = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.7"

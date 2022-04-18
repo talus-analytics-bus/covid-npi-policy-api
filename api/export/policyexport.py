@@ -28,6 +28,7 @@ def get_export_data(
         "Auth_Entity.Place.iso3",
         "Auth_Entity.Place.area1",
         "Auth_Entity.Place.area2",
+        "Auth_Entity.Place.area2code",
         "Auth_Entity.name",
         "Auth_Entity.office",
         "Auth_Entity.official",
@@ -36,6 +37,7 @@ def get_export_data(
         "Place.iso3",
         "Place.area1",
         "Place.area2",
+        "Place.area2code",
         "Policy.relaxing_or_restricting",
         "Policy.primary_ph_measure",
         "Policy.ph_measure_details",
@@ -65,9 +67,7 @@ def get_export_data(
     custom_fields: Set[str] = {"File.permalink"}
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(
-        filters=filters, return_db_instances=True
-    )
+    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(
@@ -82,6 +82,7 @@ def get_export_data(
             group_concat(ae.place.iso3, "; ", distinct=True),
             group_concat(ae.place.area1, "; ", distinct=True),
             group_concat(ae.place.area2, "; ", distinct=True),
+            group_concat(ae.place.area2 + "___" + ae.place.ansi_fips, "; ", distinct=True),
             group_concat(ae.name, "; ", distinct=True),
             group_concat(ae.office, "; ", distinct=True),
             group_concat(ae.official, "; ", distinct=True),
@@ -90,6 +91,7 @@ def get_export_data(
             group_concat(pl.iso3, "; ", distinct=True),
             group_concat(pl.area1, "; ", distinct=True),
             group_concat(pl.area2, "; ", distinct=True),
+            group_concat(pl.area2 + "___" + pl.ansi_fips, "; ", distinct=True),
             i.relaxing_or_restricting,
             i.primary_ph_measure,
             i.ph_measure_details,
@@ -180,27 +182,19 @@ def get_export_data_summary(
         # "Policy.desc": None,
         "Policy.primary_ph_measure": lambda inst: f"""Category: {inst[4]}"""
         f"""\n\nSubcategory: {inst[5]}"""
-        + (
-            f"""\n\nTargets: {delim.join(inst[6])}"""
-            if len(inst[6]) > 0
-            else ""
-        ),
+        + (f"""\n\nTargets: {delim.join(inst[6])}""" if len(inst[6]) > 0 else ""),
         "Policy.ph_measure_details": None,
         "Policy.subtarget": None,
     }
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(
-        filters=filters, return_db_instances=True
-    )
+    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(
         (
             i.id,
-            group_concat(
-                f"{ae.place.loc} ({ae.place.level})", "; ", distinct=True
-            ),
+            group_concat(f"{ae.place.loc} ({ae.place.level})", "; ", distinct=True),
             group_concat(f"{pl.loc} ({pl.level})", "; ", distinct=True),
             f"{i.policy_name}:\n{i.desc}",
             i.primary_ph_measure,
@@ -299,8 +293,7 @@ Subcategories and targets: See all possible values, with corresponding definitio
         "field": "permalink",
         "display_name": "PDF / Link",
         "colgroup": "Files",
-        "definition": "URL of permanently hosted PDF document(s) for "
-        "the policy",
+        "definition": "URL of permanently hosted PDF document(s) for " "the policy",
         "possible_values": "Any URL(s)",
         "entity_name": "File",
         "export": True,
