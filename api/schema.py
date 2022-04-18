@@ -23,9 +23,10 @@ from pony.orm import (
     exists,
     group_concat,
 )
+from fastapi import HTTPException
 from fastapi.responses import Response
 from fuzzywuzzy import fuzz
-from pony.orm.core import Query
+from pony.orm.core import Query, ObjectNotFound
 
 # local modules
 from .routing import GeoRes
@@ -102,18 +103,13 @@ def export(filters: dict = None, class_name: str = "Policy"):
 
     """
     media_type = (
-        "application/"
-        + "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/" + "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
     # If all data: return static Excel file
     if class_name.startswith("all_static"):
-        suffix: str = (
-            " (summary)" if class_name == "all_static_summary" else ""
-        )
-        suffix_name: str = (
-            " (summary)" if class_name == "all_static_summary" else " "
-        )
+        suffix: str = " (summary)" if class_name == "all_static_summary" else ""
+        suffix_name: str = " (summary)" if class_name == "all_static_summary" else " "
         today = date.today()
         file = download_file(
             "https://ghssidea.org/downloads/"
@@ -145,9 +141,7 @@ def get_version():
     ]
     d: dict = None
     for d in data:
-        d["map_types"] = (
-            d["map_types"].replace("{", "").replace("}", "").split(",")
-        )
+        d["map_types"] = d["map_types"].replace("{", "").replace("}", "").split(",")
     data.sort(key=lambda x: x["name"], reverse=True)
     data.sort(key=lambda x: x["date"], reverse=True)
     return {"success": True, "data": data, "message": "Success"}
@@ -256,7 +250,12 @@ def get_file_title(id: int):
     """
 
     # define filename from File instance field
-    file = db.File[id]
+    try:
+        file = db.File[id]
+    except ObjectNotFound:
+        raise HTTPException(
+            status_code=404, detail="No file found with ID = " + str(id)
+        )
     return file.name
 
 
@@ -341,9 +340,7 @@ def get_policy_number(
             field = field_tmp.split(".")[1]
             if direction == "desc":
                 q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
+                    lambda i: desc(group_concat(getattr(p, field) for p in i.place))
                 )
             else:
                 q = q.order_by(
@@ -405,9 +402,7 @@ def get_policy_number(
             datum = PolicyNumber(
                 policy_number=d_dict["id"],
                 titles=d_dict["names"],
-                auth_entity_offices=[
-                    ae.office for ae in d_dict["auth_entity"]
-                ],
+                auth_entity_offices=[ae.office for ae in d_dict["auth_entity"]],
                 policies=[
                     Policy(
                         id=p.id,
@@ -558,22 +553,16 @@ def get_policy(
                     # smallest value of the attribute among policy's places
                     if direction == "desc":
                         q = select(
-                            (i, max(getattr(pl, field)))
-                            for i in q
-                            for pl in i.place
+                            (i, max(getattr(pl, field))) for i in q for pl in i.place
                         ).order_by(desc(2))
                     else:
                         q = select(
-                            (i, min(getattr(pl, field)))
-                            for i in q
-                            for pl in i.place
+                            (i, min(getattr(pl, field))) for i in q for pl in i.place
                         ).order_by(2)
                 else:
                     field = field_tmp
                     if direction == "desc":
-                        q = q.order_by(
-                            raw_sql(f"""i.{field} DESC NULLS LAST""")
-                        )
+                        q = q.order_by(raw_sql(f"""i.{field} DESC NULLS LAST"""))
                     else:
                         q = q.order_by(raw_sql(f"""i.{field} NULLS LAST"""))
         else:
@@ -595,9 +584,7 @@ def get_policy(
             return_fields_by_entity = defaultdict(list)
 
             if fields is not None:
-                return_fields_by_entity["policy"] = [
-                    f for f in fields if "." not in f
-                ]
+                return_fields_by_entity["policy"] = [f for f in fields if "." not in f]
 
             # get any linked entity fields and parse them
             for f in fields:
@@ -614,9 +601,7 @@ def get_policy(
                     return_fields_by_entity["policy"].append(ent)
 
             for ent in return_fields_by_entity:
-                return_fields_by_entity[ent] = list(
-                    set(return_fields_by_entity[ent])
-                )
+                return_fields_by_entity[ent] = list(set(return_fields_by_entity[ent]))
 
             # TODO dynamically set fields returned for Place and other
             # linked entities
@@ -659,9 +644,7 @@ def get_policy(
             for d, *_ in q_res:
                 # convert it to a dictionary returning only the
                 # specified fields
-                d_dict = d.to_dict_2(
-                    return_fields_by_entity=return_fields_by_entity
-                )
+                d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
                 # add it to the output list
                 data.append(d_dict)
 
@@ -759,9 +742,7 @@ def get_challenge(
             field = field_tmp.split(".")[1]
             if direction == "desc":
                 q = q.order_by(
-                    lambda i: desc(
-                        group_concat(getattr(p, field) for p in i.place)
-                    )
+                    lambda i: desc(group_concat(getattr(p, field) for p in i.place))
                 )
             else:
                 q = q.order_by(
@@ -805,9 +786,7 @@ def get_challenge(
         # for each policy
         for d in q:
             # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity
-            )
+            d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
             # add it to the output list
             data.append(d_dict)
 
@@ -878,9 +857,7 @@ def get_place(
 
     # create response from output list
     n = len(data)
-    res = ListResponse(
-        data=data, success=True, message=f"""{n} place(s) found""", n=n
-    )
+    res = ListResponse(data=data, success=True, message=f"""{n} place(s) found""", n=n)
     return res
 
 
@@ -981,9 +958,7 @@ def get_plan(
         for d in q:
 
             # convert it to a dictionary returning only the specified fields
-            d_dict = d.to_dict_2(
-                return_fields_by_entity=return_fields_by_entity
-            )
+            d_dict = d.to_dict_2(return_fields_by_entity=return_fields_by_entity)
 
             # add it to the output list
             data.append(d_dict)
@@ -1110,9 +1085,7 @@ def get_policy_status(
                 ).order_by(db.Observation.date)
 
                 if name is not None:
-                    observations = observations.filter(
-                        lambda x: x.place.area1 == name
-                    )
+                    observations = observations.filter(lambda x: x.place.area1 == name)
 
                 for d in observations:
                     datum = {
@@ -1182,9 +1155,7 @@ def get_lockdown_level(
             iso3_where_clause = f"""and place = {iso3_p.id}"""
 
     distinct_clause = (
-        "distinct on (place)"
-        if end_date is None
-        else "distinct on (place, date)"
+        "distinct on (place)" if end_date is None else "distinct on (place, date)"
     )
     q = db.Observation.select_by_sql(
         f"""
@@ -1372,8 +1343,7 @@ def apply_entity_filters(
                 q = select(
                     i
                     for i in q
-                    if getattr(i, field) in allowed_values
-                    or getattr(i, field) == ""
+                    if getattr(i, field) in allowed_values or getattr(i, field) == ""
                 )
 
             else:
@@ -1412,17 +1382,11 @@ def apply_entity_filters(
                         (pd.start_date <= win_left and win_left <= pd.end_date)
                         or
                         # right is during window (inclusive)
-                        (
-                            pd.start_date <= win_right
-                            and win_right <= pd.end_date
-                        )
+                        (pd.start_date <= win_right and win_right <= pd.end_date)
                         or
                         # left is before start AND right is after or
                         # during start
-                        (
-                            win_left < pd.start_date
-                            and pd.start_date <= win_right
-                        )
+                        (win_left < pd.start_date and pd.start_date <= win_right)
                     )
                 )
                 continue
@@ -1578,9 +1542,7 @@ def apply_entity_filters(
         elif join_policy_nonset_field:
             q = q.filter(
                 lambda i: exists(
-                    t
-                    for t in i.policies
-                    if getattr(t, field) in allowed_values
+                    t for t in i.policies if getattr(t, field) in allowed_values
                 )
             )
 
@@ -1589,13 +1551,9 @@ def apply_entity_filters(
         elif field in set_fields:
             allowed_values = list(map(lambda x: '"' + x + '"', allowed_values))
             raw_sql_allowed_values = ", ".join(allowed_values)
-            raw_sql_allowed_values = (
-                "'{" + raw_sql_allowed_values + "}'::text[]"
-            )
+            raw_sql_allowed_values = "'{" + raw_sql_allowed_values + "}'::text[]"
             q = q.filter(
-                lambda x: raw_sql(
-                    raw_sql_allowed_values + ' && "i"."' + field + '"'
-                )
+                lambda x: raw_sql(raw_sql_allowed_values + ' && "i"."' + field + '"')
             )
         else:
             # if the filter is not a join, i.e., is on policy native fields
@@ -1882,9 +1840,7 @@ def apply_subgeo_filter(q: Query, geo_res: GeoRes) -> Query:
     if geo_res == GeoRes.state:
         q = q.filter(
             lambda i: not exists(
-                t
-                for t in i.place
-                if t.level in ("State / Province", "Country")
+                t for t in i.place if t.level in ("State / Province", "Country")
             )
         )
     elif geo_res == GeoRes.country:
@@ -1892,7 +1848,5 @@ def apply_subgeo_filter(q: Query, geo_res: GeoRes) -> Query:
             lambda i: not exists(t for t in i.place if t.level in ("Country",))
         )
     else:
-        raise NotImplementedError(
-            "Unimplemented geographic resolution: " + geo_res
-        )
+        raise NotImplementedError("Unimplemented geographic resolution: " + geo_res)
     return q
