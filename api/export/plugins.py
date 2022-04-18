@@ -413,7 +413,7 @@ class CovidPolicyExportPlugin(ExcelExport):
                                 "State / Province",
                                 "Tribal nation",
                             )
-                            and cell_val in ("Unspecified", None, "")
+                            and cell_val in ("Unspecified", "Unspecified___", None, "")
                         ):
                             cell_val = "N/A"
                         elif cell_val is not None and "___" in cell_val:

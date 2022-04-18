@@ -1,3 +1,4 @@
+from datetime import date
 import re
 import unittest
 from typing import Dict, List
@@ -19,7 +20,9 @@ class TestLocalAreaCodes(unittest.TestCase):
             db.generate_mapping(create_tables=False)
             TestLocalAreaCodes.mapping_generated = True
 
-    @pytest.mark.slow
+        if not hasattr(self, "__local_place_ansi_fips_by_loc"):
+            self.__local_place_ansi_fips_by_loc = None
+
     def test_usa_al(self):
         self.__test_usa_excel(
             {
@@ -28,16 +31,23 @@ class TestLocalAreaCodes(unittest.TestCase):
             }
         )
 
-    # @pytest.mark.slow
     def test_blackfeet_nation(self):
         self.__test_usa_excel(
             {
-                "country_name": ["United States of America (USA)"],
+                "country_name": ["Blackfeet Nation"],
                 "area1": ["Blackfeet Nation"],
             }
         )
 
-    @pytest.mark.slow
+    def test_usa_ny_localities_2020(self):
+        self.__test_usa_excel(
+            {
+                "country_name": ["United States of America (USA)"],
+                "area1": ["New York"],
+                "dates_in_effect": [date(2020, 1, 1), date(2020, 8, 1)],
+            }
+        )
+
     def test_usa_ca(self):
         self.__test_usa_excel(
             {
@@ -46,28 +56,37 @@ class TestLocalAreaCodes(unittest.TestCase):
             }
         )
 
-    def test_usa_al_lauderdale_county(self):
+    def test_usa_al_jefferson_county(self):
         self.__test_usa_excel(
             {
                 "country_name": ["United States of America (USA)"],
                 "area1": ["Alabama"],
-                "area2": ["Lauderdale County, AL"],
+                "area2": ["Jefferson County, AL"],
             }
         )
 
-    def test_usa_mi_farmington(self):
+    def test_usa_az_pima(self):
         self.__test_usa_excel(
             {
                 "country_name": ["United States of America (USA)"],
-                "area1": ["Michigan"],
-                "area2": ["Farmington County, MI"],
+                "area1": ["Arizona"],
+                "area2": ["Pima County, AZ"],
             }
         )
 
     def __test_usa_excel(self, filters: dict):
         # download Excel
         df_row_dicts = self.__get_test_excel(filters=filters)
-        usa_fips_regex = re.compile("(\\d{5}|Undefined)")
+        usa_fips_regex = re.compile("^(\\d{5}|\\d{7}|Undefined)$")
+        lookup_ansi_fips_by_place_loc: Dict[
+            str, str
+        ] = self.__get_local_place_ansi_fips_by_loc()
+
+        # raise exception if no results since there should be some
+        if len(df_row_dicts) == 0:
+            raise ValueError(
+                "Expected at least some rows, but found zero. Check test filters."
+            )
 
         for row in df_row_dicts:
 
@@ -78,9 +97,7 @@ class TestLocalAreaCodes(unittest.TestCase):
                 affected_local_area_codes = row[
                     f"{place_type} local area (e.g., county, city) code"
                 ]
-                lookup_ansi_fips_by_place_loc: Dict[
-                    str, str
-                ] = self.__get_local_place_ansi_fips_by_loc()
+
                 if (
                     affected_local_area_codes != ""
                     and type(affected_local_area_codes) == str
@@ -89,16 +106,25 @@ class TestLocalAreaCodes(unittest.TestCase):
                         "; "
                     )
 
-                    # USA county FIPS codes should be 5 digits, with leading zero if applicable,
-                    # regex /\d{5}/; or they should be "Undefined"
+                    # Local area code should be correctly formed
+                    level: str = row[f"{place_type} level of government"]
                     assert all(
-                        usa_fips_regex.match(code) is not None
+                        (
+                            (
+                                level == "Local"
+                                and usa_fips_regex.match(code) is not None
+                            )
+                            or (level != "Local" and code == "N/A")
+                        )
                         for code in affected_local_area_codes_list
                     )
 
-                    # The location codes should be listed in the same order as the place names
+                    # The location codes should be listed in the same order as the
+                    # place names
                     affected_local_area_locs_list = affected_local_area_locs.split("; ")
                     for idx, loc in enumerate(affected_local_area_locs_list):
+                        if loc == "N/A" and level != "Local":
+                            continue
                         assert loc in lookup_ansi_fips_by_place_loc
                         assert (
                             lookup_ansi_fips_by_place_loc[loc]
@@ -114,14 +140,26 @@ class TestLocalAreaCodes(unittest.TestCase):
         assert response.status_code == 200
 
         # read Excel
-        df = pd.read_excel(response.body, engine="openpyxl", header=6)
+        df = pd.read_excel(
+            response.body, engine="openpyxl", header=6, keep_default_na=False
+        )
         df_row_dicts: List[dict] = df.to_dict(orient="records")
         assert df is not None
         return df_row_dicts
 
     @db_session
     def __get_local_place_ansi_fips_by_loc(self) -> Dict[str, str]:
-        places = select(p for p in models.Place if p.level == "Local")[:][:]
-        return {
-            p.area2: p.ansi_fips if p.ansi_fips != "" else "Undefined" for p in places
-        }
+        if self.__local_place_ansi_fips_by_loc is None:
+            places = select(p for p in models.Place if p.level == "Local")[:][:]
+            lookup_table = {
+                p.area2: p.ansi_fips if p.ansi_fips != "" else "Undefined"
+                for p in places
+            }
+            self.__local_place_ansi_fips_by_loc = lookup_table
+
+        return self.__local_place_ansi_fips_by_loc
+
+
+if __name__ == "__main__":
+    tc = TestLocalAreaCodes("test_blackfeet_nation")
+    tc()
