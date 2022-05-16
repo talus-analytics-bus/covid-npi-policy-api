@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<database name="covid-npi-policy-test" schema="public" type="PostgreSQL - 10.18">
+   <tables>
+      <table name="auth_entity" numRows="2895" remarks="Authorizing entity information, including associated place, policies, and plans. The authorizing entity is the authority that enacts the policy, which is not necessarily the place that is affected by it." schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('auth_entity_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
+            <child column="auth_entity" foreignKey="fk_auth_entity_policy_number__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_policy_number"/>
+            <child column="auth_entity" foreignKey="fk_auth_entity_to_plan__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_plan"/>
+            <child column="auth_entity" foreignKey="fk_auth_entity_to_policy__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="office" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="place" nullable="true" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity__place" implied="false" onDeleteCascade="false" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="official" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="auth_entity_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="idx_auth_entity__place" unique="false">
+            <column ascending="true" name="place"/>
+         </index>
+      </table>
+      <table name="auth_entity_policy_number" numRows="18176" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="auth_entity" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_policy_number__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy_number" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="policy_number"/>
+         </column>
+         <primaryKey column="auth_entity" sequenceNumberInPK="1"/>
+         <primaryKey column="policy_number" sequenceNumberInPK="2"/>
+         <index name="auth_entity_policy_number_pkey" unique="true">
+            <column ascending="true" name="auth_entity"/>
+            <column ascending="true" name="policy_number"/>
+         </index>
+         <index name="idx_auth_entity_policy_number" unique="false">
+            <column ascending="true" name="policy_number"/>
+         </index>
+      </table>
+      <table name="auth_entity_to_plan" numRows="493" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="auth_entity" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_to_plan__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="plan" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="plan"/>
+         </column>
+         <primaryKey column="auth_entity" sequenceNumberInPK="1"/>
+         <primaryKey column="plan" sequenceNumberInPK="2"/>
+         <index name="auth_entity_to_plan_pkey" unique="true">
+            <column ascending="true" name="auth_entity"/>
+            <column ascending="true" name="plan"/>
+         </index>
+         <index name="idx_auth_entity_to_plan" unique="false">
+            <column ascending="true" name="plan"/>
+         </index>
+      </table>
+      <table name="auth_entity_to_policy" numRows="41840" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="auth_entity" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_to_policy__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_auth_entity_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <primaryKey column="auth_entity" sequenceNumberInPK="1"/>
+         <primaryKey column="policy" sequenceNumberInPK="2"/>
+         <index name="auth_entity_to_policy_pkey" unique="true">
+            <column ascending="true" name="auth_entity"/>
+            <column ascending="true" name="policy"/>
+         </index>
+         <index name="idx_auth_entity_to_policy" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+      </table>
+      <table name="court_challenge" numRows="214" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <child column="court_challenge" foreignKey="fk_policies_to_court_challenges__court_challenge" implied="false" onDeleteCascade="true" schema="public" table="policies_to_court_challenges"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="jurisdiction" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="court" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="legal_authority_challenged" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="parties" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="date_of_complaint" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="date_of_decision" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="case_number" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="8" name="legal_citation" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="9" name="filed_in_state_or_federal_court" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="10" name="summary_of_action" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="11" name="complaint_category" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="12" name="legal_challenge" nullable="true" remarks="" size="1" type="bool" typeCode="-7"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="13" name="case_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="14" name="procedural_history" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="15" name="holding" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="16" name="government_order_upheld_or_enjoined" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="17" name="subsequent_action_or_current_status" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="18" name="did_doj_file_statement_of_interest" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="19" name="summary_of_doj_statement_of_interest" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="20" name="data_source_for_complaint" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="21" name="data_source_for_decision" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="22" name="data_source_for_doj_statement_of_interest" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="23" name="pdf_documentation" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="24" name="policy_or_law_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="25" name="source_id" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="26" name="matter_numbers" nullable="true" remarks="" size="10" type="_int4" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="27" name="search_text" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="28" name="policy_categories" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="29" name="parties_or_citation_and_summary_of_action" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="30" name="complaint_category_new" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="31" name="complaint_subcategory_new" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="32" name="policy_status" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="33" name="case_status" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="court_challenge_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="day_date" numRows="2193" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="day_date" nullable="false" remarks="" size="13" type="date" typeCode="91">
+            <child column="day_date" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="public" table="policy_day_dates"/>
+         </column>
+         <primaryKey column="day_date" sequenceNumberInPK="1"/>
+         <index name="day_date_pkey" unique="true">
+            <column ascending="true" name="day_date"/>
+         </index>
+         <index name="day_date_day_date_idx" unique="false">
+            <column ascending="true" name="day_date"/>
+         </index>
+      </table>
+      <table name="file" numRows="19094" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('file_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
+            <child column="file" foreignKey="fk_file_to_plan__file" implied="false" onDeleteCascade="true" schema="public" table="file_to_plan"/>
+            <child column="file" foreignKey="fk_file_to_policy__file" implied="false" onDeleteCascade="true" schema="public" table="file_to_policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="type" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="permalink" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="filename" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="airtable_attachment" nullable="false" remarks="" size="1" type="bool" typeCode="-7"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="file_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="file_to_plan" numRows="567" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="file" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_file_to_plan__file" implied="false" onDeleteCascade="true" schema="public" table="file"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="plan" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_file_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="plan"/>
+         </column>
+         <primaryKey column="file" sequenceNumberInPK="1"/>
+         <primaryKey column="plan" sequenceNumberInPK="2"/>
+         <index name="file_to_plan_pkey" unique="true">
+            <column ascending="true" name="file"/>
+            <column ascending="true" name="plan"/>
+         </index>
+         <index name="idx_file_to_plan" unique="false">
+            <column ascending="true" name="plan"/>
+         </index>
+      </table>
+      <table name="file_to_policy" numRows="41342" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="file" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_file_to_policy__file" implied="false" onDeleteCascade="true" schema="public" table="file"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_file_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <primaryKey column="file" sequenceNumberInPK="1"/>
+         <primaryKey column="policy" sequenceNumberInPK="2"/>
+         <index name="file_to_policy_pkey" unique="true">
+            <column ascending="true" name="file"/>
+            <column ascending="true" name="policy"/>
+         </index>
+         <index name="idx_file_to_policy" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+      </table>
+      <table name="glossary" numRows="321" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('glossary_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="term" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="subterm" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="definition" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="reference" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="entity_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="field" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="glossary_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="matter_number" numRows="0" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="ids" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="parties" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="case_numbers" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="matter_number_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="max_min_policy_count" numRows="4" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="max_policy_count_id" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="map_type" nullable="false" remarks="" size="2147483647" type="map_type" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="max_value" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="'2020-01-01'::date" digits="0" id="3" name="max_date" nullable="false" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="'2020-01-01'::date" digits="0" id="4" name="min_date" nullable="false" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="fk_place_id_max" nullable="true" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_id_max_place_id" implied="false" onDeleteCascade="false" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="fk_place_id_min" nullable="true" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_id_min_place_id" implied="false" onDeleteCascade="false" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="1" digits="0" id="7" name="min_value" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <primaryKey column="max_policy_count_id" sequenceNumberInPK="1"/>
+         <index name="max_policy_count_pkey" unique="true">
+            <column ascending="true" name="max_policy_count_id"/>
+         </index>
+      </table>
+      <table name="metadata" numRows="101" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="field" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="ingest_field" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="17" id="2" name="order" nullable="false" remarks="" size="17" type="float8" typeCode="8"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="display_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="colgroup" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="definition" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="possible_values" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="entity_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="8" name="export" nullable="false" remarks="" size="1" type="bool" typeCode="-7"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="9" name="class_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="10" name="table_name" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="11" name="tooltip" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="class_name" sequenceNumberInPK="1"/>
+         <primaryKey column="entity_name" sequenceNumberInPK="2"/>
+         <primaryKey column="field" sequenceNumberInPK="3"/>
+         <index name="metadata_pkey" unique="true">
+            <column ascending="true" name="class_name"/>
+            <column ascending="true" name="entity_name"/>
+            <column ascending="true" name="field"/>
+         </index>
+      </table>
+      <table name="observation" numRows="62656" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('observation_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="date" nullable="false" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="metric" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="value" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="source_id" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_observation__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
+         </column>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="observation_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="idx_observation__place" unique="false">
+            <column ascending="true" name="place"/>
+         </index>
+      </table>
+      <table name="place" numRows="7645" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('place_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
+            <child column="place" foreignKey="fk_auth_entity__place" implied="false" onDeleteCascade="false" schema="public" table="auth_entity"/>
+            <child column="fk_place_id_max" foreignKey="fk_place_id_max_place_id" implied="false" onDeleteCascade="false" schema="public" table="max_min_policy_count"/>
+            <child column="fk_place_id_min" foreignKey="fk_place_id_min_place_id" implied="false" onDeleteCascade="false" schema="public" table="max_min_policy_count"/>
+            <child column="place" foreignKey="fk_observation__place" implied="false" onDeleteCascade="true" schema="public" table="observation"/>
+            <child column="place" foreignKey="fk_place_policy_number__place" implied="false" onDeleteCascade="true" schema="public" table="place_policy_number"/>
+            <child column="place" foreignKey="fk_place_to_plan__place" implied="false" onDeleteCascade="true" schema="public" table="place_to_plan"/>
+            <child column="place" foreignKey="fk_place_to_policy__place" implied="false" onDeleteCascade="true" schema="public" table="place_to_policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="level" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="iso3" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="country_name" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="area1" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="area2" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="loc" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="home_rule" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="8" name="dillons_rule" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="9" name="ansi_fips" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="place_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="place_ansi_fips_idx" unique="false">
+            <column ascending="true" name="ansi_fips"/>
+         </index>
+         <index name="place_id_idx" unique="false">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="place_iso3_idx" unique="false">
+            <column ascending="true" name="iso3"/>
+         </index>
+         <index name="place_level_idx" unique="false">
+            <column ascending="true" name="level"/>
+         </index>
+         <index name="place_level_iso3_idx" unique="false">
+            <column ascending="true" name="level"/>
+            <column ascending="true" name="iso3"/>
+         </index>
+      </table>
+      <table name="place_policy_number" numRows="32150" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_policy_number__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy_number" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="policy_number"/>
+         </column>
+         <primaryKey column="place" sequenceNumberInPK="1"/>
+         <primaryKey column="policy_number" sequenceNumberInPK="2"/>
+         <index name="place_policy_number_pkey" unique="true">
+            <column ascending="true" name="place"/>
+            <column ascending="true" name="policy_number"/>
+         </index>
+         <index name="idx_place_policy_number" unique="false">
+            <column ascending="true" name="policy_number"/>
+         </index>
+      </table>
+      <table name="place_to_plan" numRows="493" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_to_plan__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="plan" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="plan"/>
+         </column>
+         <primaryKey column="place" sequenceNumberInPK="1"/>
+         <primaryKey column="plan" sequenceNumberInPK="2"/>
+         <index name="place_to_plan_pkey" unique="true">
+            <column ascending="true" name="place"/>
+            <column ascending="true" name="plan"/>
+         </index>
+         <index name="idx_place_to_plan" unique="false">
+            <column ascending="true" name="plan"/>
+         </index>
+      </table>
+      <table name="place_to_policy" numRows="994786" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_to_policy__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_place_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <primaryKey column="place" sequenceNumberInPK="1"/>
+         <primaryKey column="policy" sequenceNumberInPK="2"/>
+         <index name="place_to_policy_pkey" unique="true">
+            <column ascending="true" name="place"/>
+            <column ascending="true" name="policy"/>
+         </index>
+         <index name="idx_place_to_policy" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+         <index name="place_to_policy_place_idx" unique="false">
+            <column ascending="true" name="place"/>
+         </index>
+         <index name="place_to_policy_policy_idx" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+      </table>
+      <table name="plan" numRows="493" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('plan_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
+            <child column="plan" foreignKey="fk_auth_entity_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_plan"/>
+            <child column="plan" foreignKey="fk_file_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="file_to_plan"/>
+            <child column="plan" foreignKey="fk_place_to_plan__plan" implied="false" onDeleteCascade="true" schema="public" table="place_to_plan"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="source_id" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="desc" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="org_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="org_type" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="date_issued" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="date_start_effective" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="8" name="date_end_effective" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="9" name="n_phases" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="10" name="auth_entity_has_authority" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="11" name="reqs_essential" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="12" name="reqs_private" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="13" name="reqs_school" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="14" name="reqs_social" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="15" name="reqs_hospital" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="16" name="reqs_other" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="17" name="plan_data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="18" name="announcement_data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="19" name="policy" nullable="true" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_plan__policy" implied="false" onDeleteCascade="false" schema="public" table="policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="20" name="primary_loc" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="21" name="residential" nullable="true" remarks="" size="1" type="bool" typeCode="-7"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="22" name="reqs_public" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="23" name="search_text" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="24" name="name_and_desc" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="plan_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="idx_plan__policy" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+      </table>
+      <table name="policies_to_court_challenges" numRows="0" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="court_challenge" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policies_to_court_challenges__court_challenge" implied="false" onDeleteCascade="true" schema="public" table="court_challenge"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policies_to_court_challenges__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <primaryKey column="court_challenge" sequenceNumberInPK="1"/>
+         <primaryKey column="policy" sequenceNumberInPK="2"/>
+         <index name="policies_to_court_challenges_pkey" unique="true">
+            <column ascending="true" name="court_challenge"/>
+            <column ascending="true" name="policy"/>
+         </index>
+         <index name="idx_policies_to_court_challenges" unique="false">
+            <column ascending="true" name="policy"/>
+         </index>
+      </table>
+      <table name="policy" numRows="40812" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('policy_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
+            <child column="policy" foreignKey="fk_auth_entity_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_policy"/>
+            <child column="policy" foreignKey="fk_file_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="file_to_policy"/>
+            <child column="policy" foreignKey="fk_place_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="place_to_policy"/>
+            <child column="policy" foreignKey="fk_plan__policy" implied="false" onDeleteCascade="false" schema="public" table="plan"/>
+            <child column="policy" foreignKey="fk_policies_to_court_challenges__policy" implied="false" onDeleteCascade="true" schema="public" table="policies_to_court_challenges"/>
+            <child column="policy" foreignKey="fk_policy_number_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy_number_to_policy"/>
+            <child column="policy" foreignKey="fk_policy_to_prior_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy_to_prior_policy"/>
+            <child column="policy_2" foreignKey="fk_policy_to_prior_policy__policy_2" implied="false" onDeleteCascade="true" schema="public" table="policy_to_prior_policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="source_id" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="policy_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="desc" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="primary_ph_measure" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="ph_measure_details" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="policy_type" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="primary_impact" nullable="false" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="8" name="intended_duration" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="9" name="announcement_data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="10" name="policy_data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="11" name="policy_number" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="12" name="relaxing_or_restricting" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="13" name="auth_entity_has_authority" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="14" name="authority_name" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="15" name="auth_entity_authority_data_source" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="16" name="date_issued" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="17" name="date_start_effective" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="18" name="date_end_anticipated" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="19" name="date_end_actual" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="20" name="search_text" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="21" name="name_and_desc" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="22" name="group_number" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="23" name="subtarget" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="policy_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+         <index name="policy_group_number_idx" unique="false">
+            <column ascending="true" name="group_number"/>
+         </index>
+         <index name="policy_primary_ph_measure_idx" unique="false">
+            <column ascending="true" name="primary_ph_measure"/>
+         </index>
+      </table>
+      <table name="policy_by_group_number" numRows="0" remarks="" schema="public" type="VIEW" viewSql=" SELECT DISTINCT ON ((min(policy.id)), policy.group_number) min(policy.id) AS fk_policy_id,&#10;    policy.group_number&#10;   FROM policy&#10;  GROUP BY policy.group_number&#10;  ORDER BY (min(policy.id)), policy.group_number;">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="fk_policy_id" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="group_number" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+      </table>
+      <table name="policy_date" numRows="0" remarks="" schema="public" type="VIEW" viewSql=" SELECT policy.id AS fk_policy_id,&#10;    policy.date_start_effective AS start_date,&#10;    COALESCE((COALESCE(policy.date_end_actual, policy.date_end_anticipated))::timestamp without time zone, (policy.date_start_effective + '1 mon'::interval)) AS end_date&#10;   FROM policy;">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="fk_policy_id" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="start_date" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="6" id="2" name="end_date" nullable="true" remarks="" size="29" type="timestamp" typeCode="93"/>
+      </table>
+      <table name="policy_day_dates" numRows="0" remarks="" schema="public" type="VIEW" viewSql=" SELECT p.id AS fk_policy_id,&#10;    dd.day_date&#10;   FROM ((policy p&#10;     JOIN policy_date pd ON ((pd.fk_policy_id = p.id)))&#10;     JOIN day_date dd ON (((dd.day_date &gt;= pd.start_date) AND (dd.day_date &lt;= pd.end_date))))&#10;  ORDER BY dd.day_date;">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="fk_policy_id" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="day_date" nullable="true" remarks="" size="13" type="date" typeCode="91">
+            <parent column="day_date" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="public" table="day_date"/>
+         </column>
+      </table>
+      <table name="policy_number" numRows="17312" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <child column="policy_number" foreignKey="fk_auth_entity_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_policy_number"/>
+            <child column="policy_number" foreignKey="fk_place_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="place_policy_number"/>
+            <child column="policy_number" foreignKey="fk_policy_number_to_policy__policy_number" implied="false" onDeleteCascade="true" schema="public" table="policy_number_to_policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="names" nullable="true" remarks="" size="2147483647" type="_text" typeCode="2003"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="earliest_date_start_effective" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="search_text" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="policy_number_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="policy_number_to_policy" numRows="40812" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policy_number_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy_number" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policy_number_to_policy__policy_number" implied="false" onDeleteCascade="true" schema="public" table="policy_number"/>
+         </column>
+         <primaryKey column="policy" sequenceNumberInPK="1"/>
+         <primaryKey column="policy_number" sequenceNumberInPK="2"/>
+         <index name="policy_number_to_policy_pkey" unique="true">
+            <column ascending="true" name="policy"/>
+            <column ascending="true" name="policy_number"/>
+         </index>
+         <index name="idx_policy_number_to_policy" unique="false">
+            <column ascending="true" name="policy_number"/>
+         </index>
+      </table>
+      <table name="policy_to_prior_policy" numRows="35976" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policy_to_prior_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="policy_2" nullable="false" remarks="" size="10" type="int4" typeCode="4">
+            <parent column="id" foreignKey="fk_policy_to_prior_policy__policy_2" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
+         </column>
+         <primaryKey column="policy" sequenceNumberInPK="1"/>
+         <primaryKey column="policy_2" sequenceNumberInPK="2"/>
+         <index name="policy_to_prior_policy_pkey" unique="true">
+            <column ascending="true" name="policy"/>
+            <column ascending="true" name="policy_2"/>
+         </index>
+         <index name="idx_policy_to_prior_policy" unique="false">
+            <column ascending="true" name="policy_2"/>
+         </index>
+      </table>
+      <table name="policycountsbyplace" numRows="0" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="level" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="iso3" nullable="false" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="policy_count" nullable="true" remarks="" size="10" type="int4" typeCode="4"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="policycountsbyplace_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+      <table name="policydate" numRows="0" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="fk_policy_id" nullable="false" remarks="" size="10" type="int4" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="start_date" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="end_date" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <primaryKey column="fk_policy_id" sequenceNumberInPK="1"/>
+         <index name="policydate_pkey" unique="true">
+            <column ascending="true" name="fk_policy_id"/>
+         </index>
+         <index name="policydate_end_date_idx" unique="false">
+            <column ascending="true" name="end_date"/>
+         </index>
+         <index name="policydate_fk_policy_id_idx" unique="false">
+            <column ascending="true" name="fk_policy_id"/>
+         </index>
+         <index name="policydate_start_date_idx" unique="false">
+            <column ascending="true" name="start_date"/>
+         </index>
+      </table>
+      <table name="version" numRows="5" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('version_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="name" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="date" nullable="false" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="last_datum_date" nullable="true" remarks="" size="13" type="date" typeCode="91"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="map_types" nullable="true" remarks="" size="2147483647" type="_map_type" typeCode="2003"/>
+         <primaryKey column="id" sequenceNumberInPK="1"/>
+         <index name="version_pkey" unique="true">
+            <column ascending="true" name="id"/>
+         </index>
+      </table>
+   </tables>
+</database>
