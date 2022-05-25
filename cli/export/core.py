@@ -57,9 +57,12 @@ def export(filename: Union[str, None], brief: bool, save_static: bool):
             f.write(excel_response.body)
 
     if save_static:
-        STATIC_EXCEL_FN: str = "staticfull.xlsx" if not brief else "staticsummary.xlsx"
+        STATIC_EXCEL_FN_BASE: str = "staticfull" if not brief else "staticsummary"
+        STATIC_EXCEL_FN: str = STATIC_EXCEL_FN_BASE + ".xlsx"
         STATIC_EXCEL_DIR: str = "api/export/static"
-        backup_excel_fn: str = "staticfull_" + date.today().strftime("%Y%m%d") + ".xlsx"
+        backup_excel_fn: str = (
+            f"""{STATIC_EXCEL_FN_BASE}_{date.today().strftime("%Y%m%d")}.xlsx"""
+        )
         STATIC_EXCEL_PATH: str = f"{STATIC_EXCEL_DIR}/{STATIC_EXCEL_FN}"
 
         # replace api/methods/excelexport/data/static*.xlsx
