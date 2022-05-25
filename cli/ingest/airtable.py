@@ -44,6 +44,14 @@ DBNAME_CLOUD_MAIN_TEST_DEFAULT: str = "covid-npi-policy-test"
     " database named in `--dbname-cloud` and which should be restarted after the"
     " database is updated. Only required if `--awseb-environment-name` is defined.",
 )
+@click.option(
+    "--postprocess-only",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="If flag set, then only postprocessing is run on the local database, and"
+    " no other steps in the workflow will be executed.",
+)
 @options.yes
 @options.skip_restore
 def airtable(
@@ -52,9 +60,15 @@ def airtable(
     dbname_local: Union[str, None],
     awseb_environment_name: Union[str, None],
     awseb_environment_region: Union[str, None],
+    postprocess_only: bool,
     yes: bool,
     skip_restore: bool,
 ):
+    if postprocess_only:
+        do_postprocessing()
+        return
+
+    # import modules (delay imports until this point to streamline CLI efficiency)
     from cli.database.restore import do_restore_to_cloud
     from db.config import execute_raw_sql
 
