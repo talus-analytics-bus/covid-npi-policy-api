@@ -6,6 +6,7 @@ from typing import Union, List, Tuple
 
 from pony import orm
 from pony.orm import db_session
+import psycopg2
 
 from . import configtools
 
@@ -35,6 +36,9 @@ def execute_raw_sql(statement: str) -> Union[List[Tuple], None]:
     """
     cursor = db.execute(statement)
     if cursor.rowcount > -1:
-        return [row for row in cursor]
+        try:
+            return [row for row in cursor]
+        except psycopg2.ProgrammingError:
+            return None
     else:
         return None
