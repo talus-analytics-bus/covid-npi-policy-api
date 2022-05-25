@@ -190,6 +190,7 @@ def do_main_ingest(
 
     # update tribal nation place tagging
     update_tribal_nation_fields()
+    print("Main data ingest complete")
 
 
 def do_postprocessing():
@@ -268,3 +269,5 @@ def do_postprocessing():
         REFRESH MATERIALIZED VIEW "policy_by_group_number";
         """
     )
+
+    print("Postprocessing scripts complete")
