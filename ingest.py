@@ -1,6 +1,7 @@
 """Run data ingest application"""
 # standard modules and packages
 import argparse
+import logging
 from datetime import date
 from ingest.distancinglevelgetter.core import DistancingLevelGetter
 from ingest.places.core import (
@@ -13,6 +14,9 @@ from ingest.places.core import (
 from api import schema
 from db import db
 from ingest.plugins import CovidPolicyPlugin, assign_policy_group_numbers
+
+# constants
+logger = logging.getLogger(__name__)
 
 # setup arguments
 parser = argparse.ArgumentParser(
