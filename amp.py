@@ -1,4 +1,6 @@
 import click
+
+from cli.database import database
 from cli.ingest import ingest
 
 
@@ -8,6 +10,7 @@ def amp():
 
 
 amp.add_command(ingest)
+amp.add_command(database)
 
 
 if __name__ == "__main__":
