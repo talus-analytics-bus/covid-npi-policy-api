@@ -1,6 +1,7 @@
 import click
 
-from . import clone_from_cloud, restore_to_cloud
+from .clone import clone_from_cloud
+from .restore import restore_to_cloud
 
 
 @click.group(
