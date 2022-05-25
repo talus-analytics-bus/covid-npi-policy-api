@@ -19,9 +19,7 @@ from ingest.plugins import CovidPolicyPlugin, assign_policy_group_numbers
 logger = logging.getLogger(__name__)
 
 # setup arguments
-parser = argparse.ArgumentParser(
-    description="Define which data ingest routines to run"
-)
+parser = argparse.ArgumentParser(description="Define which data ingest routines to run")
 parser.add_argument(
     "-a",
     "--all",
