@@ -4,7 +4,7 @@ ingest/backups
 # Shell scripts
 bin/
 sh/
-
+!cli/database/sh
 
 # database configurations
 db/config-local.ini
@@ -13,6 +13,7 @@ db/config-local.ini
 ingest/backups/dev/
 ingest/backups/local/
 ingest/backups/prod/
+cli/database/sh/backups
 
 # lambda resources
 lambda/amp-updater/update_case_data/resources/
