@@ -8,7 +8,7 @@ from enum import Enum
 
 # 3rd party modules
 from fastapi import Query, Path, Response
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, FileResponse
 from typing import List
 
 # local modules
@@ -154,11 +154,41 @@ async def post_export(
     if class_name == "All_data_summary":
         class_name = "all_static_summary"
     if class_name == ClassNameExport.none or class_name is None:
-        raise NotImplementedError(
-            "Must provide a `class_name` to /post/export"
-        )
+        raise NotImplementedError("Must provide a `class_name` to /post/export")
     filters = body.filters.dict() if bool(body.filters) is True else None
     return schema.export(filters=filters, class_name=class_name.name)
+
+
+@app.get(
+    "/export/static/full",
+    tags=["Downloads"],
+    summary="Return static, pre-generated Excel (.xlsx) File containing formatted data for all "
+    "records with no filters applied, in the 'full' format that contains all"
+    " data fields",
+    description=DOWNLOAD_DESCRIPTION,
+)
+async def get_export_static_full():
+    return FileResponse(
+        "api/export/static/staticfull.xlsx",
+        status_code=200,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="COVID AMP - Full Data Export.xlsx",
+    )
+@app.get(
+    "/export/static/summary",
+    tags=["Downloads"],
+    summary="Return static, pre-generated Excel (.xlsx) File containing formatted data for all "
+    "records with no filters applied, in the 'summary' format that contains only some"
+    " data fields",
+    description=DOWNLOAD_DESCRIPTION,
+)
+async def get_export_static_summary():
+    return FileResponse(
+        "api/export/static/staticsummary.xlsx",
+        status_code=200,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="COVID AMP - Summary Data Export.xlsx",
+    )
 
 
 @app.get(
@@ -243,8 +273,7 @@ async def get_count(
 async def get_metadata(
     entity_class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which metadata"
-        " are requested",
+        description="The name of the data type for which metadata" " are requested",
     ),
     fields: List[str] = Query(
         [
@@ -260,12 +289,8 @@ async def get_metadata(
         entity_class_name if entity_class_name != ClassName.none else None
     )
     if entity_class_name is None:
-        raise NotImplementedError(
-            "Must provide a `entity_class_name` to /get/metadata"
-        )
-    return schema.get_metadata(
-        fields=fields, entity_class_name=entity_class_name.name
-    )
+        raise NotImplementedError("Must provide a `entity_class_name` to /get/metadata")
+    return schema.get_metadata(fields=fields, entity_class_name=entity_class_name.name)
 
 
 @app.get("/file/redirect", tags=["Downloads"], include_in_schema=False)
@@ -370,8 +395,7 @@ async def post_policy(
     body: PolicyBody,
     fields: List[PolicyFields] = Query(
         [PolicyFields.id],
-        description="List of data fields that should be returned for"
-        " each policy",
+        description="List of data fields that should be returned for" " each policy",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
@@ -614,9 +638,7 @@ async def get_lockdown_level_model(
     tags=["Distancing levels"],
     include_in_schema=False,
 )
-async def get_lockdown_level_country(
-    iso3=str, end_date=str, deltas_only: bool = False
-):
+async def get_lockdown_level_country(iso3=str, end_date=str, deltas_only: bool = False):
     """Get lockdown level of a location by date."""
     return schema.get_lockdown_level(
         iso3=iso3,
@@ -836,8 +858,7 @@ async def post_plan(
     body: PlanBody,
     fields: List[PlanFields] = Query(
         [PlanFields.id],
-        description="List of data fields that should be returned for "
-        "each Plan",
+        description="List of data fields that should be returned for " "each Plan",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
@@ -865,8 +886,7 @@ def geo_res_def(default_val):
 
 state_name_def = Query(
     getattr(StateNames, "All states and territories"),
-    description='For "state" resolution: Which state(s) or territory(ies) '
-    "to return",
+    description='For "state" resolution: Which state(s) or territory(ies) ' "to return",
 )
 
 iso3_def = Query(
@@ -899,8 +919,7 @@ iso3_def = Query(
 async def get_optionset(
     class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which optionsets "
-        "are requested",
+        description="The name of the data type for which optionsets " "are requested",
     ),
     fields: List[str] = Query(
         ["Policy.primary_ph_measure", "Policy.ph_measure_details"],
@@ -917,14 +936,9 @@ async def get_optionset(
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
         state_name=state_name.name
-        if (
-            state_name is not None
-            and state_name.name != "All states and territories"
-        )
+        if (state_name is not None and state_name.name != "All states and territories")
         else None,
-        iso3=iso3.name
-        if (iso3 is not None and iso3.name != "All countries")
-        else None,
+        iso3=iso3.name if (iso3 is not None and iso3.name != "All countries") else None,
     )
 
 
@@ -990,15 +1004,10 @@ async def get_distancing_levels(
 ):
     state_name = (
         state_name.name
-        if state_name.name != ""
-        and state_name.name != "All states and territories"
+        if state_name.name != "" and state_name.name != "All states and territories"
         else None
     )
-    iso3 = (
-        iso3.name
-        if iso3.name != "" and iso3.name != "all_countries"
-        else "all"
-    )
+    iso3 = iso3.name if iso3.name != "" and iso3.name != "all_countries" else "all"
     end_date = None if not all_dates else str(date)
     date = None if all_dates else str(date)
 
