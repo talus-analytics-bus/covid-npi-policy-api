@@ -5,6 +5,7 @@
 from typing import Union, List, Tuple
 
 from pony import orm
+from pony.orm import db_session
 
 from . import configtools
 
@@ -22,6 +23,7 @@ db.bind(
 )
 
 
+@db_session
 def execute_raw_sql(statement: str) -> Union[List[Tuple], None]:
     """Runs the provided statement as raw SQL against the connected database.
 
