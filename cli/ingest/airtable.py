@@ -12,8 +12,6 @@ from cli import options
 logger = logging.getLogger(__name__)
 
 DBNAME_CLOUD_MAIN_TEST_DEFAULT: str = "covid-npi-policy-test"
-EB_TEST_ENV_NAME: str = "amp-dev2"
-EB_TEST_ENV_REGION: str = "us-west-1"
 
 
 @click.command(help="Ingest policy and other data from Airtable")
@@ -27,17 +25,44 @@ EB_TEST_ENV_REGION: str = "us-west-1"
     " environment variable `DBNAME_CLOUD_MAIN_TEST`.",
 )
 @options.dbmigration_local
+@click.option(
+    "--awseb-environment-name",
+    "-e",
+    default=None,
+    type=str,
+    help="Environment name of AWS Elastic Beanstalk application server which uses the"
+    " database named in `--dbname-cloud` and which should be restarted after the"
+    " database is updated. If blank, no server will be restarted.",
+)
+@click.option(
+    "--awseb-environment-region",
+    "-e",
+    default="us-west-1",
+    show_default=True,
+    type=str,
+    help="Region of AWS Elastic Beanstalk application server which uses the"
+    " database named in `--dbname-cloud` and which should be restarted after the"
+    " database is updated. Only required if `--awseb-environment-name` is defined.",
+)
 @options.yes
 @options.skip_restore
 def airtable(
     dbname_cloud: str,
     username_local: Union[str, None],
     dbname_local: Union[str, None],
+    awseb_environment_name: Union[str, None],
+    awseb_environment_region: Union[str, None],
     yes: bool,
     skip_restore: bool,
 ):
     from cli.database.restore import do_restore_to_cloud
     from db.config import execute_raw_sql
+
+    # validate
+    if awseb_environment_name is not None and awseb_environment_region is None:
+        raise ValueError("Must define both env name and region if name is defined")
+    if awseb_environment_name is None and awseb_environment_region is not None:
+        raise ValueError("Must define both env name and region if region is defined")
 
     # confirm
     if not yes:
@@ -63,22 +88,24 @@ def airtable(
         do_restore_to_cloud(dbname_cloud, username_local, dbname_local, yes=yes)
 
     # restart test API server
-    try:
-        subprocess.run(
-            [
-                "aws",
-                "elasticbeanstalk",
-                "restart-app-server",
-                EB_TEST_ENV_NAME,
-                EB_TEST_ENV_REGION,
-            ],
-            capture_output=True,
-        )
-    except Exception as e:
-        print(
-            "Could not restart Elastic Beanstalk app server environment"
-            f" named `{EB_TEST_ENV_NAME}`"
-        )
+    if awseb_environment_name is not None and awseb_environment_region is not None:
+        try:
+            subprocess.run(
+                [
+                    "aws",
+                    "elasticbeanstalk",
+                    "restart-app-server",
+                    awseb_environment_name,
+                    awseb_environment_region,
+                ],
+                capture_output=True,
+            )
+        except Exception as e:
+            print(
+                "Could not restart Elastic Beanstalk app server environment"
+                f" named `{awseb_environment_name}` in"
+                f" region {awseb_environment_region}"
+            )
 
 
 def do_main_ingest(
