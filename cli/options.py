@@ -46,6 +46,29 @@ def dbmigration_all(func):
     return func
 
 
+@click.option(
+    "--skip-restore",
+    "-s",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="If flag is set, skips restoring the local database to the cloud"
+    " database. Used for debugging purposes.",
+)
+def skip_restore(func):
+    op = click.option(
+        "--skip-restore",
+        "-s",
+        is_flag=True,
+        show_default=True,
+        default=False,
+        help="If flag is set, skips restoring the local database to the cloud"
+        " database. Used for debugging purposes.",
+    )
+    func = op(func)
+    return func
+
+
 def yes(func):
     """Adds option to respond "yes" automatically"""
     op = click.option(

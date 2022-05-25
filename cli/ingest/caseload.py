@@ -24,15 +24,7 @@ DBNAME_CLOUD_DEFAULT: str = "metric-amp"
 )
 @options.dbmigration_local
 @options.yes
-@click.option(
-    "--skip-restore",
-    "-s",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="If flag is set, skips restoring the local metrics database to the cloud"
-    " database. Used for debugging purposes.",
-)
+@options.skip_restore
 def caseload(
     dbname_cloud: str,
     username_local: Union[str, None],
