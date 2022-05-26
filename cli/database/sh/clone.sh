@@ -11,7 +11,7 @@ PGUSER_LOCAL=${1:?Provide local PG username in first argument}
 PGDB_CLOUD=${2:?Provide cloud PG database name in second argument}
 PGDB_LOCAL=${3:?Provide local PG database name in third argument}
 PGHOST_CLOUD=${4:-"talus-prod.cvsrrvlopzxr.us-west-1.rds.amazonaws.com"}
-PGUSER_CLOUD=${5:-"postgres"}
+PGUSER_CLOUD=${5:-"talus"}
 PGDB_LOCAL_WORKMEM=${6:-"4GB"}
 
 bold=$(tput bold)
