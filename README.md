@@ -2,7 +2,7 @@
 Application programming interface (API) server for the COVID Policy Tracker website.
 
 A list of all relevant web resources for this project follows.
-- https://covidamp.org
+- https://covidamp.org. Distribution URL for main COVID AMP site.
 - https://test.covidamp.org
 - https://api.covidamp.org/docs
 - https://api-test.covidamp.org/docs
