@@ -7,6 +7,8 @@ A description of the most important modules and packages in `covid-npi-policy-ap
 - [`db`](./db) and [`db_metric`](./db_metric). Packages that handle getting a connection to the main COVID AMP database (containing policy data) and the COVID AMP metrics database (containing COVID-19 caseload/death data). Each contains a `models.py` module that defines the entities and data fields in the databases.
 - [`api`](./api). Package containing main API functionality, including defining the routing, API documentation, and functions that retrieve data from the database and return it as API responses.
 
+## Common tasks for extending and maintaining code
+See [Common tasks for extending and maintaining code](<./Common tasks for extending and maintaining code.md>)
 
 # Checklist to start API server
 A list of what is needed and a checklist of steps to start the COVID AMP API server follows.
