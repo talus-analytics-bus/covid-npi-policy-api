@@ -8,12 +8,12 @@ from enum import Enum
 
 # 3rd party modules
 from fastapi import Query, Path, Response
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, FileResponse
 from typing import List
 
 # local modules
-from . import routing_custom  # noqa F401
-from . import schema
+from . import routing_additional  # noqa F401
+from . import core
 from .models import (
     CountResponse,
     EntityResponse,
@@ -154,11 +154,43 @@ async def post_export(
     if class_name == "All_data_summary":
         class_name = "all_static_summary"
     if class_name == ClassNameExport.none or class_name is None:
-        raise NotImplementedError(
-            "Must provide a `class_name` to /post/export"
-        )
+        raise NotImplementedError("Must provide a `class_name` to /post/export")
     filters = body.filters.dict() if bool(body.filters) is True else None
-    return schema.export(filters=filters, class_name=class_name.name)
+    return core.export(filters=filters, class_name=class_name.name)
+
+
+@app.get(
+    "/export/static/full",
+    tags=["Downloads"],
+    summary="Return static, pre-generated Excel (.xlsx) File containing formatted data for all "
+    "records with no filters applied, in the 'full' format that contains all"
+    " data fields",
+    description=DOWNLOAD_DESCRIPTION,
+)
+async def get_export_static_full():
+    return FileResponse(
+        "api/export/static/staticfull.xlsx",
+        status_code=200,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="COVID AMP - Full Data Export.xlsx",
+    )
+
+
+@app.get(
+    "/export/static/summary",
+    tags=["Downloads"],
+    summary="Return static, pre-generated Excel (.xlsx) File containing formatted data for all "
+    "records with no filters applied, in the 'summary' format that contains only some"
+    " data fields",
+    description=DOWNLOAD_DESCRIPTION,
+)
+async def get_export_static_summary():
+    return FileResponse(
+        "api/export/static/staticsummary.xlsx",
+        status_code=200,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="COVID AMP - Summary Data Export.xlsx",
+    )
 
 
 @app.get(
@@ -173,7 +205,7 @@ async def post_export(
     include_in_schema=False,
 )
 async def get_version():
-    return schema.get_version()
+    return core.get_version()
 
 
 @app.get(
@@ -191,7 +223,7 @@ async def get_version():
     include_in_schema=False,
 )
 async def get_countries_with_lockdown_levels():
-    return schema.get_countries_with_lockdown_levels()
+    return core.get_countries_with_lockdown_levels()
 
 
 @app.get(
@@ -218,7 +250,7 @@ async def get_count(
     class_names = [v.name for v in class_names if v != ClassNameExport.none]
     if len(class_names) == 0:
         raise NotImplementedError("Must provide a `class_name` to /get/count")
-    return schema.get_count(class_names=class_names)
+    return core.get_count(class_names=class_names)
 
 
 @app.get(
@@ -243,8 +275,7 @@ async def get_count(
 async def get_metadata(
     entity_class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which metadata"
-        " are requested",
+        description="The name of the data type for which metadata" " are requested",
     ),
     fields: List[str] = Query(
         [
@@ -260,12 +291,8 @@ async def get_metadata(
         entity_class_name if entity_class_name != ClassName.none else None
     )
     if entity_class_name is None:
-        raise NotImplementedError(
-            "Must provide a `entity_class_name` to /get/metadata"
-        )
-    return schema.get_metadata(
-        fields=fields, entity_class_name=entity_class_name.name
-    )
+        raise NotImplementedError("Must provide a `entity_class_name` to /get/metadata")
+    return core.get_metadata(fields=fields, entity_class_name=entity_class_name.name)
 
 
 @app.get("/file/redirect", tags=["Downloads"], include_in_schema=False)
@@ -286,7 +313,7 @@ async def get_file_redirect(id: int):
         The File.
 
     """
-    title = schema.get_file_title(id)
+    title = core.get_file_title(id)
     return RedirectResponse(url=f"""/get/file/{title}?id={id}""")
 
 
@@ -309,7 +336,7 @@ async def get_file_title_required(
     ),
     title: str = Query("Filename", description="Any filename"),
 ):
-    return schema.get_file(id)
+    return core.get_file(id)
 
 
 @app.get(
@@ -331,7 +358,7 @@ async def get_file(
     ),
     title: str = Query("Filename", description="Any filename"),
 ):
-    return schema.get_file(id)
+    return core.get_file(id)
 
 
 @app.get(
@@ -348,7 +375,7 @@ async def get_policy(
     count: bool = False,
 ):
     """Return Policy data."""
-    return schema.get_policy(
+    return core.get_policy(
         fields=fields, page=page, pagesize=pagesize, count_only=count
     )
 
@@ -370,8 +397,7 @@ async def post_policy(
     body: PolicyBody,
     fields: List[PolicyFields] = Query(
         [PolicyFields.id],
-        description="List of data fields that should be returned for"
-        " each policy",
+        description="List of data fields that should be returned for" " each policy",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
@@ -399,7 +425,7 @@ async def post_policy(
         for v in fields
         if v not in (PolicyFields.none, PolicyFields.court_challenges_id)
     ]
-    return schema.get_policy(
+    return core.get_policy(
         filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
@@ -494,7 +520,7 @@ async def get_place(
     levels = [s.lower() for s in levels]
 
     """Return Place data."""
-    return schema.get_place(
+    return core.get_place(
         fields=[d.name for d in fields] if fields is not None else None,
         iso3=iso3.lower(),
         levels=levels,
@@ -535,7 +561,7 @@ async def get_plan(
         Plan response dictionary.
 
     """
-    return schema.get_plan(fields=fields, page=page, pagesize=pagesize)
+    return core.get_plan(fields=fields, page=page, pagesize=pagesize)
 
 
 @app.get(
@@ -566,7 +592,7 @@ async def get_policy_status(geo_res=str):
         Policy response dictionary.
 
     """
-    return schema.get_policy_status(geo_res=geo_res)
+    return core.get_policy_status(geo_res=geo_res)
 
 
 @app.get(
@@ -591,7 +617,7 @@ async def get_lockdown_level_model(
     deltas_only: bool = False,
 ):
     """Get lockdown level of a location by date."""
-    return schema.get_lockdown_level(
+    return core.get_lockdown_level(
         iso3=iso3,  # all or any ISO3 code
         geo_res=geo_res,  # country or state ?
         name=name,
@@ -614,11 +640,9 @@ async def get_lockdown_level_model(
     tags=["Distancing levels"],
     include_in_schema=False,
 )
-async def get_lockdown_level_country(
-    iso3=str, end_date=str, deltas_only: bool = False
-):
+async def get_lockdown_level_country(iso3=str, end_date=str, deltas_only: bool = False):
     """Get lockdown level of a location by date."""
-    return schema.get_lockdown_level(
+    return core.get_lockdown_level(
         iso3=iso3,
         geo_res="country",
         end_date=end_date,
@@ -641,7 +665,7 @@ async def get_lockdown_level_country(
     tags=["Distancing levels"],
 )
 async def get_lockdown_level_map(iso3=str, geo_res=str, date=date):
-    return schema.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
+    return core.get_lockdown_level(iso3=iso3, geo_res=geo_res, date=date)
 
 
 @app.post(
@@ -668,7 +692,7 @@ async def post_policy_status(
         description="The geographic resolution for which to return data",
     ),
 ):
-    return schema.get_policy_status(
+    return core.get_policy_status(
         geo_res=geo_res,
         filters=body.ordering,
     )
@@ -778,7 +802,7 @@ async def post_policy_number(
     pagesize: int = 100,
 ):
     """Return Policy number metadata."""
-    return schema.get_policy_number(
+    return core.get_policy_number(
         filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
@@ -836,14 +860,13 @@ async def post_plan(
     body: PlanBody,
     fields: List[PlanFields] = Query(
         [PlanFields.id],
-        description="List of data fields that should be returned for "
-        "each Plan",
+        description="List of data fields that should be returned for " "each Plan",
     ),
     page: int = Query(1, description="Page to return"),
     pagesize: int = Query(100, description="Number of records per page"),
 ):
     fields = [v for v in fields if v != PlanFields.none]
-    return schema.get_plan(
+    return core.get_plan(
         filters=helpers.get_body_attr(body, "filters"),
         fields=fields,
         by_category=None,
@@ -865,8 +888,7 @@ def geo_res_def(default_val):
 
 state_name_def = Query(
     getattr(StateNames, "All states and territories"),
-    description='For "state" resolution: Which state(s) or territory(ies) '
-    "to return",
+    description='For "state" resolution: Which state(s) or territory(ies) ' "to return",
 )
 
 iso3_def = Query(
@@ -899,8 +921,7 @@ iso3_def = Query(
 async def get_optionset(
     class_name: ClassName = Query(
         ClassName.Policy,
-        description="The name of the data type for which optionsets "
-        "are requested",
+        description="The name of the data type for which optionsets " "are requested",
     ),
     fields: List[str] = Query(
         ["Policy.primary_ph_measure", "Policy.ph_measure_details"],
@@ -917,14 +938,9 @@ async def get_optionset(
         class_name=class_name.name,
         geo_res=geo_res.name if geo_res is not None else None,
         state_name=state_name.name
-        if (
-            state_name is not None
-            and state_name.name != "All states and territories"
-        )
+        if (state_name is not None and state_name.name != "All states and territories")
         else None,
-        iso3=iso3.name
-        if (iso3 is not None and iso3.name != "All countries")
-        else None,
+        iso3=iso3.name if (iso3 is not None and iso3.name != "All countries") else None,
     )
 
 
@@ -990,15 +1006,10 @@ async def get_distancing_levels(
 ):
     state_name = (
         state_name.name
-        if state_name.name != ""
-        and state_name.name != "All states and territories"
+        if state_name.name != "" and state_name.name != "All states and territories"
         else None
     )
-    iso3 = (
-        iso3.name
-        if iso3.name != "" and iso3.name != "all_countries"
-        else "all"
-    )
+    iso3 = iso3.name if iso3.name != "" and iso3.name != "all_countries" else "all"
     end_date = None if not all_dates else str(date)
     date = None if all_dates else str(date)
 
@@ -1018,7 +1029,7 @@ async def get_distancing_levels(
             media_type="text/plain",
         )
 
-    return schema.get_lockdown_level(
+    return core.get_lockdown_level(
         iso3=iso3,
         geo_res=geo_res.name,
         date=date,
