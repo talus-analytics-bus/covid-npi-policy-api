@@ -1,5 +1,13 @@
 # COVID AMP API server (https://api.covidamp.org/docs)
 Application programming interface (API) server for the COVID Policy Tracker website.
+# Code organization
+A description of the most important modules and packages in `covid-npi-policy-api` follows.
+## Key modules and packages
+- [`main.py`](./main.py). The main entrypoint module of the application (see checklist below for how to start it).
+- [`db`](./db) and [`db_metric`](./db_metric). Packages that handle getting a connection to the main COVID AMP database (containing policy data) and the COVID AMP metrics database (containing COVID-19 caseload/death data). Each contains a `models.py` module that defines the entities and data fields in the databases.
+- [`api`](./api). Package containing main API functionality, including defining the routing, API documentation, and functions that retrieve data from the database and return it as API responses.
+
+
 # Checklist to start API server
 A list of what is needed and a checklist of steps to start the COVID AMP API server follows.
 ## What you need for this checklist
@@ -13,7 +21,7 @@ A list of what is needed and a checklist of steps to start the COVID AMP API ser
     ```
 1. If you'd like to connect to a local version of the AMP database, clone the production databases with the following commands, replacing `[YOUR_POSTGRESQL_USERNAME]` with your local PostgreSQL server username. Otherwise, continue (not recommended).
     ```
-    pipenv run python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d covid-amp-local -dc covid-npi-policy
+    pipenv run python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d covid-npi-policy-local -dc covid-npi-policy
     ```
     ```
     pipenv run python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
