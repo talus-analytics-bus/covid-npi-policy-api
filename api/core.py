@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
 from typing import Any, List, Set
-from .util import cached
+from .utils import cached
 import math
 import itertools
 import logging
@@ -44,7 +44,7 @@ from .models import (
     PolicyNumberList,
     ListResponse,
 )
-from .util import str_to_date, download_file
+from .utils import str_to_date, download_file
 from db import db
 
 # constants

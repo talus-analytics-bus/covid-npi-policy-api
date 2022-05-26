@@ -16,7 +16,7 @@ from pony.orm.core import (
 import api
 from api.types import GeoRes
 from api.models import PlaceObs, PlaceObsList
-from api.util import cached
+from api.utils import cached
 from db import db
 from db.models import (
     MaxMinPolicyCount,
@@ -25,6 +25,7 @@ from db.models import (
     Policy,
 )
 from .helpers import PolicyCountType, get_map_type_from_level
+
 
 class QueryResolver(ABC):
     def __init__(self):
@@ -112,9 +113,7 @@ class PolicyStatusCounter(QueryResolver):
         # define response's place observation list
         response: PlaceObsList = PlaceObsList(
             data=[
-                PlaceObs(place_name=r[0], value=r[1])
-                for r in q_result
-                if r[0] != ""
+                PlaceObs(place_name=r[0], value=r[1]) for r in q_result if r[0] != ""
             ],
             success=True,
             message="Message",
@@ -135,9 +134,7 @@ class PolicyStatusCounter(QueryResolver):
             response.data.sort(key=lambda x: x.value, reverse=True)
 
         # define min/max observation values
-        min_max: Tuple[
-            PlaceObs, PlaceObs
-        ] = self.__fetch_static_max_min_counts(level)
+        min_max: Tuple[PlaceObs, PlaceObs] = self.__fetch_static_max_min_counts(level)
         response.min_all_time = min_max[0]
         response.max_all_time = min_max[1]
 
@@ -254,7 +251,7 @@ class PolicyStatusCounter(QueryResolver):
         # if counting only sub-[geo] policies, filter policies by
         # correct levels
         if filter_by_subgeo:
-            q = api.schema.apply_subgeo_filter(q, geo_res)
+            q = api.core.apply_subgeo_filter(q, geo_res)
 
         # initialize output data
         data: list = None
@@ -263,7 +260,7 @@ class PolicyStatusCounter(QueryResolver):
         if filters is not None:
 
             # apply filters to standard policy data query
-            q = api.schema.apply_entity_filters(
+            q = api.core.apply_entity_filters(
                 q,
                 db.Policy,
                 filters,
@@ -339,18 +336,14 @@ class PolicyStatusCounter(QueryResolver):
                         data.append(zero_obs)
                 elif geo_res == GeoRes.state:
                     if iso3 == "USA" and place_area1 not in data_tmp:
-                        zero_obs: PlaceObs = PlaceObs(
-                            place_name=place_area1, value=0
-                        )
+                        zero_obs: PlaceObs = PlaceObs(place_name=place_area1, value=0)
                         data.append(zero_obs)
                 elif geo_res in (GeoRes.county, GeoRes.county_plus_state):
                     if ansi_fips is None:
                         continue
                     if iso3 == "USA" and ansi_fips not in data_tmp:
                         ansi_fips_final: str = (
-                            "0" + ansi_fips
-                            if len(ansi_fips) == 4
-                            else ansi_fips
+                            "0" + ansi_fips if len(ansi_fips) == 4 else ansi_fips
                         )
                         zero_obs: PlaceObs = PlaceObs(
                             place_name=ansi_fips_final, value=0
@@ -376,9 +369,7 @@ class PolicyStatusCounter(QueryResolver):
                 data = [data[0]]
 
         # prepare basic response
-        res_counted: str = (
-            geo_res if not filter_by_subgeo else "sub-" + geo_res
-        )
+        res_counted: str = geo_res if not filter_by_subgeo else "sub-" + geo_res
 
         # parent resolutions counted, if any
         show_parent_res_counted: bool = len(counted_parent_geos) > 0
@@ -477,13 +468,9 @@ class PolicyStatusCounter(QueryResolver):
         return q
 
     @cached
-    def __get_zero_count_data(
-        self, filters: dict, loc_field: str, for_usa_only: bool
-    ):
+    def __get_zero_count_data(self, filters: dict, loc_field: str, for_usa_only: bool):
         is_one_place: bool = (
-            loc_field in filters
-            and len(filters[loc_field]) > 0
-            and "level" in filters
+            loc_field in filters and len(filters[loc_field]) > 0 and "level" in filters
         )
         if is_one_place:
             q: Query = select(
@@ -542,9 +529,7 @@ class PolicyStatusCounter(QueryResolver):
         map_type: str = get_map_type_from_level(level)
 
         # retrieve counts
-        instance: Query = get(
-            i for i in MaxMinPolicyCount if i.map_type == map_type
-        )
+        instance: Query = get(i for i in MaxMinPolicyCount if i.map_type == map_type)
         min_obs: PlaceObs = self.__get_policy_count_obs_from_inst(
             instance, PolicyCountType.MIN
         )
@@ -583,9 +568,7 @@ class PolicyStatusCounter(QueryResolver):
         elif type == PolicyCountType.MAX:
             keys = ["max" + suffix for suffix in key_suffixes]
         else:
-            raise ValueError(
-                "Unexpected policy count type: " + str(PolicyCountType)
-            )
+            raise ValueError("Unexpected policy count type: " + str(PolicyCountType))
 
         place_field: str = keys[0]
         value_field: str = keys[1]

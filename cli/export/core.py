@@ -35,14 +35,14 @@ from fastapi.responses import Response
     " generate it).\n\nThis cannot be used with `--filename`.",
 )
 def export(filename: Union[str, None], brief: bool, save_static: bool):
-    from api import schema
+    from api import core
     from db import db
 
     if filename is not None and save_static:
         raise ValueError("Cannot specify `--filename` if using `--save-static`")
 
     db.generate_mapping(create_tables=False)
-    excel_response: Response = schema.export(
+    excel_response: Response = core.export(
         filters=dict(),
         class_name="All_data_recreate" if not brief else "All_data_recreate_summary",
     )

@@ -130,7 +130,7 @@ def do_main_ingest(
     challenges: bool = False,
     distancing_levels: bool = False,
 ):
-    from api import schema
+    from api import core
     from db import db
     from ingest.distancinglevelgetter.core import DistancingLevelGetter
     from ingest.places.core import (
@@ -171,7 +171,7 @@ def do_main_ingest(
         plugin.post_process_places(db)
         plugin.post_process_policies(db)
         plugin.post_process_policy_numbers(db)
-        schema.add_search_text()
+        core.add_search_text()
 
     if group_numbers or policies or all:
         assign_policy_group_numbers(db)

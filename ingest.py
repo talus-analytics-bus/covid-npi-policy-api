@@ -11,7 +11,7 @@ from ingest.places.core import (
 )
 
 # local modules
-from api import schema
+from api import core
 from db import db
 from ingest.plugins import CovidPolicyPlugin, assign_policy_group_numbers
 
@@ -118,7 +118,7 @@ if __name__ == "__main__":
         plugin.post_process_places(db)
         plugin.post_process_policies(db)
         plugin.post_process_policy_numbers(db)
-        schema.add_search_text()
+        core.add_search_text()
 
     if args.group_numbers or ingest_policies:
         assign_policy_group_numbers(db)

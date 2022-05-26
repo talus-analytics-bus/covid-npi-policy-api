@@ -8,7 +8,7 @@ import pandas as pd
 from pony.orm import db_session, select
 
 from db import db, models
-from api import schema
+from api import core
 
 
 class TestLocalAreaCodes(unittest.TestCase):
@@ -132,7 +132,7 @@ class TestLocalAreaCodes(unittest.TestCase):
                         )
 
     def __get_test_excel(self, filters: dict):
-        response = schema.export(
+        response = core.export(
             filters=filters,
             class_name="Policy",
         )

@@ -1,5 +1,5 @@
 from fastapi.param_functions import Query
-from api.util import cached
+from api.utils import cached
 from api.types import ClassName
 from api.models import OptionSetList, OptionSetRecord, OptionSetRecords
 from collections import defaultdict
@@ -31,8 +31,8 @@ class OptionSetGetter:
         if entity_name == ClassName.Policy:
             area2_vals = {"Local"}
             # cat and subcat optionsets
-            cat_and_subcat_optionsets: dict = (
-                self.__get_cat_and_subcat_optionsets(entity_name=entity_name)
+            cat_and_subcat_optionsets: dict = self.__get_cat_and_subcat_optionsets(
+                entity_name=entity_name
             )
 
             data.update(cat_and_subcat_optionsets)
@@ -79,9 +79,7 @@ class OptionSetGetter:
     def __get_field_optionset(
         self, entity_name: ClassName, field: str, is_list_field: bool = False
     ) -> List[OptionSetRecord]:
-        q: Query = select(
-            (getattr(p, field)) for p in entity_name.get_db_model()
-        )
+        q: Query = select((getattr(p, field)) for p in entity_name.get_db_model())
 
         q_result: List[Tuple[Any]] = q[:][:]
         value: str = None
@@ -99,9 +97,7 @@ class OptionSetGetter:
                         continue
                     else:
                         checked_vals.add(sub_value)
-                        optionset.append(
-                            OptionSetRecord(id=id, value=sub_value)
-                        )
+                        optionset.append(OptionSetRecord(id=id, value=sub_value))
                         id = id + 1
 
         # if field is not a list of values, take them directly
@@ -182,37 +178,25 @@ class OptionSetGetter:
             #     )
             #     id_level += 1
 
-            if (
-                level == "Country"
-                and country_name not in checked["country_name"]
-            ):
+            if level == "Country" and country_name not in checked["country_name"]:
                 checked["country_name"][country_name] = True
                 optionsets["country_name"].append(
-                    OptionSetRecord(
-                        id=id_country_name, value=country_name, group=level
-                    )
+                    OptionSetRecord(id=id_country_name, value=country_name, group=level)
                 )
                 id_country_name += 1
 
             # NOTE Tribal nations are tagged as "intermediate areas" (`area1`)
             # but are rendered in optionsets as countries
-            elif (
-                level == "Tribal nation"
-                and area1 not in checked["country_name"]
-            ):
+            elif level == "Tribal nation" and area1 not in checked["country_name"]:
                 checked["country_name"][area1] = True
                 optionsets["country_name"].append(
-                    OptionSetRecord(
-                        id=id_country_name, value=area1, group=level
-                    )
+                    OptionSetRecord(id=id_country_name, value=area1, group=level)
                 )
                 id_country_name += 1
             elif level == "State / Province" and area1 not in checked["area1"]:
                 checked["area1"][area1] = True
                 optionsets["area1"].append(
-                    OptionSetRecord(
-                        id=id_area1, value=area1, group=country_name
-                    )
+                    OptionSetRecord(id=id_area1, value=area1, group=country_name)
                 )
                 id_area1 += 1
             elif level in area2_vals and area2 not in checked["area2"]:
@@ -242,15 +226,11 @@ class OptionSetGetter:
             raise ValueError("Unexpected class name: " + entity_name.name)
 
         # get field data
-        q: Query = select(
-            (i.primary_ph_measure, i.ph_measure_details) for i in Policy
-        )
+        q: Query = select((i.primary_ph_measure, i.ph_measure_details) for i in Policy)
         cat_subcat_optionsets: dict = dict(
             primary_ph_measure=list(), ph_measure_details=list()
         )
-        checked: dict = dict(
-            primary_ph_measure=dict(), ph_measure_details=dict()
-        )
+        checked: dict = dict(primary_ph_measure=dict(), ph_measure_details=dict())
         cat_id: int = 0
         subcat_id: int = 0
         cat: str = None
@@ -319,13 +299,9 @@ class OptionSetGetter:
         data = dict()
 
         # get all glossary terms if needed
-        need_glossary_terms = any(
-            d_str in fields_using_groups for d_str in fields
-        )
+        need_glossary_terms = any(d_str in fields_using_groups for d_str in fields)
         glossary_terms = (
-            select(i for i in db.Glossary)[:][:]
-            if need_glossary_terms
-            else list()
+            select(i for i in db.Glossary)[:][:] if need_glossary_terms else list()
         )
 
         # check places relevant only for the entity of `class_name`
@@ -357,9 +333,7 @@ class OptionSetGetter:
             # TODO handle other special values like "Unspecified" as needed
             options = None
             if field == "level":
-                if (
-                    iso3 is not None or state_name is not None
-                ) and geo_res is not None:
+                if (iso3 is not None or state_name is not None) and geo_res is not None:
                     raise NotImplementedError(
                         f"""Cannot request optionset for `{field}` """
                         f"""when filtering by `{geo_res}`"""
@@ -374,9 +348,7 @@ class OptionSetGetter:
                     .filter(lambda x: x != "Local plus state/province")
                 )
             elif field == "country_name":
-                if (
-                    iso3 is not None or state_name is not None
-                ) and geo_res is not None:
+                if (iso3 is not None or state_name is not None) and geo_res is not None:
                     raise NotImplementedError(
                         f"""Cannot request optionset for `{field}` """
                         f"""when filtering by `{geo_res}`"""
@@ -411,9 +383,7 @@ class OptionSetGetter:
                         getattr(i, field)
                         for i in entity_class
                         if (
-                            iso3 in i.place.iso3
-                            or iso3 is None
-                            or geo_res != "country"
+                            iso3 in i.place.iso3 or iso3 is None or geo_res != "country"
                         )
                         and (
                             state_name in i.place.area1
@@ -435,19 +405,11 @@ class OptionSetGetter:
                     options = list()
                     cur_option_tuple: tuple = None
                     for cur_option_tuple in options_tmp:
-                        groups_by_option[
-                            cur_option_tuple[0]
-                        ] = cur_option_tuple[1]
+                        groups_by_option[cur_option_tuple[0]] = cur_option_tuple[1]
                         options.append(cur_option_tuple[0])
                 elif isinstance(first, list):
                     options = list(
-                        set(
-                            [
-                                item
-                                for sublist in options_tmp
-                                for item in sublist
-                            ]
-                        )
+                        set([item for sublist in options_tmp for item in sublist])
                     )
                 else:
                     options = options_tmp
@@ -462,14 +424,10 @@ class OptionSetGetter:
             options = list(filter(lambda x: x.strip() != "", options))
 
             # assign groups, if applicable
-            uses_custom_groups: bool = (
-                entity_name_and_field == "Place.country_name"
-            )
+            uses_custom_groups: bool = entity_name_and_field == "Place.country_name"
             uses_nongeo_groups = entity_name_and_field in fields_using_groups
             uses_geo_groups = entity_name_and_field in fields_using_geo_groups
-            uses_groups = (
-                uses_nongeo_groups or uses_geo_groups or uses_custom_groups
-            )
+            uses_groups = uses_nongeo_groups or uses_geo_groups or uses_custom_groups
             if uses_custom_groups:
                 options = options_tmp
             elif uses_nongeo_groups:
@@ -580,9 +538,7 @@ class OptionSetGetter:
 
         # apply special ordering
         if "ph_measure_details" in data:
-            data["ph_measure_details"].sort(
-                key=lambda x: "other" in x["value"].lower()
-            )
+            data["ph_measure_details"].sort(key=lambda x: "other" in x["value"].lower())
 
         return {
             "data": data,
