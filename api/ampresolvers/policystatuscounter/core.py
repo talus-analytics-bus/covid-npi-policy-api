@@ -1,4 +1,5 @@
 # standard packages
+from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, List, Tuple, Set, Union
 from pony.orm.core import (
@@ -24,7 +25,15 @@ from db.models import (
     Policy,
 )
 from .helpers import PolicyCountType, get_map_type_from_level
-from queryresolver.core import QueryResolver
+
+class QueryResolver(ABC):
+    def __init__(self):
+        return None
+
+    @abstractmethod
+    def __validate_args(self, **kwargs):
+        """Validate input arguments and raise exception if error found"""
+        pass
 
 
 class PolicyStatusCounter(QueryResolver):
