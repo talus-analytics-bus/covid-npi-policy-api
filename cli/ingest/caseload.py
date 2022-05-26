@@ -10,7 +10,7 @@ DBNAME_CLOUD_DEFAULT: str = "metric-amp"
 
 
 @click.command(
-    help="Ingest caseload data from JHU and WHO and copy it to the"
+    help="Ingest caseload data from NYT and WHO and copy it to the"
     f" cloud database (by default named `{DBNAME_CLOUD_DEFAULT}`)"
 )
 @click.option(

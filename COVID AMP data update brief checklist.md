@@ -15,7 +15,7 @@ Note: It is safe to perform data updates on different hosts because this checkli
     ```
     replacing `[YOUR_POSTGRESQL_USERNAME]` with your local PostgreSQL server username.
 
-1. To update caseload data from WHO and JHU, do
+1. To update caseload data from NYT and JHU, do
     ```
     pipenv run python -m amp ingest caseload -u [YOUR_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
     ```
