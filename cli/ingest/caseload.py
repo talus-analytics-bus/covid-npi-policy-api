@@ -64,4 +64,6 @@ def caseload(
 
     # restore database to cloud
     if not skip_restore:
-        do_restore_to_cloud(dbname_cloud, username_local, dbname_local, yes=yes)
+        do_restore_to_cloud(
+            dbname_cloud, username_local, dbname_local, None, None, yes=yes
+        )

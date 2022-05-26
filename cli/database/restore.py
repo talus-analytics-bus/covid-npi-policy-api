@@ -31,17 +31,37 @@ logger = logging.getLogger(__name__)
     "-d",
     help="Local PostgreSQL database name (to copy from)",
 )
+@options.awseb_restart
 @options.yes
 def restore_to_cloud(
     dbname_cloud: str,
     username_local: Union[str, None],
     dbname_local: Union[str, None],
+    awseb_environment_name: Union[str, None],
+    awseb_environment_region: Union[str, None],
     yes: bool,
 ):
-    do_restore_to_cloud(dbname_cloud, username_local, dbname_local, yes)
+    do_restore_to_cloud(
+        dbname_cloud,
+        username_local,
+        dbname_local,
+        awseb_environment_name,
+        awseb_environment_region,
+        yes,
+    )
 
 
-def do_restore_to_cloud(dbname_cloud, username_local, dbname_local, yes):
+def do_restore_to_cloud(
+    dbname_cloud,
+    username_local,
+    dbname_local,
+    awseb_environment_name,
+    awseb_environment_region,
+    yes,
+):
+    # validate
+    options.validate_awseb_restart_ops(awseb_environment_name, awseb_environment_region)
+
     if username_local is None:
         raise ValueError(
             "Define local PostgreSQL username in option --username-local/-u or in"

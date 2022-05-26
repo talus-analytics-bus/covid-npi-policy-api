@@ -21,6 +21,40 @@ DBMIGRATION_LOCAL_OPS = [
 ]
 
 
+AWSEB_ENV_RESTART_OPS = [
+    click.option(
+        "--awseb-environment-name",
+        "-e",
+        default=None,
+        type=str,
+        help="Environment name of AWS Elastic Beanstalk application server which uses the"
+        " database named in `--dbname-cloud` and which should be restarted after the"
+        " database is updated. If blank, no server will be restarted.",
+    ),
+    click.option(
+        "--awseb-environment-region",
+        "-r",
+        default="us-west-1",
+        show_default=True,
+        type=str,
+        help="Region of AWS Elastic Beanstalk application server which uses the"
+        " database named in `--dbname-cloud` and which should be restarted after the"
+        " database is updated. Only required if `--awseb-environment-name` is defined.",
+    ),
+]
+
+
+def awseb_restart(func):
+    for op in AWSEB_ENV_RESTART_OPS:
+        func = op(func)
+    return func
+
+
+def validate_awseb_restart_ops(awseb_environment_name, awseb_environment_region):
+    if awseb_environment_name is not None and awseb_environment_region is None:
+        raise ValueError("Must define both env name and region if name is defined")
+
+
 def dbmigration_local(func):
     for op in DBMIGRATION_LOCAL_OPS:
         func = op(func)
