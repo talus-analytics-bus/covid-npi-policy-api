@@ -1,10 +1,12 @@
 # COVID MAP data update brief checklist
 1. Install virtual environment as described in the main [`README.md`](./README.md) of this repository
+
 1. If not done once already, clone COVID AMP main database by doing
     ```
     pipenv run python -m amp database clone-from-cloud -u [YOUR_POSTGRESQL_USERNAME] -d covid-amp-local -dc covid-npi-policy
     ```
     replacing `[YOUR_POSTGRESQL_USERNAME]` with your local PostgreSQL server username.
+
 1. If not done once already, clone COVID AMP metrics database by doing
     ```
     pipenv run python -m amp database clone-from-cloud -u [YOUR_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
