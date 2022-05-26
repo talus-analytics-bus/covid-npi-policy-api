@@ -1,5 +1,16 @@
 # COVID AMP API server (https://api.covidamp.org/docs)
 Application programming interface (API) server for the COVID Policy Tracker website.
+
+A list of all relevant web resources for this project follows.
+- https://covidamp.org
+- https://test.covidamp.org
+- https://api.covidamp.org/docs
+- https://api-test.covidamp.org/docs
+- https://airtable.com/tblLpBz6sEExhYVVC
+- https://github.com/CSSEGISandData/COVID-19
+- https://github.com/nytimes/covid-19-data
+
+
 # Code organization
 A description of the most important modules and packages in `covid-npi-policy-api` follows.
 ## Key modules and packages
