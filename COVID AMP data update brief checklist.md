@@ -1,4 +1,6 @@
 # COVID MAP data update brief checklist
+Note: It is safe to perform data updates on different hosts because this checklist will completely and comprehensively replace the data in the cloud databases each time.
+
 1. Install virtual environment as described in the main [`README.md`](./README.md) of this repository
 
 1. If not done once already, clone COVID AMP main database by doing
