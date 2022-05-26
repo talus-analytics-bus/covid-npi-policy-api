@@ -29,5 +29,5 @@ Note: It is safe to perform data updates on different hosts because this checkli
 
 1. If there are no issues, update the production site's database by doing
     ```
-    pipenv run python -m amp ingest airtable -d covid-npi-policy-local -dc covid-npi-policy -e amp-prod2
+    pipenv run python -m amp database restore-to-cloud -u [YOUR_POSTGRESQL_USERNAME] -d covid-npi-policy-local -dc covid-npi-policy -e amp-prod2
     ```
