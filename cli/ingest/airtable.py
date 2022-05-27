@@ -148,7 +148,7 @@ def do_main_ingest(
         assign_policy_group_numbers(db)
 
     # Update observations of lockdown level, if appropriate
-    if distancing_levels or all:
+    if distancing_levels:
         try:
             getter: DistancingLevelGetter = DistancingLevelGetter(
                 S3_BUCKET_NAME="covid-npi-policy-storage",
