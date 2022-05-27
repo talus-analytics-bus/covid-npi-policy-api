@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pony.orm import db_session
 
-from db import db
+from db_metric import db
 
 
 @db_session
