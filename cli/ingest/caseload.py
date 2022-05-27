@@ -65,7 +65,7 @@ def caseload(
         db,
         db_amp,
         do_state=True,
-        do_global=True,
+        do_global=False,
         do_global_daily=True,
         do_county=True,
     )

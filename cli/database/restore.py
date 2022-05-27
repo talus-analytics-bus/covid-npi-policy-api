@@ -5,6 +5,7 @@ from typing import Union
 
 import click
 
+from cli import awseb
 from cli import options
 
 logger = logging.getLogger(__name__)
@@ -97,3 +98,5 @@ def do_restore_to_cloud(
             dbname_local,
         ]
     )
+    if awseb_environment_name is not None and awseb_environment_region is not None:
+        awseb.restart_app_server(awseb_environment_name, awseb_environment_region)

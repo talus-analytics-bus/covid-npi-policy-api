@@ -51,6 +51,7 @@ def airtable(
         return
 
     # import modules (delay imports until this point to streamline CLI efficiency)
+    from cli import awseb
     from cli.database.restore import do_restore_to_cloud
     from db.config import execute_raw_sql
 
@@ -89,23 +90,7 @@ def airtable(
 
     # restart test API server
     if awseb_environment_name is not None and awseb_environment_region is not None:
-        try:
-            subprocess.run(
-                [
-                    "aws",
-                    "elasticbeanstalk",
-                    "restart-app-server",
-                    awseb_environment_name,
-                    awseb_environment_region,
-                ],
-                capture_output=True,
-            )
-        except Exception as e:
-            print(
-                "Could not restart Elastic Beanstalk app server environment"
-                f" named `{awseb_environment_name}` in"
-                f" region {awseb_environment_region}"
-            )
+        awseb.restart_app_server(awseb_environment_name, awseb_environment_region)
 
 
 def do_main_ingest(
