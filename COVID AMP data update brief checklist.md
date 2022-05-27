@@ -19,7 +19,7 @@ Note: It is safe to perform data updates on different hosts because this checkli
     pipenv run python -m amp ingest caseload -u [YOUR_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
     ```
 
-1. To update main data from COVID AMP Airtable base, do 
+1. Concurrent with or after the previous step, update main data from COVID AMP Airtable base, do 
     ```
     pipenv run python -m amp ingest airtable -u [YOUR_POSTGRESQL_USERNAME] -d covid-npi-policy-local -dc covid-npi-policy-test -e amp-dev2
     ```
