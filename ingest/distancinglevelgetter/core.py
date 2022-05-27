@@ -1,15 +1,16 @@
 import boto3
 import botocore
 import pandas as pd
-import os
-from alive_progress.core.progress import alive_bar
+import sys
 from datetime import datetime
 from dateutil.tz import tzutc
 from typing import Any, List
+
+from alive_progress.core.progress import alive_bar
 from pony.orm.core import Database, db_session, select, delete, commit
 
-from ingest.util import upsert
 from ingest.plugins import get_name_from_iso3
+from ingest.util import upsert
 
 
 class DistancingLevelGetter(object):
@@ -31,9 +32,7 @@ class DistancingLevelGetter(object):
         s3_obj_metas: List[dict] = self.s3_client.list_objects_v2(
             Bucket=S3_BUCKET_NAME, Prefix=(path + "/" + fn_prefix)
         ).get("Contents", list())
-        newest_last_modified_dt: datetime = datetime(
-            1900, 1, 1, tzinfo=tzutc()
-        )
+        newest_last_modified_dt: datetime = datetime(1900, 1, 1, tzinfo=tzutc())
         for s3_obj_meta in s3_obj_metas:
             s3_obj_key: str = s3_obj_meta.get("Key", None)
             last_modified_dt: datetime = s3_obj_meta.get("LastModified", None)
@@ -97,8 +96,7 @@ class DistancingLevelGetter(object):
                             db.Place,
                             {
                                 "iso3": "USA",
-                                "country_name": "United States of America"
-                                " (USA)",
+                                "country_name": "United States of America" " (USA)",
                                 "area1": record["Name"],
                                 "area2": "Unspecified",
                                 "level": "State / Province",
@@ -120,9 +118,7 @@ class DistancingLevelGetter(object):
                             db.Place,
                             {
                                 "iso3": record["Name"],
-                                "country_name": get_name_from_iso3(
-                                    record["Name"]
-                                )
+                                "country_name": get_name_from_iso3(record["Name"])
                                 + f""" ({record['Name']})""",
                                 "area1": "Unspecified",
                                 "area2": "Unspecified",
@@ -136,7 +132,7 @@ class DistancingLevelGetter(object):
 
                 if place is None:
                     print("[FATAL ERROR] Missing place")
-                    os.sys.exit(0)
+                    sys.exit(0)
 
                 action, record = upsert(
                     db.Observation,
