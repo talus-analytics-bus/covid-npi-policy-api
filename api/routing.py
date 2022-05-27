@@ -168,11 +168,12 @@ async def post_export(
     description=DOWNLOAD_DESCRIPTION,
 )
 async def get_export_static_full():
+
     return FileResponse(
         "api/export/static/staticfull.xlsx",
         status_code=200,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="COVID AMP - Full Data Export.xlsx",
+        filename=helpers.get_static_excel_export_filename(is_summary=False),
     )
 
 
@@ -189,7 +190,7 @@ async def get_export_static_summary():
         "api/export/static/staticsummary.xlsx",
         status_code=200,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="COVID AMP - Summary Data Export.xlsx",
+        filename=helpers.get_static_excel_export_filename(is_summary=True),
     )
 
 
