@@ -11,9 +11,6 @@ import psycopg2
 
 from . import configtools
 
-# constants
-DEFAULT_PG_WORK_MEM: str = "4GB"
-
 
 # init PonyORM database instance
 conn_params = configtools.Config()["db"]
@@ -46,6 +43,3 @@ def execute_raw_sql(statement: str) -> Union[List[Tuple], None]:
             return None
     else:
         return None
-
-
-execute_raw_sql(f"SET work_mem TO '{os.getenv('PG_WORK_MEM',DEFAULT_PG_WORK_MEM)}';")

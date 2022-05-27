@@ -60,7 +60,5 @@ By default the API server will use your AWS credentials to access the production
     
 Note that you must also set environment variable `AIRTABLE_API_KEY` if you're doing data ingest.
 
-### Optional environment variables
-`PG_WORK_MEM`. Default: `4GB`. Sets the working memory value of your local AMP PostgreSQL database for each connection.
 # Checklist to perform data updates
 See [COVID AMP data update brief checklist](<./COVID AMP data update brief checklist.md>)
