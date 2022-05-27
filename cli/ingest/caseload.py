@@ -22,7 +22,14 @@ DBNAME_CLOUD_DEFAULT: str = "metric-amp"
     help="Cloud PostgreSQL database name (to copy to). Can also be set with"
     " environment variable `DBNAME_CLOUD_METRICS`.",
 )
-@options.dbmigration_local
+@click.option(
+    "--dbname-local",
+    "-d",
+    default=os.getenv("database_metric", "metric-amp-lo22cal"),
+    help="Local PostgreSQL database name (to copy from). Defaults to"
+    " `metric-amp-local`. Can be defined in environment variable `database_metric`.",
+)
+@options.username_local_op
 @options.yes
 @options.skip_restore
 def caseload(
@@ -32,22 +39,26 @@ def caseload(
     yes: bool,
     skip_restore: bool,
 ):
-    from ingest.plugins import CovidCaseloadPlugin
-    from db_metric import db
-    from db import db as db_amp
-    from . import dbutils
-    from cli.database.restore import do_restore_to_cloud
 
-    # ingest the data
-    covid_caseload_plugin = CovidCaseloadPlugin()
     if not yes:
         click.confirm(
-            "This will replace all COVID-19 caseload data in your local and cloud"
-            " databases with the latest from the data sources. The cloud database"
-            f" with name `{dbname_cloud}` will have all its data replaced."
+            "This will replace all COVID-19 caseload data in your local database"
+            f" named `{dbname_local}` and cloud database named `{dbname_cloud}` with"
+            " the latest from the data sources."
             "\nDo you want to continue?",
             abort=True,
         )
+
+    # import packages and modules
+    from . import dbutils
+    from cli.database.restore import do_restore_to_cloud
+    from db import db as db_amp
+    from db_metric import db
+    from ingest.plugins import CovidCaseloadPlugin
+
+    # ingest the data
+    covid_caseload_plugin = CovidCaseloadPlugin()
+
     db.generate_mapping(create_tables=False)
     db_amp.generate_mapping(create_tables=False)
     covid_caseload_plugin.upsert_covid_data(

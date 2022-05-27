@@ -6,18 +6,22 @@ import click
 # import functools
 
 
+username_local_op = click.option(
+    "--username-local",
+    "-u",
+    default=os.getenv("PG_LOCAL_USERNAME"),
+    help="Local PostgreSQL database server username",
+)
+
+dbname_local_op = click.option(
+    "--dbname-local",
+    "-d",
+    help="Local PostgreSQL database name (to copy from)",
+)
+
 DBMIGRATION_LOCAL_OPS = [
-    click.option(
-        "--username-local",
-        "-u",
-        default=os.getenv("PG_LOCAL_USERNAME"),
-        help="Local PostgreSQL database server username",
-    ),
-    click.option(
-        "--dbname-local",
-        "-d",
-        help="Local PostgreSQL database name (to copy from)",
-    ),
+    username_local_op,
+    dbname_local_op,
 ]
 
 
