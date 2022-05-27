@@ -174,6 +174,7 @@ async def get_export_static_full():
         status_code=200,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=helpers.get_static_excel_export_filename(is_summary=False),
+        headers={"cache-control": "no-cache"},
     )
 
 
@@ -191,6 +192,7 @@ async def get_export_static_summary():
         status_code=200,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=helpers.get_static_excel_export_filename(is_summary=True),
+        headers={"cache-control": "no-cache"},
     )
 
 
