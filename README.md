@@ -45,6 +45,8 @@ A list of what is needed and a checklist of steps to start the COVID AMP API ser
 1. Start API server with terminal command `pipenv run uvicorn main:app --reload --port 8002`. You can then view interactive documentation for the API server at `http://localhost:8002/docs`.The frontend will make requests to `http://localhost:8002`, and the API server will restart if you save any Python files it uses.
 
 ## Environment configuration
+Environment variables usable in the application are defined below.
+### Database connection environment variables
 You must at a minimum define environment variable `database` with the database name for the API server to connect to. Use the name `covid-npi-policy-test` for the cloud development database or `covid-npi-policy` for the cloud production database. However, it is recommended you clone one of these to work with locally to avoid making unintended changes to the cloud databases.
 
 By default the API server will use your AWS credentials to access the production database and serve those data. If you'd like to change which host/database/etc. the server connects to, set the following environment variables as needed. If you're using `pipenv` you can put them in a file `.env` in the repository root (which git won't track).
@@ -57,5 +59,8 @@ By default the API server will use your AWS credentials to access the production
     password=[YOUR_LOCAL_POSTGRESQL_PASSWORD]
     
 Note that you must also set environment variable `AIRTABLE_API_KEY` if you're doing data ingest.
+
+### Optional environment variables
+`PG_WORK_MEM`. Default: `4GB`. Sets the working memory value of your local AMP PostgreSQL database for each connection.
 # Checklist to perform data updates
 See [COVID AMP data update brief checklist](<./COVID AMP data update brief checklist.md>)
