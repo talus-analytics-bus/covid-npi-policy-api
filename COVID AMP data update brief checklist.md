@@ -39,7 +39,7 @@ Note: It is safe to perform data updates on different hosts because this checkli
 1. Commit and push the updated Excel files with command
     ```
     git add api/export/static/staticfull.xlsx api/export/static/staticsummary.xlsx &&
-        git commit -m "Update static unfilitered Excel files" &&
+        git commit -m "Update static unfiltered Excel files" &&
         git push;
     ```
     **Note: This will push any unpushed commits you may have made on branch `dev`.**
