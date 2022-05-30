@@ -2057,11 +2057,10 @@ class CovidPolicyPlugin(IngestPlugin):
 
             instance_data["filename"] = instance_data["filename"].replace(".", "")
 
-            # if instance_data["filename"] is not None and not instance_data[
-            #     "filename"
-            # ].endswith(".pdf"):
-            # instance_data["filename"] += ".pdf"
-            instance_data["filename"] += ".pdf"
+            if instance_data["filename"] is not None and not instance_data[
+                "filename"
+            ].endswith(".pdf"):
+                instance_data["filename"] += ".pdf"
             action, file = upsert(db.File, instance_data)
             if action == "update":
                 n_updated += 1
