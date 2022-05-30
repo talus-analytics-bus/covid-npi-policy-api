@@ -16,6 +16,8 @@ from pony.orm import (
     IntArray,
 )
 
+from ingest import awss3
+
 # local modules
 from .config import db
 
@@ -58,6 +60,29 @@ class File(db.Entity):
     # relationships
     policies = Set("Policy")
     plans = Set("Plan")
+
+    def get_s3_permalink(self):
+        """Get permalink to public S3 object for this file's bytes
+
+        Returns:
+            str: Permalink
+        """
+        return get_s3_permalink_from_filename(self.filename)
+
+
+def get_s3_permalink_from_filename(filename: str) -> str:
+    """Get permalink to public S3 object for a file's bytes from its filename
+
+    Args:
+        filename (str): The filename
+
+    Returns:
+        str: Permalink
+    """
+    S3_OBJECT_URL_BASE: str = (
+        f"https://{awss3.S3_BUCKET_NAME}.s3.us-west-1.amazonaws.com"
+    )
+    return f"{S3_OBJECT_URL_BASE}/{filename}" if filename not in (None, "") else ""
 
 
 class Policy(db.Entity):

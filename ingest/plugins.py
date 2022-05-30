@@ -12,14 +12,12 @@ from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 # 3rd party modules
-import boto3
-import pprint
-import botocore
 import pandas as pd
 from pony.orm import db_session, commit, select, StrArray
 from tqdm import tqdm
 
 # local modules
+from . import awss3
 from api.ampqualitycheckers.categoryfixer.core import CategoryFixer
 from .sources import AirtableSource
 from .util import (
@@ -43,10 +41,6 @@ from ingest.metricimporters.covid_global_country import (
 # constants
 logger: logging.Logger = logging.getLogger(__name__)
 
-# define S3 client used for adding / checking for files in the S3
-# storage bucket
-s3: botocore.client = boto3.client("s3")
-S3_BUCKET_NAME = "covid-npi-policy-storage"
 
 # define policy level values that correspond to an intermediate geography
 INTERMEDIATE_LEVELS: Tuple[str, str] = ("State / Province", "Tribal nation")
@@ -118,9 +112,7 @@ def str_to_bool(x):
 
 
 # load data to get country names from ISO3 codes
-country_data = pd.read_json("./ingest/data/country.json").to_dict(
-    orient="records"
-)
+country_data = pd.read_json("./ingest/data/country.json").to_dict(orient="records")
 
 
 def get_name_from_iso3(iso3: str):
@@ -162,11 +154,7 @@ def get_place_loc(i: models.Place):
         Well-known location string
 
     """
-    if (
-        i.level == "Country"
-        and ";" not in i.iso3
-        and i.country_name is not None
-    ):
+    if i.level == "Country" and ";" not in i.iso3 and i.country_name is not None:
         return i.country_name
     elif i.level == "Tribal nation":
         return i.area1
@@ -186,60 +174,6 @@ def get_place_loc(i: models.Place):
         print("Could not determine place name for this instance.")
         print(i.to_dict())
         return "Unspecified"
-
-
-def get_s3_bucket_keys(s3_bucket_name: str):
-    """For the given S3 bucket, return all file keys, i.e., filenames.
-
-    Parameters
-    ----------
-    s3_bucket_name : str
-        Name of S3 bucket.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    nextContinuationToken = None
-    keys = list()
-    more_keys = True
-
-    # while there are still more keys to retrieve from the bucket
-    while more_keys:
-
-        # use continuation token if it is defined
-        response = None
-        if nextContinuationToken is not None:
-            response = s3.list_objects_v2(
-                Bucket=S3_BUCKET_NAME,
-                ContinuationToken=nextContinuationToken,
-            )
-
-        # otherwise it is the first request for keys, so do not include it
-        else:
-            response = s3.list_objects_v2(
-                Bucket=S3_BUCKET_NAME,
-            )
-
-        # set continuation key if it is provided in the response,
-        # otherwise do not since it means all keys have been returned
-        if "NextContinuationToken" in response:
-            nextContinuationToken = response["NextContinuationToken"]
-        else:
-            nextContinuationToken = None
-
-        # for each response object, extract the key and add it to the
-        # full list
-        for d in response["Contents"]:
-            keys.append(d["Key"])
-
-        # are there more keys to pull from the bucket?
-        more_keys = nextContinuationToken is not None
-
-    # return master list of all bucket keys
-    return keys
 
 
 class IngestPlugin:
@@ -342,8 +276,7 @@ class CovidCaseloadPlugin(IngestPlugin):
         all_dt_res = select(i for i in db.DateTime)[:][:]
         all_dt_list = [i.to_dict() for i in all_dt_res]
         all_dt_dict: List[Dict[str, datetime]] = {
-            str((i["datetime"] + timedelta(hours=12)).date()): i
-            for i in all_dt_list
+            str((i["datetime"] + timedelta(hours=12)).date()): i for i in all_dt_list
         }
 
         # perform all upserts defined above
@@ -427,9 +360,9 @@ class CovidPolicyPlugin(IngestPlugin):
         ).as_dataframe(view="API ingest")
 
         # glossary
-        self.glossary = self.client.worksheet(
-            name="Appendix: glossary"
-        ).as_dataframe(view="API ingest")
+        self.glossary = self.client.worksheet(name="Appendix: glossary").as_dataframe(
+            view="API ingest"
+        )
 
         # court challenges glossary
         self.glossary_court_challenges = self.client.worksheet(
@@ -462,7 +395,7 @@ class CovidPolicyPlugin(IngestPlugin):
         ).as_dataframe()
 
         # s3 bucket file keys
-        self.s3_bucket_keys = get_s3_bucket_keys(s3_bucket_name=S3_BUCKET_NAME)
+        self.s3_bucket_keys = awss3.get_s3_bucket_keys()
 
         # policy data
         self.data: pd.DataFrame = self.client.worksheet(
@@ -470,9 +403,7 @@ class CovidPolicyPlugin(IngestPlugin):
         ).as_dataframe()
 
         # plan data
-        self.data_plans = self.client.worksheet(
-            name="Plan database"
-        ).as_dataframe()
+        self.data_plans = self.client.worksheet(name="Plan database").as_dataframe()
 
         return self
 
@@ -552,9 +483,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # assign dd type to each dd
         self.data_dictionary.loc[:, "Type"] = "Policy"
         self.data_dictionary_plans.loc[:, "Type"] = "Plan"
-        self.data_dictionary_court_challenges.loc[
-            :, "Type"
-        ] = "Court_Challenge"
+        self.data_dictionary_court_challenges.loc[:, "Type"] = "Court_Challenge"
 
         full_dd = pd.concat(
             [
@@ -623,16 +552,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 ]
 
             self.data = self.data.loc[self.data["Policy description"] != "", :]
-            self.data = self.data.loc[
-                self.data["Effective start date"] != "", :
-            ]
+            self.data = self.data.loc[self.data["Effective start date"] != "", :]
 
             # analyze for QA/QC and quit if errors detected
             valid = self.run_tests(self.data)
             if not valid:
-                logger.info(
-                    "Data are invalid. Please correct issues and try again."
-                )
+                logger.info("Data are invalid. Please correct issues and try again.")
                 # sys.exit(0)
             else:
                 logger.info("QA/QC found no issues. Continuing.")
@@ -642,9 +567,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 + str(len(self.data.index))
             )
             # only keep first of duplicate IDs
-            self.data = self.data.drop_duplicates(
-                subset="Unique ID", keep="first"
-            )
+            self.data = self.data.drop_duplicates(subset="Unique ID", keep="first")
             logger.info(
                 "Number of policies after dropping duplicates: "
                 + str(len(self.data.index))
@@ -728,22 +651,18 @@ class CovidPolicyPlugin(IngestPlugin):
             # analyze for QA/QC and quit if errors detected
             valid = self.run_tests(data)
             if not valid:
-                logger.info(
-                    "Data are invalid. Please correct issues and try again."
-                )
+                logger.info("Data are invalid. Please correct issues and try again.")
                 # sys.exit(0)
             else:
                 logger.info("QA/QC found no issues. Continuing.")
 
             logger.info(
-                "Number of plans before dropping duplicates: "
-                + str(len(data.index))
+                "Number of plans before dropping duplicates: " + str(len(data.index))
             )
             # only keep first of duplicate IDs
             data = data.drop_duplicates(subset="Unique ID", keep="first")
             logger.info(
-                "Number of plans after dropping duplicates: "
-                + str(len(data.index))
+                "Number of plans after dropping duplicates: " + str(len(data.index))
             )
 
             # set column names to database field names
@@ -824,9 +743,7 @@ class CovidPolicyPlugin(IngestPlugin):
         places_to_split_area2.delete()
 
         places_to_split_iso3 = select(
-            i
-            for i in db.Place
-            if ";" in i.iso3 or i.loc == "Multiple countries"
+            i for i in db.Place if ";" in i.iso3 or i.loc == "Multiple countries"
         )
         for p in places_to_split_iso3:
             places_to_upsert = p.iso3.split("; ")
@@ -917,9 +834,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
             # if a policy number exists, then add the policy section to it,
             # otherwise create it and add the policy section to it
-            policy_number_exists = db.Policy_Number.exists(
-                id=policy_number_value
-            )
+            policy_number_exists = db.Policy_Number.exists(id=policy_number_value)
             if policy_number_exists:
                 policy_number = db.Policy_Number.get(id=policy_number_value)
             else:
@@ -979,9 +894,7 @@ class CovidPolicyPlugin(IngestPlugin):
                         or num.earliest_date_start_effective
                         > section.date_start_effective
                     ):
-                        num.earliest_date_start_effective = (
-                            section.date_start_effective
-                        )
+                        num.earliest_date_start_effective = section.date_start_effective
 
                 # concat search text
                 search_text += section.search_text
@@ -1026,12 +939,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 Formattedalue of data field for the record.
 
             """
-            if (
-                d[key] == "N/A"
-                or d[key] == "NA"
-                or d[key] is None
-                or d[key] == ""
-            ):
+            if d[key] == "N/A" or d[key] == "NA" or d[key] is None or d[key] == "":
                 if key in show_in_progress:
                     return "In progress"
                 else:
@@ -1084,9 +992,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     db, d, type="affected"
                 )
 
-            place_auth_list = self.upsert_implied_place_instances(
-                db, d, type="auth"
-            )
+            place_auth_list = self.upsert_implied_place_instances(db, d, type="auth")
 
             # if the affected place is undefined, set it equal to the
             # auth entity's place
@@ -1109,9 +1015,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
                     # get or create auth entity
                     auth_entity_instance_data = {
-                        key: formatter(key, dd)
-                        for key in auth_entity_keys
-                        if key in dd
+                        key: formatter(key, dd) for key in auth_entity_keys if key in dd
                     }
                     auth_entity_instance_data["place"] = place_auth_list[0]
 
@@ -1154,9 +1058,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # delete places that are not used
         places_to_delete = select(
-            i
-            for i in db.Place
-            if len(i.policies) == 0 and len(i.auth_entities) == 0
+            i for i in db.Place if len(i.policies) == 0 and len(i.auth_entities) == 0
         )
         if len(places_to_delete) > 0:
             places_to_delete.delete()
@@ -1252,12 +1154,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 Formattedalue of data field for the record.
 
             """
-            if (
-                d[key] == "N/A"
-                or d[key] == "NA"
-                or d[key] is None
-                or d[key] == ""
-            ):
+            if d[key] == "N/A" or d[key] == "NA" or d[key] is None or d[key] == "":
                 if key in show_in_progress:
                     return "In progress"
                 else:
@@ -1410,9 +1307,7 @@ class CovidPolicyPlugin(IngestPlugin):
         # Delete unused instances #############################################
         # delete auth_entities that are not used
         auth_entities_to_delete = select(
-            i
-            for i in db.Auth_Entity
-            if len(i.policies) == 0 and len(i.plans) == 0
+            i for i in db.Auth_Entity if len(i.policies) == 0 and len(i.plans) == 0
         )
         if len(auth_entities_to_delete) > 0:
             auth_entities_to_delete.delete()
@@ -1423,9 +1318,7 @@ class CovidPolicyPlugin(IngestPlugin):
         places_to_delete = select(
             i
             for i in db.Place
-            if len(i.policies) == 0
-            and len(i.auth_entities) == 0
-            and len(i.plans) == 0
+            if len(i.policies) == 0 and len(i.auth_entities) == 0 and len(i.plans) == 0
         )
         if len(places_to_delete) > 0:
             places_to_delete.delete()
@@ -1475,9 +1368,7 @@ class CovidPolicyPlugin(IngestPlugin):
         set_fields = ("subtarget",)
 
         def formatter(key, d):
-            unspec_val = (
-                "In progress" if key in show_in_progress else "Unspecified"
-            )
+            unspec_val = "In progress" if key in show_in_progress else "Unspecified"
             if key.startswith("date_"):
                 return format_date(key, d, None)
             elif key == "policy_number":
@@ -1543,9 +1434,7 @@ class CovidPolicyPlugin(IngestPlugin):
 
         # get policies by source id
         logger.info("\n\nLoading policies by source ID...")
-        pol_by_src_id: Dict[str, db.Policy] = get_inst_by_col(
-            db.Policy, "source_id"
-        )
+        pol_by_src_id: Dict[str, db.Policy] = get_inst_by_col(db.Policy, "source_id")
         logger.info("Loaded.\n\n")
         logger.info("Linking policies")
         for i, d in tqdm(self.data.iterrows()):
@@ -1568,9 +1457,9 @@ class CovidPolicyPlugin(IngestPlugin):
                 prior_pols: List[db.Policy] = list()
                 source_id: str
                 for source_id in prior_pol_src_ids:
-                    prior_pol_inst: "db.Policy" = pol_by_src_id.get(
-                        source_id, [None]
-                    )[0]
+                    prior_pol_inst: "db.Policy" = pol_by_src_id.get(source_id, [None])[
+                        0
+                    ]
                     # prior_policy_instance: db.Policy = select(
                     #     i for i in db.Policy if i.source_id == source_id
                     # ).first()
@@ -1632,9 +1521,7 @@ class CovidPolicyPlugin(IngestPlugin):
         post_creation_attrs: DefaultDict = defaultdict(dict)
 
         def formatter(key, d):
-            unspec_val = (
-                "In progress" if key in show_in_progress else "Unspecified"
-            )
+            unspec_val = "In progress" if key in show_in_progress else "Unspecified"
             if key.startswith("date_"):
                 return format_date(key, d, None)
             elif key == "policy_number" or key == "n_phases":
@@ -1747,12 +1634,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # set certain fields to empty text strings if they contain
             # certain symbols
             elif key == "government_order_upheld_or_enjoined":
-                if (
-                    d[key] == ""
-                    or d[key] is None
-                    or d[key] == "N/A"
-                    or d[key] == "NA"
-                ):
+                if d[key] == "" or d[key] is None or d[key] == "N/A" or d[key] == "NA":
                     return ""
                 elif "*" in d[key]:
                     return ""
@@ -1786,8 +1668,7 @@ class CovidPolicyPlugin(IngestPlugin):
                     is_nullable = getattr(db.Court_Challenge, key).nullable
                     if is_nullable:
                         is_str_arr = (
-                            getattr(db.Court_Challenge, key).py_type
-                            == StrArray
+                            getattr(db.Court_Challenge, key).py_type == StrArray
                         )
                         if is_str_arr:
                             return list()
@@ -1819,11 +1700,7 @@ class CovidPolicyPlugin(IngestPlugin):
             action, instance = upsert(
                 db.Court_Challenge,
                 {"id": d["id"]},
-                {
-                    field: formatter(field, d)
-                    for field in get_fields
-                    if field in d
-                },
+                {field: formatter(field, d) for field in get_fields if field in d},
             )
             if action == "update":
                 n_updated += 1
@@ -2168,9 +2045,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if url_invalid or reject_policy(d) or attachment_available:
                 continue
 
-            instance_data = {
-                key.split("_", 1)[1]: d[key] for key in policy_doc_keys
-            }
+            instance_data = {key.split("_", 1)[1]: d[key] for key in policy_doc_keys}
 
             if not attachment_available and (
                 instance_data["filename"] is None
@@ -2180,9 +2055,12 @@ class CovidPolicyPlugin(IngestPlugin):
                 continue
             instance_data["type"] = "policy"
 
-            instance_data["filename"] = instance_data["filename"].replace(
-                ".", ""
-            )
+            instance_data["filename"] = instance_data["filename"].replace(".", "")
+
+            # if instance_data["filename"] is not None and not instance_data[
+            #     "filename"
+            # ].endswith(".pdf"):
+            # instance_data["filename"] += ".pdf"
             instance_data["filename"] += ".pdf"
             action, file = upsert(db.File, instance_data)
             if action == "update":
@@ -2219,27 +2097,13 @@ class CovidPolicyPlugin(IngestPlugin):
                 f"""unique IDs:{bcolors.ENDC}"""
             )
             logger.info(
-                bcolors.BOLD
-                + str(", ".join(missing_filenames_list))
-                + bcolors.ENDC
+                bcolors.BOLD + str(", ".join(missing_filenames_list)) + bcolors.ENDC
             )
 
     # Airtable attachment parsing for documents
     @db_session
     def create_files_from_attachments(self, db, entity_class_name):
-        """Create docs instances based Airtable attachments.
-
-        Parameters
-        ----------
-        db : type
-            Description of parameter `db`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+        """Create docs instances based Airtable attachments."""
         logger.info(
             "\n\n[4] Ingesting files from Airtable attachments"
             f""" for {entity_class_name}..."""
@@ -2397,7 +2261,6 @@ class CovidPolicyPlugin(IngestPlugin):
         logger.info(f"""\n\n[6] Validating {len(files)} files...""")
         # confirm file exists in S3 bucket for file, if not, either add it
         # or remove the PDF text
-        # define filename from db
 
         # track what was done
         n_valid = 0
@@ -2411,47 +2274,19 @@ class CovidPolicyPlugin(IngestPlugin):
             n_checked += 1
             logger.info(f"""Checking file {n_checked} of {len(files)}...""")
             if file.filename is not None:
-                file_key = file.filename
-                if file_key in self.s3_bucket_keys:
-                    # logger.info('\nFile found')
-                    n_valid += 1
-                    pass
-                elif (
-                    file.data_source is None or file.data_source.strip() == ""
-                ) and (file.permalink is None or file.permalink.strip() == ""):
-                    # logger.info('\nDocument not found (404), no URL')
-                    file.filename = None
-                    commit()
-                    missing_filenames.add(file.name)
+                status: str = awss3.add_file_to_s3_if_missing(file, self.s3_bucket_keys)
+                if status == "missing":
                     n_missing += 1
+                    missing_filenames.add(file.filename)
+                elif status == "failed":
+                    n_failed += 1
+                    could_not_download.add(file.filename)
+                elif status == "valid":
+                    n_valid += 1
+                elif status == "added":
+                    n_added += 1
                 else:
-                    # logger.info(
-                    #     '\nFetching and adding PDF to S3: ' + file_key
-                    # )
-                    file_url = (
-                        file.permalink
-                        if file.permalink is not None
-                        else file.data_source
-                    )
-                    file = download_file(
-                        file_url, file_key, None, as_object=True
-                    )
-                    if file is not None:
-                        s3.put_object(
-                            Body=file,
-                            Bucket=S3_BUCKET_NAME,
-                            Key=file_key,
-                        )
-                        n_added += 1
-                    else:
-                        logger.info(
-                            "Could not download file at URL " + str(file_url)
-                        )
-                        if file is not None:
-                            file.delete()
-                        commit()
-                        could_not_download.add(file_url)
-                        n_failed += 1
+                    raise ValueError("Unexpected status: " + str(status))
             else:
                 logger.info("Skipping, no file associated")
 
@@ -2467,9 +2302,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 f"""provided for {n_missing} files with the following """
                 f"""names:{bcolors.ENDC}"""
             )
-            logger.info(
-                bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC
-            )
+            logger.info(bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC)
 
         if n_failed > 0:
             could_not_download = list(could_not_download)
@@ -2480,9 +2313,7 @@ class CovidPolicyPlugin(IngestPlugin):
                 f"""sources:{bcolors.ENDC}"""
             )
             logger.info(
-                bcolors.BOLD
-                + str(", ".join(could_not_download))
-                + bcolors.ENDC
+                bcolors.BOLD + str(", ".join(could_not_download)) + bcolors.ENDC
             )
 
     def run_tests(self, data: pd.DataFrame) -> bool:
@@ -2567,9 +2398,7 @@ class CovidPolicyPlugin(IngestPlugin):
             # get information from intermediate area database records
             area1: str = None
             for area1 in d[prefix + ".area1"]:
-                area2_info: dict = self.get_area_info(
-                    type="intermediate", name=area1
-                )
+                area2_info: dict = self.get_area_info(type="intermediate", name=area1)
                 if area2_info is None:
                     continue
                 iso3: str = area2_info.get(
@@ -2599,24 +2428,17 @@ class CovidPolicyPlugin(IngestPlugin):
                 if area2_info is None:
                     continue
 
-                area1_tmp: List[str] = area2_info.get(
-                    "Intermediate Area Name", None
-                )
-                area2_ansi_fips: str = str(
-                    area2_info.get("ANSI / FIPS Code", None)
-                )
+                area1_tmp: List[str] = area2_info.get("Intermediate Area Name", None)
+                area2_ansi_fips: str = str(area2_info.get("ANSI / FIPS Code", None))
                 area1: str = ""
                 if area1_tmp != "" and len(area1_tmp) > 0:
                     area1: str = area1_tmp[0]
                 if area1 is None or area1 == "":
                     logger.error(
-                        "No intermediate area for "
-                        + area2_info.get("Local Area Name")
+                        "No intermediate area for " + area2_info.get("Local Area Name")
                     )
 
-                area1_info: dict = self.get_area_info(
-                    type="intermediate", name=area1
-                )
+                area1_info: dict = self.get_area_info(type="intermediate", name=area1)
 
                 try:
                     iso3: str = area2_info.get(
@@ -2664,9 +2486,9 @@ class CovidPolicyPlugin(IngestPlugin):
         info: pd.DataFrame = (
             self.local_areas if type == "local" else self.intermediate_areas
         )
-        area_info_tmp: List[dict] = info.loc[
-            info["source_id"] == name, :
-        ].to_dict(orient="records")
+        area_info_tmp: List[dict] = info.loc[info["source_id"] == name, :].to_dict(
+            orient="records"
+        )
         if len(area_info_tmp) == 0:
             return None
         elif len(area_info_tmp) > 1:
@@ -2681,9 +2503,7 @@ class CovidPolicyPlugin(IngestPlugin):
             if area1_info is not None:
                 d["area1"] = area1_info.get("Name")
         if "area2" in d and d["area2"] is not None and len(d["area2"]) > 0:
-            area2_info: dict = self.get_area_info(
-                type="local", name=d["area2"][0]
-            )
+            area2_info: dict = self.get_area_info(type="local", name=d["area2"][0])
             if area2_info is not None:
                 d["area2"] = area1_info.get("Name")
 
@@ -2757,9 +2577,7 @@ def assign_policy_group_numbers(db):
     ps_iter = itertools.groupby(policy_sections, key=key_func)
 
     group_number = 0
-    logger.info(
-        "\nAssigning group numbers to policies with similar attributes..."
-    )
+    logger.info("\nAssigning group numbers to policies with similar attributes...")
     for key, records in ps_iter:
         for r in list(records):
             r.group_number = group_number

@@ -1,23 +1,22 @@
 """Ingest utility methods"""
 # standard packages
-from typing import Any, Dict, List, Set, Union
-import urllib3
 import certifi
+import pprint
 import requests
+import urllib3
 from collections import defaultdict
+from typing import Any, Dict, List, Set, Union
 
 # 3rd party modules
 from pony.orm import db_session, commit, select
 from pony.orm.core import Entity, EntityMeta
-import pprint
 
 # constants
 pp = pprint.PrettyPrinter(indent=4)
 
-# define colors for printing colorized terminal text
-
 
 class bcolors:
+    # define colors for printing colorized terminal text
     HEADER = "\033[95m"
     OKBLUE = "\033[94m"
     OKGREEN = "\033[92m"
@@ -58,9 +57,7 @@ def has_null(s: str):
 
 
 @db_session
-def upsert(
-    cls, get: dict, set: dict = None, skip: list = [], do_commit: bool = True
-):
+def upsert(cls, get: dict, set: dict = None, skip: list = [], do_commit: bool = True):
     """Insert or update record into specified class based on checking for
     existence with dictionary data field map `get`, and creating with
     data based on values in dictionaries `get` and `set`, skipping any
@@ -84,9 +81,7 @@ def upsert(
 
     """
     # does the object exist
-    assert isinstance(
-        cls, EntityMeta
-    ), "{cls} is not a database entity".format(cls=cls)
+    assert isinstance(cls, EntityMeta), "{cls} is not a database entity".format(cls=cls)
 
     # if no set dictionary has been specified
     set = set or {}
@@ -125,8 +120,8 @@ def upsert(
 
 def download_file(
     download_url: str,
-    fn: str = None,
-    write_path: str = None,
+    fn: Union[str, None] = None,
+    write_path: Union[str, None] = None,
     as_object: bool = True,
 ):
     """Download the PDF at the specified URL and either save it to disk or
@@ -149,14 +144,10 @@ def download_file(
         Description of returned object.
 
     """
-    http = urllib3.PoolManager(
-        cert_reqs="CERT_REQUIRED", ca_certs=certifi.where()
-    )
+    http = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
     user_agent = "Mozilla/5.0"
     try:
-        response = http.request(
-            "GET", download_url, headers={"User-Agent": user_agent}
-        )
+        response = http.request("GET", download_url, headers={"User-Agent": user_agent})
         if response is not None and response.data is not None:
             if as_object:
                 return response.data

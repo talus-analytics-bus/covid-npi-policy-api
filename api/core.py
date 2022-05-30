@@ -1,7 +1,7 @@
 """Define API data processing methods"""
 # standard modules
 from typing import Any, List, Set
-from .utils import cached
+
 import math
 import itertools
 import logging
@@ -29,8 +29,9 @@ from fuzzywuzzy import fuzz
 from pony.orm.core import Query, ObjectNotFound
 
 # local modules
-from .routing import GeoRes
 from .export import CovidPolicyExportPlugin
+from .routing import GeoRes
+from .utils import cached
 from .models import (
     Policy,
     PolicyList,
@@ -44,12 +45,13 @@ from .models import (
     PolicyNumberList,
     ListResponse,
 )
-from .utils import str_to_date, download_file
+from .utils import download_file
+from ingest import awss3
 from db import db
 
 # constants
 s3 = boto3.client("s3")
-S3_BUCKET_NAME = "covid-npi-policy-storage"
+S3_BUCKET_NAME = awss3.S3_BUCKET_NAME
 
 # pretty printing: for printing JSON objects legibly
 pp = pprint.PrettyPrinter(indent=4)

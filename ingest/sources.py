@@ -49,6 +49,7 @@ class AirtableSource(DataSource):
         except Exception as e:
             print(e)
             print("\nFailed to open worksheet with name " + str(name))
+            return self
 
     def as_dataframe(
         self,
