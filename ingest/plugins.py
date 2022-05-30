@@ -23,7 +23,6 @@ from .sources import AirtableSource
 from .util import (
     get_inst_by_col,
     upsert,
-    download_file,
     bcolors,
 )
 from db.config import db as models
