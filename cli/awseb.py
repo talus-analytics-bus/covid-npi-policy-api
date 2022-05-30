@@ -30,6 +30,7 @@ def restart_app_server(awseb_environment_name, awseb_environment_region):
                 f" region {awseb_environment_region}, see error below for more info:"
             )
             print(awseb_restart_result.stderr.decode(sys.stderr.encoding))
+            return
     except Exception as e:
         print(
             "Could not restart Elastic Beanstalk app server environment"
