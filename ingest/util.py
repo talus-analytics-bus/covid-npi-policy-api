@@ -121,40 +121,24 @@ def upsert(cls, get: dict, set: dict = None, skip: list = [], do_commit: bool = 
 
 def download_file(
     download_url: str,
-    fn: Union[str, None] = None,
-    write_path: Union[str, None] = None,
+    fn: str = None,
+    write_path: str = None,
     as_object: bool = True,
-) -> Union[HTTPResponse, bool, None]:
-    """Download the PDF at the specified URL and either save it to disk or
-    return it as a byte stream.
-
-    Parameters
-    ----------
-    download_url : type
-        Description of parameter `download_url`.
-    fn : type
-        Description of parameter `fn`.
-    write_path : type
-        Description of parameter `write_path`.
-    as_object : type
-        Description of parameter `as_object`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
+):
+    """
+    Download the PDF at the specified URL and either save it to disk or
+    return the response object.
 
     """
-    http = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
-    user_agent = "Mozilla/5.0"
     try:
-        response = http.request("GET", download_url, headers={"User-Agent": user_agent})
-        if response is not None and response.data is not None:
+        response = requests.get(
+            download_url, allow_redirects=True, headers={"user-agent": "Mozilla/5.0"}
+        )
+        if response.status_code == 200:
             if as_object:
                 return response
             else:
-                with open(write_path + fn, "wb") as out:
-                    out.write(response.data)
+                open(write_path + fn, "wb").write(response.content)
                 return True
     except Exception:
         return None

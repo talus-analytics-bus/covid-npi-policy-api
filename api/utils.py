@@ -5,6 +5,7 @@ import pathlib
 import urllib3
 import certifi
 import os
+import requests
 from datetime import datetime, date
 from typing import Any, Callable, Union
 
@@ -51,23 +52,19 @@ def download_file(
 ):
     """
     Download the PDF at the specified URL and either save it to disk or
-    return it as a byte stream.
+    return the response object.
 
     """
-    http = urllib3.PoolManager(
-        cert_reqs="CERT_REQUIRED", ca_certs=certifi.where()
-    )
     user_agent = "Mozilla/5.0"
     try:
-        response = http.request(
-            "GET", download_url, headers={"User-Agent": user_agent}
+        response = requests.get(
+            download_url, allow_redirects=True, headers={"user-agent": "Mozilla/5.0"}
         )
-        if response is not None and response.data is not None:
+        if response.status_code == 200:
             if as_object:
-                return response.data
+                return response
             else:
-                with open(write_path + fn, "wb") as out:
-                    out.write(response.data)
+                open(write_path + fn, "wb").write(response.content)
                 return True
     except Exception:
         return None
@@ -136,9 +133,7 @@ def cached(func: Callable):
     return wrapper
 
 
-def get_first(
-    i: Union[set, list], default: Any = None, as_list: bool = False
-) -> Any:
+def get_first(i: Union[set, list], default: Any = None, as_list: bool = False) -> Any:
     """Given a set or list, return the first element of that list if it has
     one, otherwise return the default.
 
@@ -186,6 +181,7 @@ def is_listlike(obj: Any) -> bool:
     return (obj_type in (set, list)) or issubclass(
         obj_type, (Multiset, TrackedArray, SetInstance)
     )
+
 
 def get_today_datetime_stamp() -> str:
     today: datetime = datetime.today()

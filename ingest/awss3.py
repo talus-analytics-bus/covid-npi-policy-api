@@ -1,10 +1,11 @@
 """COVID AMP-specific Amazon Web Services S3 functions"""
 
+from io import BytesIO
 import logging
 from typing import cast
 
 import boto3
-from urllib3 import HTTPResponse
+from requests import Response
 from pony.orm import db_session, commit
 
 from ingest.util import download_file
@@ -78,10 +79,10 @@ def add_file_to_s3_if_missing(file, s3_bucket_keys):
             file.permalink if file.permalink not in ("", None) else file.data_source
         )
         file_res_obj = cast(
-            HTTPResponse, download_file(file_url, file_key, None, as_object=True)
+            Response, download_file(file_url, file_key, None, as_object=True)
         )
 
-        if file_res_obj and file_res_obj.data is not None:
+        if file_res_obj and file_res_obj.content is not None:
             # handle text/html
             if file.permalink in ("", None):
                 if file_res_obj.headers["content-type"].startswith("text/html"):
@@ -89,11 +90,13 @@ def add_file_to_s3_if_missing(file, s3_bucket_keys):
                     file_key = file.filename
 
             # otherwise, assume PDF (do nothing, handled earlier)
-            s3.put_object(
-                Body=file_res_obj.data,
-                Bucket=S3_BUCKET_NAME,
-                Key=file_key,
-                ACL="public-read",
+            print(
+                s3.put_object(
+                    Body=file_res_obj.content,
+                    Bucket=S3_BUCKET_NAME,
+                    Key=file_key,
+                    ACL="public-read",
+                )
             )
             return "added"
         else:
