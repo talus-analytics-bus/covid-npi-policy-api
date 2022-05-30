@@ -121,13 +121,19 @@ def export(filters: dict = None, class_name: str = "Policy"):
             None,
             as_object=True,
         )
-        return Response(content=file, media_type=media_type)
+        return Response(
+            content=file, media_type=media_type, headers={"cache-control": "no-cache"}
+        )
     else:
         # Create Excel export file
         genericExcelExport = CovidPolicyExportPlugin(db, filters, class_name)
         content = genericExcelExport.build()
 
-        return Response(content=content, media_type=media_type)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"cache-control": "no-cache"},
+        )
 
 
 @db_session
@@ -302,7 +308,9 @@ def get_file(id: int):
     media_type = "application"
     if key.endswith(".pdf"):
         media_type = "application/pdf"
-    return Response(content=content, media_type=media_type)
+    return Response(
+        content=content, media_type=media_type, headers={"cache-control": "no-cache"}
+    )
 
 
 @db_session
