@@ -4,6 +4,7 @@ import certifi
 import pprint
 import requests
 import urllib3
+from urllib3.response import HTTPResponse
 from collections import defaultdict
 from typing import Any, Dict, List, Set, Union
 
@@ -123,7 +124,7 @@ def download_file(
     fn: Union[str, None] = None,
     write_path: Union[str, None] = None,
     as_object: bool = True,
-):
+) -> Union[HTTPResponse, bool, None]:
     """Download the PDF at the specified URL and either save it to disk or
     return it as a byte stream.
 
@@ -150,7 +151,7 @@ def download_file(
         response = http.request("GET", download_url, headers={"User-Agent": user_agent})
         if response is not None and response.data is not None:
             if as_object:
-                return response.data
+                return response
             else:
                 with open(write_path + fn, "wb") as out:
                     out.write(response.data)
