@@ -3,6 +3,7 @@ from re import S
 
 import click
 from pony.orm import db_session
+from pony.orm.core import BindingError
 
 
 @click.group(help="Advanced commands not normally used except for debugging")
@@ -25,7 +26,10 @@ def do_add_s3_files():
     from pony.orm import commit
     from tqdm import tqdm
 
-    db.generate_mapping(create_tables=False)
+    try:
+        db.generate_mapping(create_tables=False)
+    except BindingError:
+        pass
     s3_bucket_keys = awss3.get_s3_bucket_keys()
     files = models.File.select()
     print(f"""Validating {len(files)} files...""")
