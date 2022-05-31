@@ -2,6 +2,7 @@
 # standard modules
 from api.models import Policy
 from pony.orm.core import Database
+from cli.advanced.core import do_add_s3_files
 from db.models import Place
 from typing import DefaultDict, Dict, List, Tuple
 import os
@@ -630,7 +631,7 @@ class CovidPolicyPlugin(IngestPlugin):
             self.create_files_from_attachments(db, "Policy")
             self.create_files_from_attachments(db, "Plan")
             self.create_files_from_urls(db)
-            self.validate_docs(db)
+            do_add_s3_files()
             logger.info("Debug run finished, exiting ingest.")
             sys.exit(0)
 
@@ -691,7 +692,7 @@ class CovidPolicyPlugin(IngestPlugin):
         self.create_files_from_attachments(db, "Policy")
         self.create_files_from_attachments(db, "Plan")
         self.create_files_from_urls(db)
-        self.validate_docs(db)
+        do_add_s3_files()
 
         # PLACES DATA # ------------------------------------------------------#
         # create Auth_Entity and Place instances
@@ -2253,67 +2254,6 @@ class CovidPolicyPlugin(IngestPlugin):
             i.complaint_subcategory_new = subcats
             commit()
         logger.info("\nDone.")
-
-    @db_session
-    def validate_docs(self, db):
-        files = db.File.select()
-        logger.info(f"""\n\n[6] Validating {len(files)} files...""")
-        # confirm file exists in S3 bucket for file, if not, either add it
-        # or remove the PDF text
-
-        # track what was done
-        n_valid = 0
-        n_missing = 0
-        n_added = 0
-        n_failed = 0
-        n_checked = 0
-        could_not_download = set()
-        missing_filenames = set()
-        for file in files:
-            n_checked += 1
-            logger.info(f"""Checking file {n_checked} of {len(files)}...""")
-            if file.filename is not None:
-                status: str = awss3.add_file_to_s3_if_missing(file, self.s3_bucket_keys)
-                if status == "missing":
-                    n_missing += 1
-                    missing_filenames.add(file.filename)
-                elif status == "failed":
-                    n_failed += 1
-                    could_not_download.add(file.filename)
-                elif status == "valid":
-                    n_valid += 1
-                elif status == "added":
-                    n_added += 1
-                else:
-                    raise ValueError("Unexpected status: " + str(status))
-            else:
-                logger.info("Skipping, no file associated")
-
-        logger.info("Valid: " + str(n_valid))
-        logger.info("Added to S3: " + str(n_added))
-        logger.info("Missing (no URL or filename): " + str(n_missing))
-        logger.info("Failed to fetch from URL: " + str(n_failed))
-        if n_missing > 0:
-            missing_filenames = list(missing_filenames)
-            missing_filenames.sort()
-            logger.info(
-                f"""\n{bcolors.BOLD}[Warning] URLs or filenames were not """
-                f"""provided for {n_missing} files with the following """
-                f"""names:{bcolors.ENDC}"""
-            )
-            logger.info(bcolors.BOLD + str(", ".join(missing_filenames)) + bcolors.ENDC)
-
-        if n_failed > 0:
-            could_not_download = list(could_not_download)
-            could_not_download.sort()
-            logger.info(
-                f"""\n{bcolors.BOLD}[Warning] Files could not be """
-                f"""downloaded from the following {n_failed} """
-                f"""sources:{bcolors.ENDC}"""
-            )
-            logger.info(
-                bcolors.BOLD + str(", ".join(could_not_download)) + bcolors.ENDC
-            )
 
     def run_tests(self, data: pd.DataFrame) -> bool:
         """Perform QA/QC on the data and return a report.
