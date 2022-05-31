@@ -287,7 +287,7 @@ class WorkbookTab:
         self.write_title(worksheet, title)
 
         today = date.today()
-        self.write_subtitle(worksheet, "Downloaded on " + str(today))
+        self.write_subtitle(worksheet, "Data as of " + str(today))
         self.write_intro_text(worksheet, intro_text)
 
     def write_logo(self, worksheet, logo_fn, logo_offset, row_height):

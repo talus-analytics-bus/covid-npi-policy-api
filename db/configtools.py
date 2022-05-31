@@ -1,5 +1,6 @@
 import json
 import os
+from typing import List
 import boto3
 import base64
 
@@ -92,8 +93,12 @@ class Config:
 
         # validate config
         if any(self.db[key] is None for key in keys):
+            missing_db_conn_keys: List[str] = [
+                key for key in keys if self.db.get(key) is None
+            ]
             raise ValueError(
-                f'Missing values in self.db, must define all of: {", ".join(keys)}'
+                f'Missing values in self.db, must define all of: {", ".join(keys)},'
+                f' but was missing: {", ".join(missing_db_conn_keys)}'
             )
 
     # Instance methods

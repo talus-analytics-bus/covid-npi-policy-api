@@ -1,4 +1,4 @@
-from api import schema
+from api import core
 from typing import List, Set, Tuple
 from pony.orm.core import Query, desc, group_concat, select
 
@@ -52,9 +52,7 @@ def get_export_data(
     }
 
     # get filtered plan instances
-    instances_tmp: Query = schema.get_plan(
-        filters=filters, return_db_instances=True
-    )
+    instances_tmp: Query = core.get_plan(filters=filters, return_db_instances=True)
 
     # get data to export to Excel
     instances: Query = select(
@@ -77,9 +75,7 @@ def get_export_data(
             i.reqs_hospital,
             i.reqs_other,
             i.plan_data_source,
-            group_concat(
-                (f.permalink for f in i.file if f.type == "plan"), "; "
-            ),
+            group_concat((f.permalink for f in i.file if f.type == "plan"), "; "),
             i.announcement_data_source,
             group_concat(
                 (f.permalink for f in i.file if f.type == "plan_announcement"),

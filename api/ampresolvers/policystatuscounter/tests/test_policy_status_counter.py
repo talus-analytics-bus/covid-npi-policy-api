@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 from api.ampresolvers import PolicyStatusCounter
 import datetime
 from pony.orm.core import db_session
-from api.util import use_relpath
+from api.utils import use_relpath
 from db import db
 from api.models import PlaceObs, PlaceObsList
 
@@ -55,9 +55,7 @@ def test_min_max_counter():
     ] = counter.get_max_min_counts()
 
     county_max: int = max_min_counts[GeoRes.county][0].value
-    county_plus_state_max: int = max_min_counts[GeoRes.county_plus_state][
-        0
-    ].value
+    county_plus_state_max: int = max_min_counts[GeoRes.county_plus_state][0].value
     state_max: int = max_min_counts[GeoRes.state][0].value
     global_max: int = max_min_counts[GeoRes.country][0].value
     assert county_max <= county_plus_state_max

@@ -2,7 +2,7 @@ from typing import Callable, Dict, List, Set, Tuple
 
 from pony.orm.core import Query, desc, group_concat, select
 
-from api import schema
+from api import core
 from db.models import Policy
 
 
@@ -67,7 +67,7 @@ def get_export_data(
     custom_fields: Set[str] = {"File.permalink"}
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
+    instances_tmp: Query = core.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(
@@ -82,7 +82,9 @@ def get_export_data(
             group_concat(ae.place.iso3, "; ", distinct=True),
             group_concat(ae.place.area1, "; ", distinct=True),
             group_concat(ae.place.area2, "; ", distinct=True),
-            group_concat(ae.place.area2 + "___" + ae.place.ansi_fips, "; ", distinct=True),
+            group_concat(
+                ae.place.area2 + "___" + ae.place.ansi_fips, "; ", distinct=True
+            ),
             group_concat(ae.name, "; ", distinct=True),
             group_concat(ae.office, "; ", distinct=True),
             group_concat(ae.official, "; ", distinct=True),
@@ -188,7 +190,7 @@ def get_export_data_summary(
     }
 
     # get filtered instances
-    instances_tmp: Query = schema.get_policy(filters=filters, return_db_instances=True)
+    instances_tmp: Query = core.get_policy(filters=filters, return_db_instances=True)
 
     # get instances (policies and related info)
     instances: Query = select(

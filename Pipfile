@@ -4,10 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-
-[dev-packages]
 aiofiles = "==0.5.0"
-airtable-python-wrapper = "==0.13.0"
 alive-progress = "==1.6.2"
 appdirs = "==1.4.4"
 attrs = "==21.2.0"
@@ -77,8 +74,12 @@ tqdm = "==4.62.3"
 pyOpenSSL = "==19.1.0"
 python-Levenshtein = "==0.12.2"
 XlsxWriter = "==1.2.8"
-black = "*"
+
+[dev-packages]
 pytest = "*"
+black = "*"
+click = "*"
+airtable-python-wrapper = "==0.13.0"
 
 [requires]
 python_version = "3.7"

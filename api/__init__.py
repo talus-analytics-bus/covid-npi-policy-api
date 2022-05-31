@@ -1,3 +1,3 @@
 """Initialize API"""
 from .app import app
-from . import schema
+from . import core
