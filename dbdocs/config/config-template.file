@@ -11,4 +11,4 @@ schemaspy.p=REDACTED
 schemaspy.o=../docs/
 schemaspy.port=5432
 schemaspy.s=public
-schemaspy.dp=../jdbc/postgresql-42.3.5.jar
+schemaspy.dp=./jdbc/postgresql-42.3.5.jar

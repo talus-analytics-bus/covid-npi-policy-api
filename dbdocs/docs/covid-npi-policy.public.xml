@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<database name="covid-npi-policy-test" schema="public" type="PostgreSQL - 10.18">
+<database name="covid-npi-policy" schema="public" type="PostgreSQL - 10.18">
+   <sequences>
+      <sequence increment="1" name="auth_entity_id_seq" startValue="2325"/>
+      <sequence increment="1" name="file_id_seq" startValue="11947"/>
+      <sequence increment="1" name="glossary_id_seq" startValue="141"/>
+      <sequence increment="1" name="observation_id_seq" startValue="1"/>
+      <sequence increment="1" name="place_id_seq" startValue="4091"/>
+      <sequence increment="1" name="plan_id_seq" startValue="832"/>
+      <sequence increment="1" name="policy_id_seq" startValue="46020"/>
+      <sequence increment="1" name="version_id_seq" startValue="10000"/>
+   </sequences>
    <tables>
-      <table name="auth_entity" numRows="2895" remarks="Authorizing entity information, including associated place, policies, and plans. The authorizing entity is the authority that enacts the policy, which is not necessarily the place that is affected by it." schema="public" type="TABLE">
+      <table name="auth_entity" numRows="2901" remarks="" schema="public" type="TABLE">
          <column autoUpdated="true" defaultValue="nextval('auth_entity_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
             <child column="auth_entity" foreignKey="fk_auth_entity_policy_number__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_policy_number"/>
             <child column="auth_entity" foreignKey="fk_auth_entity_to_plan__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_plan"/>
@@ -21,7 +31,7 @@
             <column ascending="true" name="place"/>
          </index>
       </table>
-      <table name="auth_entity_policy_number" numRows="18176" remarks="1:1 linking table for `auth_entity` to `policy_number`." schema="public" type="TABLE">
+      <table name="auth_entity_policy_number" numRows="18291" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="auth_entity" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_auth_entity_policy_number__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity"/>
          </column>
@@ -55,7 +65,7 @@
             <column ascending="true" name="plan"/>
          </index>
       </table>
-      <table name="auth_entity_to_policy" numRows="41840" remarks="" schema="public" type="TABLE">
+      <table name="auth_entity_to_policy" numRows="41978" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="auth_entity" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_auth_entity_to_policy__auth_entity" implied="false" onDeleteCascade="true" schema="public" table="auth_entity"/>
          </column>
@@ -72,7 +82,7 @@
             <column ascending="true" name="policy"/>
          </index>
       </table>
-      <table name="court_challenge" numRows="214" remarks="" schema="public" type="TABLE">
+      <table name="court_challenge" numRows="0" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <child column="court_challenge" foreignKey="fk_policies_to_court_challenges__court_challenge" implied="false" onDeleteCascade="true" schema="public" table="policies_to_court_challenges"/>
          </column>
@@ -126,7 +136,7 @@
             <column ascending="true" name="day_date"/>
          </index>
       </table>
-      <table name="file" numRows="19094" remarks="" schema="public" type="TABLE">
+      <table name="file" numRows="18820" remarks="" schema="public" type="TABLE">
          <column autoUpdated="true" defaultValue="nextval('file_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
             <child column="file" foreignKey="fk_file_to_plan__file" implied="false" onDeleteCascade="true" schema="public" table="file_to_plan"/>
             <child column="file" foreignKey="fk_file_to_policy__file" implied="false" onDeleteCascade="true" schema="public" table="file_to_policy"/>
@@ -137,6 +147,7 @@
          <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="permalink" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="filename" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="6" name="airtable_attachment" nullable="false" remarks="" size="1" type="bool" typeCode="-7"/>
+         <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="filename_backup" nullable="true" remarks="" size="2147483647" type="text" typeCode="12"/>
          <primaryKey column="id" sequenceNumberInPK="1"/>
          <index name="file_pkey" unique="true">
             <column ascending="true" name="id"/>
@@ -159,7 +170,7 @@
             <column ascending="true" name="plan"/>
          </index>
       </table>
-      <table name="file_to_policy" numRows="41342" remarks="" schema="public" type="TABLE">
+      <table name="file_to_policy" numRows="41366" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="file" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_file_to_policy__file" implied="false" onDeleteCascade="true" schema="public" table="file"/>
          </column>
@@ -296,7 +307,7 @@
             <column ascending="true" name="iso3"/>
          </index>
       </table>
-      <table name="place_policy_number" numRows="32150" remarks="" schema="public" type="TABLE">
+      <table name="place_policy_number" numRows="32265" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_place_policy_number__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
          </column>
@@ -330,7 +341,7 @@
             <column ascending="true" name="plan"/>
          </index>
       </table>
-      <table name="place_to_policy" numRows="994786" remarks="" schema="public" type="TABLE">
+      <table name="place_to_policy" numRows="999172" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="place" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_place_to_policy__place" implied="false" onDeleteCascade="true" schema="public" table="place"/>
          </column>
@@ -410,8 +421,8 @@
             <column ascending="true" name="policy"/>
          </index>
       </table>
-      <table name="policy" numRows="40812" remarks="Policies addressing COVID-19, consisting of elements from documents (corresponding to `file` rows)." schema="public" type="TABLE">
-         <column autoUpdated="true" defaultValue="nextval('policy_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="Policy unique ID" size="10" type="serial" typeCode="4">
+      <table name="policy" numRows="40950" remarks="" schema="public" type="TABLE">
+         <column autoUpdated="true" defaultValue="nextval('policy_id_seq'::regclass)" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="serial" typeCode="4">
             <child column="policy" foreignKey="fk_auth_entity_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_to_policy"/>
             <child column="policy" foreignKey="fk_file_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="file_to_policy"/>
             <child column="policy" foreignKey="fk_place_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="place_to_policy"/>
@@ -470,7 +481,7 @@
             <parent column="day_date" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="public" table="day_date"/>
          </column>
       </table>
-      <table name="policy_number" numRows="17312" remarks="" schema="public" type="TABLE">
+      <table name="policy_number" numRows="17427" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <child column="policy_number" foreignKey="fk_auth_entity_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="auth_entity_policy_number"/>
             <child column="policy_number" foreignKey="fk_place_policy_number__policy_number" implied="false" onDeleteCascade="true" schema="public" table="place_policy_number"/>
@@ -484,7 +495,7 @@
             <column ascending="true" name="id"/>
          </index>
       </table>
-      <table name="policy_number_to_policy" numRows="40812" remarks="" schema="public" type="TABLE">
+      <table name="policy_number_to_policy" numRows="40950" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_policy_number_to_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
          </column>
@@ -501,7 +512,7 @@
             <column ascending="true" name="policy_number"/>
          </index>
       </table>
-      <table name="policy_to_prior_policy" numRows="35976" remarks="" schema="public" type="TABLE">
+      <table name="policy_to_prior_policy" numRows="36085" remarks="" schema="public" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="policy" nullable="false" remarks="" size="10" type="int4" typeCode="4">
             <parent column="id" foreignKey="fk_policy_to_prior_policy__policy" implied="false" onDeleteCascade="true" schema="public" table="policy"/>
          </column>
