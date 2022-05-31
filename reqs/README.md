@@ -1,0 +1,2 @@
+# Requirements file
+This requirements file is available for those wishing to install dev dependencies to a virtual environment with tools other than `pipenv`. It should be kept up-to-date with the `Pipfile` but should not be included in the root directory so that Elastic Beanstalk will install dependencies from `Pipfile` and not from `requirements.txt`.

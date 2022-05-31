@@ -28,21 +28,25 @@ A list of what is needed and a checklist of steps to start the COVID AMP API ser
 ## What you need for this checklist
 * An Airtable API key (if you plan to perform data updates) and access to the Airtable base [Covid Policy Tracker](https://airtable.com/tblLpBz6sEExhYVVC) (see Hailey). If you already have access to this base, your API key can be found on your [Airtable account page](https://airtable.com/account).
 ## Checklist
-1. Install `pipenv` if you have not already (see https://pipenv.pypa.io/en/latest/install/)
+1. Install `pipenv` if you have not already (see https://pipenv.pypa.io/en/latest/install/). Alternatively, you can use Python's []() to set up your virtual environment and install dev dependencies with `pip install -r reqs/requirements.txt` (not currently recommended).
 1. Install Python v3.7.13 if you have not already; `pyenv` is a tool for managing multiple Python versions on a single host (see https://github.com/pyenv/pyenv)
 1. Install dev packages by doing
     ```
     pipenv install --dev --python=3.7.13
     ```
+1. Start a shell in `pipenv` with your virtual environment with command
+    ```
+    pipenv shell
+    ```
 1. If you'd like to connect to a local version of the AMP database, clone the production databases with the following commands, replacing `[YOUR_POSTGRESQL_USERNAME]` with your local PostgreSQL server username. Otherwise, continue (not recommended).
     ```
-    pipenv run python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d covid-npi-policy-local -dc covid-npi-policy
+    python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d covid-npi-policy-local -dc covid-npi-policy
     ```
     ```
-    pipenv run python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
+    python -m amp database clone-from-cloud -u [YOUR_LOCAL_POSTGRESQL_USERNAME] -d metric-amp-local -dc metric-amp
     ```
 1. Set up environment configuration as described in the next section
-1. Start API server with terminal command `pipenv run uvicorn main:app --reload --port 8002`. You can then view interactive documentation for the API server at `http://localhost:8002/docs`.The frontend will make requests to `http://localhost:8002`, and the API server will restart if you save any Python files it uses.
+1. Start API server with terminal command `uvicorn main:app --reload --port 8002`. You can then view interactive documentation for the API server at `http://localhost:8002/docs`.The frontend will make requests to `http://localhost:8002`, and the API server will restart if you save any Python files it uses.
 
 ## Environment configuration
 Environment variables usable in the application are defined below.
