@@ -42,14 +42,15 @@ def do_add_s3_files():
     missing_filenames = set()
     for file in tqdm(files, desc="Checking S3 files"):
         n_checked += 1
-        if file.filename is not None:
+        file_filename = file.filename
+        if file_filename is not None:
             status: str = awss3.add_file_to_s3_if_missing(file, s3_bucket_keys)
             if status == "missing":
                 n_missing += 1
-                missing_filenames.add(file.filename)
+                missing_filenames.add(file_filename)
             elif status == "failed":
                 n_failed += 1
-                could_not_download.add(file.filename)
+                could_not_download.add(file_filename)
             elif status == "valid":
                 n_valid += 1
             elif status == "added":
