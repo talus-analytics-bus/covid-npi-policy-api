@@ -16,10 +16,16 @@ A list of all relevant web resources for this project follows.
 # Code organization
 A description of the most important modules and packages in `covid-npi-policy-api` follows.
 ## Key modules and packages
-- [`main.py`](./main.py). The main entrypoint module of the application (see checklist below for how to start it).
-- [`db`](./db) and [`db_metric`](./db_metric). Packages that handle getting a connection to the main COVID AMP database (containing policy data) and the COVID AMP metrics database (containing COVID-19 caseload/death data). Each contains a `models.py` module that defines the entities and data fields in the databases.
+- [`amp.py`](./amp.py). The main entrypoint for the command line interface (CLI) for data management. Try `python -m amp --help` from your virtual environment to see instructions, or check the [COVID AMP data update brief checklist](<./COVID AMP data update brief checklist.md>).
 - [`api`](./api). Package containing main API functionality, including defining the routing, API documentation, and functions that retrieve data from the database and return it as API responses.
-- TODO others
+- [`db`](./db) and [`db_metric`](./db_metric). Packages that handle getting a connection to the main COVID AMP database (containing policy data) and the COVID AMP metrics database (containing COVID-19 caseload/death data). Each contains a `models.py` module that defines the entities and data fields in the databases.
+- [`ingest`](./ingest). Data ingest code, including packages for ingesting data from certain sources, processing data, tagging data, and more. Most data management can be done through the CLI and you needn't run any code in this package, normally.
+- [`main.py`](./main.py). The main entrypoint module of the application (see checklist below for how to start it).
+## Additional modules and packages
+- [`cli`](./cli). Packages that support CLI functionality. You should not need to run anything in this package directly as it is called through the CLI.
+- [`dbdocs`](./dbdocs). Work in progress interactive database documentation created with SchemaSpy. Open the package directory for more information.
+- [`reqs`](./reqs). For those wishing to create a virtual environment with `venv` instead of `pipenv`, this directory contains a `requirements.txt` listing all dev dependencies.
+
 ## Common tasks for extending and maintaining code
 See [Common tasks for extending and maintaining code](<./Common tasks for extending and maintaining code.md>)
 
