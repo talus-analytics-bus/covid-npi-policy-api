@@ -5,6 +5,7 @@ from pony.orm.core import Database
 from db.models import Place
 from typing import DefaultDict, Dict, List, Tuple
 import os
+import sys
 import random
 import itertools
 import logging
@@ -631,7 +632,7 @@ class CovidPolicyPlugin(IngestPlugin):
             self.create_files_from_urls(db)
             self.validate_docs(db)
             logger.info("Debug run finished, exiting ingest.")
-            os.sys.exit(0)
+            sys.exit(0)
 
         # PLAN DATA # --------------------------------------------------------#
         def process_plan_data(self, db):
