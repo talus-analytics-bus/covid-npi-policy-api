@@ -3,6 +3,7 @@ import logging
 import click
 
 from cli import options
+from cli.decorators import db_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 def distancing(yes: bool):
     do_distancing(yes)
 
+@db_mapping
 def do_distancing(yes: bool):
     """Ingest distancing levels from S3 bucket `s3://covid-npi-policy-storage`.
 
