@@ -41,8 +41,9 @@ def do_distancing(yes: bool):
             fn_prefix="distancing_status",
         )
         getter.import_levels(db=db)
-    except Exception:
+    except Exception as e:
         logger.error(
             "\nERROR: Observations not loaded successfully, check for "
-            "Amazon S3 errors."
+            "Amazon S3 errors and then following exception:."
         )
+        raise(e)
