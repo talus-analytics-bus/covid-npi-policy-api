@@ -1,6 +1,5 @@
 """COVID AMP-specific Amazon Web Services S3 functions"""
 
-from io import BytesIO
 import logging
 from typing import cast
 
