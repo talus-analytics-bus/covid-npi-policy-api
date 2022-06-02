@@ -12,6 +12,14 @@ logger = logging.getLogger(__name__)
 )
 @options.yes
 def distancing(yes: bool):
+    do_distancing(yes)
+
+def do_distancing(yes: bool):
+    """Ingest distancing levels from S3 bucket `s3://covid-npi-policy-storage`.
+
+    Args:
+        yes (bool): True if no confirmation dialogues should be shown
+    """    
     if not yes:
         click.confirm(
             "This will replace all distancing levels in table `observation` of the"

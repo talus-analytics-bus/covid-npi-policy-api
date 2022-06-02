@@ -2,6 +2,7 @@ import os
 import logging
 import subprocess
 from typing import Union
+from cli.ingest.distancing import do_distancing
 
 import click
 
@@ -150,12 +151,7 @@ def do_main_ingest(
     # Update observations of lockdown level, if appropriate
     if distancing_levels:
         try:
-            getter: DistancingLevelGetter = DistancingLevelGetter(
-                S3_BUCKET_NAME="covid-npi-policy-storage",
-                path="Distancing-Status",
-                fn_prefix="distancing_status",
-            )
-            getter.import_levels(db=db)
+            do_distancing(yes=True) # CLI command func for ingesting distancing lvls
         except Exception:
             logger.error(
                 "\nERROR: Observations not loaded successfully, check for "

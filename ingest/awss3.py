@@ -14,7 +14,6 @@ from ingest.util import download_file
 # storage bucket
 s3 = boto3.client("s3")
 S3_BUCKET_NAME = "covid-npi-policy-files"
-# S3_BUCKET_NAME = "covid-npi-policy-storage"
 
 logger = logging.getLogger(__name__)
 
