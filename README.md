@@ -7,7 +7,7 @@ A list of all relevant web resources for this project follows.
 - https://api.covidamp.org/docs. Interactive documentation for main COVID AMP API server. By default, connects to database `covid-npi-policy` at AWS RDS host `talus-prod`. Corresponds to Elastic Beanstalk environment `amp-prod2`.
 - https://api-test.covidamp.org/docs. Interactive documentation for test COVID AMP API server. By default, connects to database `covid-npi-policy-test` at AWS RDS host `talus-prod`. Corresponds to Elastic Beanstalk environment `amp-dev2`.
 - https://airtable.com/tblLpBz6sEExhYVVC. COVID AMP main dataset on Airtable. All policy data are ingested from here.
-- https://s3.console.aws.amazon.com/s3/buckets/covid-npi-policy-storage. COVID AMP storage S3 bucket containing permanently hosted copies of policy PDFs/files.
+- https://s3.console.aws.amazon.com/s3/buckets/covid-npi-policy-files. COVID AMP storage S3 bucket containing permanently hosted copies of policy PDFs/files.
 - https://s3.console.aws.amazon.com/s3/buckets/covid-npi-policy-storage?prefix=Distancing-Status/. Folder in COVID AMP storage S3 bucket containing static CSVs of COVID AMP distancing levels. This is no longer updated.
 - https://github.com/CSSEGISandData/COVID-19. GitHub of Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) which is data source for country-level COVID-19 cases/deaths.
 - https://github.com/nytimes/covid-19-data. GitHub of New York Times (NYT) which is data source for state- and county-level COVID-19 cases/deaths.
