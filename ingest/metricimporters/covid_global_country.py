@@ -96,7 +96,6 @@ def upsert_jhu_country_covid_data(
         data += data_daily
         data_deaths += data_deaths_daily
     logger.info("Done.")
-
     logger.info("\nUpserting relevant metrics...")
 
     # upsert metric for daily country caseload
