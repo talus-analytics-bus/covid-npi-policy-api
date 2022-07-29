@@ -45,11 +45,15 @@ def upsert_jhu_country_covid_data(
         all_dt_dict (Dict[str, db_metric.models.DateTime]): Lookup table by
         date string of Metrics database datetime records
 
-        do_global_daily (bool, optional): If true, ingest COVID-19 case and
-        death data for select states/provinces from the JHU CSSE daily reports
+        do_global (bool, optional): If true, ingest COVID-19 case and
+        death data for for countries from time series report (single file)
 
         do_global_daily (bool, optional): If true, ingest COVID-19 case and
-        death data for for countries from time series report (single file)
+        death data for select states/provinces from the JHU CSSE daily reports.
+        Note: This is currently used to ingest data for countries that
+        comprise the United Kingdom and only ingests data for those locations.
+        If you want to ingest data for all countries, ensure `do_global` is True.
+
     """
     logger.info("\nFetching data from JHU GitHub...")
     download_url = (
@@ -92,7 +96,6 @@ def upsert_jhu_country_covid_data(
         data += data_daily
         data_deaths += data_deaths_daily
     logger.info("Done.")
-
     logger.info("\nUpserting relevant metrics...")
 
     # upsert metric for daily country caseload

@@ -3,6 +3,7 @@ import os
 from typing import List
 import boto3
 import base64
+from botocore.exceptions import ClientError
 
 # retrieve AWS Secret, used to define connection string for database in
 # production mode
