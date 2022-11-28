@@ -540,11 +540,15 @@ class CovidPolicyPlugin(IngestPlugin):
             # category
             self.data = self.data.loc[self.data["Policy category"] != "", :]
 
-            # not "Non-policy guidance"
-            if "Policy/law type" in self.data.columns:
-                self.data = self.data.loc[
-                    self.data["Policy/law type"] != "Non-policy guidance", :
-                ]
+           # Note: As of a decision on Nov 28, 2022, we are no longer excluding
+           # records marked as "non-policy guidance"
+           # To re-enable this behavior, uncomment the code below.
+            
+            # # not "Non-policy guidance"
+            # if "Policy/law type" in self.data.columns:
+            #     self.data = self.data.loc[
+            #         self.data["Policy/law type"] != "Non-policy guidance", :
+            #     ]
 
             # authorizing level of gov. is not empty
             if "Authorizing level of government" in self.data.columns:
